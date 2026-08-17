@@ -1,3 +1,5 @@
+import hashlib
+import json
 import unittest
 from pathlib import Path
 
@@ -12,9 +14,19 @@ class DataAndAuditTests(unittest.TestCase):
     def test_demo_data_loads(self):
         train = load_jsonl(ROOT / "data" / "demo.jsonl")
         evaluation = load_jsonl(ROOT / "data" / "eval.jsonl")
-        self.assertEqual(len(train), 8)
-        self.assertEqual(len(evaluation), 4)
+        self.assertEqual(len(train), 31)
+        self.assertEqual(len(evaluation), 8)
         self.assertEqual(audit_split_overlap(ROOT / "data" / "demo.jsonl", ROOT / "data" / "eval.jsonl"), [])
+
+        manifest = json.loads((ROOT / "data" / "MANIFEST.json").read_text())
+        entries = {entry["path"]: entry for entry in manifest["datasets"]}
+        for path, records in (("data/demo.jsonl", train), ("data/eval.jsonl", evaluation)):
+            file_path = ROOT / path
+            self.assertEqual(entries[path]["records"], len(records))
+            self.assertEqual(
+                entries[path]["sha256"],
+                hashlib.sha256(file_path.read_bytes()).hexdigest(),
+            )
 
     def test_committed_data_passes_audit(self):
         report = audit_dataset(ROOT / "data" / "demo.jsonl")

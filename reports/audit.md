@@ -6,25 +6,26 @@ Status: **PASS**
 
 ## `data/demo.jsonl`
 
-- Records: 8
+- Records: 31
 - Errors: 0
 - Warnings: 0
 
 ## `data/eval.jsonl`
 
-- Records: 4
+- Records: 8
 - Errors: 0
 - Warnings: 0
 
-## Runtime evidence
+## Reproducible smoke checks
 
-- `python -m unittest discover -s tests -v`: 6 passed.
+- `PYTHONPATH=src .venv/bin/pytest -q`: 6 passed in 0.55s.
+- `python -m compileall -q src tests scripts`: passed.
 - `python -m pip check`: no broken requirements.
-- 40-step CPU smoke train completed; final loss: `4.005887031555176`.
-- Checkpoint loaded with `weights_only=True` and strict state-dict matching.
-- Held-out smoke evaluation: 4 records, task accuracy `0.25`, error accuracy `0.0`, confidence-bucket accuracy `0.75`, exact-match accuracy `0.0`.
+- CPU training: 31 records, 60 steps, final loss `3.9944217205047607`.
+- Checkpoint loads with `weights_only=True` and strict state-dict matching.
+- Held-out evaluation: 8 records; task accuracy `0.25`, error-category accuracy `0.0`, confidence-bucket accuracy `0.75`, exact-match accuracy `0.0`.
 
-The weak held-out generation result is expected from 8 synthetic training records and is reported as a limitation, not hidden behind a success claim.
+The model metrics are smoke-test results for a tiny character-level model trained on 31 synthetic records, not a claim of coding competence. The weak held-out generation result is reported as a limitation, not hidden behind a success claim.
 
 ## Evidence
 

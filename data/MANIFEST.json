@@ -4,22 +4,22 @@
     {
       "path": "data/demo.jsonl",
       "split": "train",
-      "records": 8,
+      "records": 31,
       "source": "project-synthetic",
       "retrieval": "authored locally",
       "license": "CC0-1.0",
       "purpose": "smoke training",
-      "sha256": "05becbc686575ed67bd09c546e6a155cdf001e560d9f21948112c97522152872"
+      "sha256": "45ce6e69c2ddb6fde7c10d1343b19e886ce9c5136965a3d2187c5672e0a2b817"
     },
     {
       "path": "data/eval.jsonl",
       "split": "eval",
-      "records": 4,
+      "records": 8,
       "source": "project-synthetic",
       "retrieval": "authored locally",
       "license": "CC0-1.0",
       "purpose": "held-out smoke evaluation",
-      "sha256": "46baf1b804c97defcc34d2f2e3921e5478f170965c32e3b0dec973fba331447b"
+      "sha256": "bf0be5922090ffd85e1fcc3559ca8905200e44281e74ac38fd67feb513d471fe"
     }
   ]
 }

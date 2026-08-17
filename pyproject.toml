@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cognition-slm"
+version = "0.1.0"
+description = "A tiny, inspectable coding SLM for studying observable LLM behavior."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [{ name = "Gary Zhang" }]
+dependencies = ["numpy>=1.24", "torch>=2.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+cognition-slm-train = "cognition_slm.train:main"
+cognition-slm-generate = "cognition_slm.generate:main"
+cognition-slm-evaluate = "cognition_slm.evaluate:main"
+cognition-slm-audit = "cognition_slm.audit:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

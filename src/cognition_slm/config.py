@@ -1,0 +1,62 @@
+"""Configuration objects shared by training, generation, and evaluation."""
+
+from __future__ import annotations
+
+from dataclasses import asdict, dataclass
+from typing import Any
+
+
+TASK_TYPES = (
+    "code_generation",
+    "code_debugging",
+    "code_explanation",
+    "algorithm_reasoning",
+    "metacognitive_review",
+)
+
+ERROR_CATEGORIES = (
+    "none",
+    "syntax",
+    "logic",
+    "hallucination",
+    "incomplete",
+    "unsafe",
+)
+
+
+@dataclass(frozen=True)
+class ModelConfig:
+    """Small decoder-only transformer settings."""
+
+    vocab_size: int = 259
+    block_size: int = 256
+    n_layer: int = 2
+    n_head: int = 4
+    n_embd: int = 128
+    dropout: float = 0.0
+    task_types: tuple[str, ...] = TASK_TYPES
+    error_categories: tuple[str, ...] = ERROR_CATEGORIES
+
+    def validate(self) -> None:
+        if self.vocab_size < 259:
+            raise ValueError("vocab_size must include 256 byte tokens and 3 specials")
+        if self.block_size < 8:
+            raise ValueError("block_size must be at least 8")
+        if self.n_layer < 1 or self.n_head < 1 or self.n_embd < 1:
+            raise ValueError("n_layer, n_head, and n_embd must be positive")
+        if self.n_embd % self.n_head:
+            raise ValueError("n_embd must be divisible by n_head")
+        if not 0.0 <= self.dropout < 1.0:
+            raise ValueError("dropout must be in [0, 1)")
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    @classmethod
+    def from_dict(cls, raw: dict[str, Any]) -> "ModelConfig":
+        values = dict(raw)
+        values["task_types"] = tuple(values.get("task_types", TASK_TYPES))
+        values["error_categories"] = tuple(values.get("error_categories", ERROR_CATEGORIES))
+        config = cls(**values)
+        config.validate()
+        return config

@@ -1,4 +1,4 @@
-# llm build
+# slm-project
 
 Mini research project: a small decoder-only language model aimed at coding help and observable LLM cognition signals.
 

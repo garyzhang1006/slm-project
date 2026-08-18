@@ -7,7 +7,7 @@ from pathlib import Path
 
 import torch
 
-from .config import ModelConfig
+from .checkpoint import load_checkpoint_payload
 from .data import format_prompt, validate_record
 from .model import CognitionSLM
 from .tokenizer import ByteTokenizer
@@ -52,14 +52,7 @@ def generate_ids(
 
 
 def load_checkpoint(path: str | Path, device: torch.device) -> tuple[CognitionSLM, ByteTokenizer]:
-    checkpoint = torch.load(path, map_location="cpu", weights_only=True)
-    if not isinstance(checkpoint, dict):
-        raise ValueError("checkpoint must be a dictionary of tensors and plain metadata")
-    required = {"model_config", "model_state_dict"}
-    missing = required.difference(checkpoint)
-    if missing:
-        raise ValueError(f"checkpoint missing required fields: {sorted(missing)}")
-    config = ModelConfig.from_dict(checkpoint["model_config"])
+    checkpoint, config = load_checkpoint_payload(torch, path)
     model = CognitionSLM(config)
     model.load_state_dict(checkpoint["model_state_dict"])
     model.to(device)

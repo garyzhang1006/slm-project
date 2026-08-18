@@ -8,6 +8,7 @@ import math
 import random
 from pathlib import Path
 
+from .checkpoint import load_checkpoint_payload
 from .config import ModelConfig
 from .data import encode_examples, load_jsonl
 from .tokenizer import ByteTokenizer
@@ -40,17 +41,6 @@ def _lr_scale(step: int, total_steps: int, warmup_steps: int) -> float:
     decay_steps = max(1, total_steps - warmup_steps - 1)
     progress = min(1.0, max(0.0, (step - warmup_steps) / decay_steps))
     return 0.5 * (1.0 + math.cos(math.pi * progress))
-
-
-def _load_checkpoint(torch, path: str | Path):
-    checkpoint = torch.load(path, map_location="cpu", weights_only=True)
-    if not isinstance(checkpoint, dict):
-        raise ValueError("resume checkpoint must be a dictionary")
-    required = {"model_config", "model_state_dict"}
-    missing = required.difference(checkpoint)
-    if missing:
-        raise ValueError(f"resume checkpoint missing required fields: {sorted(missing)}")
-    return checkpoint, ModelConfig.from_dict(checkpoint["model_config"])
 
 
 def _move_optimizer_state(torch, optimizer, device) -> None:
@@ -130,7 +120,7 @@ def train(args: argparse.Namespace) -> dict:
     checkpoint = None
     if args.resume:
         torch = _import_torch()
-        checkpoint, config = _load_checkpoint(torch, args.resume)
+        checkpoint, config = load_checkpoint_payload(torch, args.resume)
     else:
         config = ModelConfig(block_size=args.block_size)
     tokenizer = ByteTokenizer(vocab_size=config.vocab_size)

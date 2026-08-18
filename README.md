@@ -40,9 +40,16 @@ python3 -m venv .venv
 .venv/bin/python -m cognition_slm.evaluate \
   --checkpoint artifacts/demo.pt \
   --data data/eval.jsonl
+.venv/bin/python -m cognition_slm.train \
+  --data data/demo.jsonl \
+  --out artifacts/legacy-demo.pt \
+  --architecture legacy \
+  --steps 60 \
+  --batch-size 4 \
+  --warmup-steps 5
 .venv/bin/python -m cognition_slm.benchmark \
-  --model legacy=artifacts/demo.pt \
-  --model modern=artifacts/modern-demo.pt \
+  --model modern=artifacts/demo.pt \
+  --model legacy=artifacts/legacy-demo.pt \
   --data data/eval.jsonl
 ```
 

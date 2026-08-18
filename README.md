@@ -20,7 +20,7 @@ This is a mini project. The demo corpus is intentionally too small to produce a 
 
 ```bash
 python3 -m venv .venv
-.venv/bin/python -m pip install -e ".[dev]"
+.venv/bin/python -m pip install ".[dev]"
 .venv/bin/python -m pytest -q
 .venv/bin/python -m cognition_slm.audit --train data/demo.jsonl --eval data/eval.jsonl
 .venv/bin/python -m cognition_slm.train \

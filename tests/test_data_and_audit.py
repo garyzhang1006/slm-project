@@ -57,6 +57,22 @@ class DataAndAuditTests(unittest.TestCase):
         with self.assertRaises(DataValidationError):
             validate_record({**base, "unexpected": "field"})
 
+    def test_encoding_rejects_examples_without_answer_tokens(self):
+        example = validate_record(
+            {
+                "id": "long-prompt",
+                "prompt": "x" * 100,
+                "answer": "return 1",
+                "task_type": "code_generation",
+                "confidence": 0.5,
+                "error_category": "none",
+                "source": "test",
+                "license": "CC0-1.0",
+            }
+        )
+        with self.assertRaisesRegex(ValueError, "no answer tokens"):
+            encode_examples([example], ByteTokenizer(), block_size=16)
+
 
 if __name__ == "__main__":
     unittest.main()

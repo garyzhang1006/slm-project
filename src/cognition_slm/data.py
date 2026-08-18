@@ -186,12 +186,17 @@ def encode_examples(
         pool_position = min(len(prompt_ids), len(input_ids)) - 1
         if pool_position < 0:
             raise ValueError(f"prompt for {example.id!r} produced no tokens")
+        answer_start = min(len(prompt_ids), len(input_ids))
+        if answer_start >= len(input_ids):
+            raise ValueError(
+                f"example {example.id!r} has no answer tokens within block_size {block_size}"
+            )
         encoded.append(
             {
                 "id": example.id,
                 "input_ids": input_ids,
                 "pool_position": pool_position,
-                "answer_start": min(len(prompt_ids), len(input_ids)),
+                "answer_start": answer_start,
                 "task_label": TASK_TYPES.index(example.task_type),
                 "error_label": ERROR_CATEGORIES.index(example.error_category),
                 "confidence_label": example.confidence_bucket,

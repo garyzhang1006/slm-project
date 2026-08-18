@@ -16,5 +16,7 @@ jobs:
         with:
           python-version: "3.11"
       - run: python -m pip install -e .
+      - run: python -m pip check
       - run: python -m unittest discover -s tests -v
       - run: python -m cognition_slm.audit --train data/demo.jsonl --eval data/eval.jsonl
+      - run: python -m cognition_slm.train --data data/demo.jsonl --eval-data data/eval.jsonl --steps 4 --warmup-steps 2 --dry-run

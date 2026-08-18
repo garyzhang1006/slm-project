@@ -151,12 +151,15 @@ def train(args: argparse.Namespace) -> dict:
         model.parameters(), lr=args.learning_rate, weight_decay=args.weight_decay
     )
     start_step = 0
+    base_learning_rate = args.learning_rate
     if checkpoint is not None:
         model.load_state_dict(checkpoint["model_state_dict"])
         optimizer_state = checkpoint.get("optimizer_state_dict")
         metadata = checkpoint.get("metadata", {})
         if not isinstance(metadata, dict):
             metadata = {}
+        if isinstance(metadata.get("learning_rate"), (int, float)):
+            base_learning_rate = float(metadata["learning_rate"])
         if isinstance(optimizer_state, dict):
             optimizer.load_state_dict(optimizer_state)
             _move_optimizer_state(torch, optimizer, device)
@@ -169,6 +172,12 @@ def train(args: argparse.Namespace) -> dict:
     )
     if checkpoint is not None and isinstance(checkpoint.get("scheduler_state_dict"), dict):
         scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
+    if start_step:
+        next_learning_rate = base_learning_rate * _lr_scale(
+            start_step, args.steps, args.warmup_steps
+        )
+        for parameter_group in optimizer.param_groups:
+            parameter_group["lr"] = next_learning_rate
     model.train()
     history: list[float] = []
     validation_history: list[dict[str, float | int]] = []

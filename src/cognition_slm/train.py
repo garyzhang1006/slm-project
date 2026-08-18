@@ -20,7 +20,7 @@ def _import_torch():
     except ImportError as exc:
         raise SystemExit(
             "PyTorch is required for training. Install project dependencies with: "
-            "python -m pip install -e ."
+            "python -m pip install \".[dev]\""
         ) from exc
     return torch
 
@@ -122,7 +122,15 @@ def train(args: argparse.Namespace) -> dict:
         torch = _import_torch()
         checkpoint, config = load_checkpoint_payload(torch, args.resume)
     else:
-        config = ModelConfig(block_size=args.block_size)
+        config = ModelConfig(
+            block_size=args.block_size,
+            n_layer=args.n_layer,
+            n_head=args.n_head,
+            n_embd=args.n_embd,
+            dropout=args.dropout,
+            architecture=args.architecture,
+        )
+    config.validate()
     tokenizer = ByteTokenizer(vocab_size=config.vocab_size)
     encoded = encode_examples(examples, tokenizer, config.block_size)
     validation_encoded = None
@@ -134,6 +142,7 @@ def train(args: argparse.Namespace) -> dict:
             "records": len(examples),
             "max_tokens": max(len(item["input_ids"]) for item in encoded),
             "block_size": config.block_size,
+            "architecture": config.architecture,
             "status": "dry-run",
         }
 
@@ -262,6 +271,11 @@ def main() -> None:
     parser.add_argument("--steps", type=int, default=100)
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--block-size", type=int, default=256)
+    parser.add_argument("--architecture", choices=("modern", "legacy"), default="modern")
+    parser.add_argument("--n-layer", type=int, default=2)
+    parser.add_argument("--n-head", type=int, default=4)
+    parser.add_argument("--n-embd", type=int, default=128)
+    parser.add_argument("--dropout", type=float, default=0.0)
     parser.add_argument("--learning-rate", type=float, default=3e-4)
     parser.add_argument("--weight-decay", type=float, default=0.01)
     parser.add_argument("--warmup-steps", type=int, default=5)
@@ -276,6 +290,8 @@ def main() -> None:
     args = parser.parse_args()
     if args.steps < 1 or args.batch_size < 1:
         parser.error("--steps and --batch-size must be positive")
+    if args.n_layer < 1 or args.n_head < 1 or args.n_embd < 1:
+        parser.error("--n-layer, --n-head, and --n-embd must be positive")
     if args.weight_decay < 0 or args.warmup_steps < 0 or args.eval_every < 1:
         parser.error("--weight-decay must be non-negative; --warmup-steps and --eval-every must be positive")
     if args.learning_rate <= 0 or args.grad_clip <= 0 or args.log_every < 1:

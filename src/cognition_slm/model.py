@@ -25,6 +25,36 @@ class ModelOutput:
     confidence_loss: Tensor | None = None
 
 
+class RMSNorm(nn.Module):
+    def __init__(self, n_embd: int, eps: float = 1e-5) -> None:
+        super().__init__()
+        self.weight = nn.Parameter(torch.ones(n_embd))
+        self.eps = eps
+
+    def forward(self, x: Tensor) -> Tensor:
+        scale = torch.rsqrt(x.float().pow(2).mean(dim=-1, keepdim=True) + self.eps)
+        return (x * scale).type_as(x) * self.weight
+
+
+class SwiGLU(nn.Module):
+    def __init__(self, n_embd: int, dropout: float) -> None:
+        super().__init__()
+        hidden = 4 * n_embd
+        self.gate = nn.Linear(n_embd, hidden, bias=False)
+        self.up = nn.Linear(n_embd, hidden, bias=False)
+        self.down = nn.Linear(hidden, n_embd, bias=False)
+        self.dropout = nn.Dropout(dropout)
+
+    def forward(self, x: Tensor) -> Tensor:
+        return self.dropout(self.down(F.silu(self.gate(x)) * self.up(x)))
+
+
+def _rotate_half(x: Tensor) -> Tensor:
+    first = x[..., ::2]
+    second = x[..., 1::2]
+    return torch.stack((-second, first), dim=-1).flatten(-2)
+
+
 class CausalSelfAttention(nn.Module):
     def __init__(self, config: ModelConfig) -> None:
         super().__init__()
@@ -34,16 +64,32 @@ class CausalSelfAttention(nn.Module):
         self.proj = nn.Linear(config.n_embd, config.n_embd)
         self.attn_dropout = nn.Dropout(config.dropout)
         self.resid_dropout = nn.Dropout(config.dropout)
+        self.use_rotary = config.architecture == "modern"
         self.register_buffer(
             "causal_mask",
             torch.triu(torch.ones(config.block_size, config.block_size, dtype=torch.bool), diagonal=1),
             persistent=False,
         )
+        if self.use_rotary:
+            inverse_frequency = 1.0 / (
+                config.rope_theta
+                ** (torch.arange(0, self.head_dim, 2).float() / self.head_dim)
+            )
+            positions = torch.arange(config.block_size).float()
+            frequencies = torch.outer(positions, inverse_frequency)
+            embeddings = torch.repeat_interleave(frequencies, 2, dim=-1)
+            self.register_buffer("rope_cos", embeddings.cos()[None, None, :, :], persistent=False)
+            self.register_buffer("rope_sin", embeddings.sin()[None, None, :, :], persistent=False)
 
     def forward(self, x: Tensor, attention_mask: Tensor | None = None) -> Tensor:
         batch, length, channels = x.shape
         qkv = self.qkv(x).view(batch, length, 3, self.n_head, self.head_dim)
         q, k, v = qkv.permute(2, 0, 3, 1, 4).unbind(0)
+        if self.use_rotary:
+            cos = self.rope_cos[:, :, :length, :]
+            sin = self.rope_sin[:, :, :length, :]
+            q = q * cos + _rotate_half(q) * sin
+            k = k * cos + _rotate_half(k) * sin
         scores = (q @ k.transpose(-2, -1)) / (self.head_dim**0.5)
         scores = scores.masked_fill(self.causal_mask[:length, :length], float("-inf"))
         if attention_mask is not None:
@@ -59,15 +105,19 @@ class CausalSelfAttention(nn.Module):
 class TransformerBlock(nn.Module):
     def __init__(self, config: ModelConfig) -> None:
         super().__init__()
-        self.ln_1 = nn.LayerNorm(config.n_embd)
+        norm = RMSNorm if config.architecture == "modern" else nn.LayerNorm
+        self.ln_1 = norm(config.n_embd)
         self.attention = CausalSelfAttention(config)
-        self.ln_2 = nn.LayerNorm(config.n_embd)
-        self.mlp = nn.Sequential(
-            nn.Linear(config.n_embd, 4 * config.n_embd),
-            nn.GELU(),
-            nn.Linear(4 * config.n_embd, config.n_embd),
-            nn.Dropout(config.dropout),
-        )
+        self.ln_2 = norm(config.n_embd)
+        if config.architecture == "modern":
+            self.mlp = SwiGLU(config.n_embd, config.dropout)
+        else:
+            self.mlp = nn.Sequential(
+                nn.Linear(config.n_embd, 4 * config.n_embd),
+                nn.GELU(),
+                nn.Linear(4 * config.n_embd, config.n_embd),
+                nn.Dropout(config.dropout),
+            )
 
     def forward(self, x: Tensor, attention_mask: Tensor | None = None) -> Tensor:
         x = x + self.attention(self.ln_1(x), attention_mask)
@@ -82,15 +132,25 @@ class CognitionSLM(nn.Module):
         config.validate()
         self.config = config
         self.token_embedding = nn.Embedding(config.vocab_size, config.n_embd)
-        self.position_embedding = nn.Embedding(config.block_size, config.n_embd)
+        self.position_embedding = (
+            nn.Embedding(config.block_size, config.n_embd)
+            if config.architecture == "legacy"
+            else None
+        )
         self.dropout = nn.Dropout(config.dropout)
         self.blocks = nn.ModuleList(TransformerBlock(config) for _ in range(config.n_layer))
-        self.final_norm = nn.LayerNorm(config.n_embd)
+        self.final_norm = (
+            RMSNorm(config.n_embd)
+            if config.architecture == "modern"
+            else nn.LayerNorm(config.n_embd)
+        )
         self.lm_head = nn.Linear(config.n_embd, config.vocab_size, bias=False)
         self.task_head = nn.Linear(config.n_embd, len(config.task_types))
         self.error_head = nn.Linear(config.n_embd, len(config.error_categories))
         self.confidence_head = nn.Linear(config.n_embd, 3)
         self.apply(self._init_weights)
+        if config.architecture == "modern":
+            self.lm_head.weight = self.token_embedding.weight
 
     @staticmethod
     def _init_weights(module: nn.Module) -> None:
@@ -142,7 +202,9 @@ class CognitionSLM(nn.Module):
                 f"sequence length {length} exceeds block_size {self.config.block_size}"
             )
         positions = torch.arange(length, device=input_ids.device)
-        hidden = self.token_embedding(input_ids) + self.position_embedding(positions)[None, :, :]
+        hidden = self.token_embedding(input_ids)
+        if self.position_embedding is not None:
+            hidden = hidden + self.position_embedding(positions)[None, :, :]
         hidden = self.dropout(hidden)
         for block in self.blocks:
             hidden = block(hidden, attention_mask)

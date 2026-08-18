@@ -41,6 +41,26 @@ class ModelTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             model(input_ids, attention_mask=mask, pool_positions=torch.tensor([3]))
 
+    def test_modern_architecture_forward_and_weight_tying(self):
+        from cognition_slm.config import ModelConfig
+        from cognition_slm.model import CognitionSLM
+
+        config = ModelConfig(
+            block_size=32,
+            n_layer=1,
+            n_head=2,
+            n_embd=16,
+            architecture="modern",
+        )
+        model = CognitionSLM(config)
+        input_ids = torch.randint(3, config.vocab_size, (2, 12))
+        output = model(input_ids, pool_positions=torch.tensor([4, 7]))
+
+        self.assertIsNone(model.position_embedding)
+        self.assertIs(model.token_embedding.weight, model.lm_head.weight)
+        self.assertEqual(tuple(output.logits.shape), (2, 12, config.vocab_size))
+        self.assertTrue(torch.isfinite(output.loss))
+
 
 if __name__ == "__main__":
     unittest.main()

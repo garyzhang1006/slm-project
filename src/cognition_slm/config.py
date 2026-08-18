@@ -23,6 +23,8 @@ ERROR_CATEGORIES = (
     "unsafe",
 )
 
+ARCHITECTURES = ("legacy", "modern")
+
 
 @dataclass(frozen=True)
 class ModelConfig:
@@ -34,6 +36,8 @@ class ModelConfig:
     n_head: int = 4
     n_embd: int = 128
     dropout: float = 0.0
+    architecture: str = "legacy"
+    rope_theta: float = 10_000.0
     task_types: tuple[str, ...] = TASK_TYPES
     error_categories: tuple[str, ...] = ERROR_CATEGORIES
 
@@ -48,6 +52,12 @@ class ModelConfig:
             raise ValueError("n_embd must be divisible by n_head")
         if not 0.0 <= self.dropout < 1.0:
             raise ValueError("dropout must be in [0, 1)")
+        if self.architecture not in ARCHITECTURES:
+            raise ValueError(f"architecture must be one of {ARCHITECTURES}")
+        if self.rope_theta <= 0.0:
+            raise ValueError("rope_theta must be positive")
+        if self.architecture == "modern" and (self.n_embd // self.n_head) % 2:
+            raise ValueError("modern architecture requires an even attention head dimension")
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

@@ -8,6 +8,7 @@ from pathlib import Path
 import torch
 
 from .checkpoint import load_checkpoint_payload
+from .code_eval import CODE_TASK_TYPES, python_syntax_valid
 from .data import format_prompt, validate_record
 from .model import CognitionSLM
 from .tokenizer import ByteTokenizer
@@ -23,8 +24,12 @@ def generate_ids(
     temperature: float = 0.8,
     top_k: int = 40,
 ) -> torch.Tensor:
+    if max_new_tokens < 1:
+        raise ValueError("max_new_tokens must be positive")
     if temperature < 0:
         raise ValueError("temperature must be non-negative")
+    if top_k < 0:
+        raise ValueError("top_k must be non-negative")
     model.eval()
     generated = input_ids
     for _ in range(max_new_tokens):
@@ -51,6 +56,41 @@ def generate_ids(
     return generated
 
 
+@torch.no_grad()
+def score_generated_ids(
+    model: CognitionSLM, generated_ids: torch.Tensor, prompt_length: int
+) -> float:
+    """Return mean log probability of generated tokens, using rolling context."""
+    if generated_ids.ndim != 2 or generated_ids.size(0) != 1:
+        raise ValueError("generated_ids must have shape (1, sequence_length)")
+    if not 0 < prompt_length < generated_ids.size(1):
+        raise ValueError("prompt_length must leave at least one generated token")
+    log_probability = torch.zeros((), device=generated_ids.device)
+    generated_count = generated_ids.size(1) - prompt_length
+    for position in range(prompt_length, generated_ids.size(1)):
+        context = generated_ids[:, max(0, position - model.config.block_size) : position]
+        output = model(context, attention_mask=torch.ones_like(context))
+        next_log_probabilities = torch.log_softmax(output.logits[:, -1, :], dim=-1)
+        log_probability = log_probability + next_log_probabilities.gather(
+            1, generated_ids[:, position : position + 1]
+        ).squeeze()
+    return float((log_probability / generated_count).item())
+
+
+def rank_candidate_indices(
+    texts: list[str], model_scores: list[float], task_type: str, syntax_bonus: float
+) -> int:
+    if not texts or len(texts) != len(model_scores):
+        raise ValueError("texts and model_scores must be non-empty and have equal length")
+    if syntax_bonus < 0:
+        raise ValueError("syntax_bonus must be non-negative")
+    ranking_scores = []
+    for text, model_score in zip(texts, model_scores):
+        bonus = syntax_bonus if task_type in CODE_TASK_TYPES and python_syntax_valid(text) else 0.0
+        ranking_scores.append(model_score + bonus)
+    return max(range(len(ranking_scores)), key=ranking_scores.__getitem__)
+
+
 def load_checkpoint(path: str | Path, device: torch.device) -> tuple[CognitionSLM, ByteTokenizer]:
     checkpoint, config = load_checkpoint_payload(torch, path)
     model = CognitionSLM(config)
@@ -68,7 +108,11 @@ def generate_text(
     max_new_tokens: int = 96,
     temperature: float = 0.8,
     top_k: int = 40,
+    num_candidates: int = 1,
+    syntax_bonus: float = 0.5,
 ) -> str:
+    if num_candidates < 1:
+        raise ValueError("num_candidates must be positive")
     record = validate_record(
         {
             "id": "generation",
@@ -81,17 +125,28 @@ def generate_text(
             "license": "runtime",
         }
     )
-    prompt_ids = tokenizer.encode(format_prompt(record), add_eos=False)
-    input_ids = torch.tensor([prompt_ids], dtype=torch.long, device=next(model.parameters()).device)
-    generated = generate_ids(
-        model,
-        input_ids,
-        tokenizer,
-        max_new_tokens=max_new_tokens,
-        temperature=temperature,
-        top_k=top_k,
+    prompt_ids = tokenizer.encode(
+        format_prompt(record), add_eos=False, max_length=model.config.block_size
     )
-    return tokenizer.decode(generated[0, input_ids.size(1) :].tolist()).strip()
+    input_ids = torch.tensor([prompt_ids], dtype=torch.long, device=next(model.parameters()).device)
+    candidates = [
+        generate_ids(
+            model,
+            input_ids,
+            tokenizer,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            top_k=top_k,
+        )
+        for _ in range(num_candidates)
+    ]
+    if num_candidates == 1:
+        selected = candidates[0]
+    else:
+        texts = [tokenizer.decode(item[0, input_ids.size(1) :].tolist()).strip() for item in candidates]
+        scores = [score_generated_ids(model, item, input_ids.size(1)) for item in candidates]
+        selected = candidates[rank_candidate_indices(texts, scores, task_type, syntax_bonus)]
+    return tokenizer.decode(selected[0, input_ids.size(1) :].tolist()).strip()
 
 
 def _device(name: str) -> torch.device:
@@ -112,8 +167,12 @@ def main() -> None:
     parser.add_argument("--max-new-tokens", type=int, default=96)
     parser.add_argument("--temperature", type=float, default=0.8)
     parser.add_argument("--top-k", type=int, default=40)
+    parser.add_argument("--num-candidates", type=int, default=1)
+    parser.add_argument("--syntax-bonus", type=float, default=0.5)
     parser.add_argument("--device", default="auto")
     args = parser.parse_args()
+    if args.num_candidates < 1 or args.syntax_bonus < 0:
+        parser.error("--num-candidates must be positive and --syntax-bonus must be non-negative")
     device = _device(args.device)
     model, tokenizer = load_checkpoint(args.checkpoint, device)
     print(
@@ -125,6 +184,8 @@ def main() -> None:
             max_new_tokens=args.max_new_tokens,
             temperature=args.temperature,
             top_k=args.top_k,
+            num_candidates=args.num_candidates,
+            syntax_bonus=args.syntax_bonus,
         )
     )
 

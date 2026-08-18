@@ -8,6 +8,7 @@ import re
 
 import torch
 
+from .code_eval import assess_code
 from .data import encode_prompt, load_jsonl
 from .generate import generate_text, load_checkpoint
 
@@ -84,6 +85,7 @@ def evaluate(model, tokenizer, examples, *, max_new_tokens: int) -> dict:
     confidence_logits = []
     confidence_targets = []
     rows = []
+    code_quality = []
     for example in examples:
         prompt_ids = encode_prompt(example, tokenizer, model.config.block_size)
         input_ids = torch.tensor(
@@ -121,6 +123,9 @@ def evaluate(model, tokenizer, examples, *, max_new_tokens: int) -> dict:
         error_correct += int(error_prediction == error_expected)
         confidence_correct += int(confidence_prediction == example.confidence_bucket)
         exact_correct += int(_normalize(generated) == _normalize(example.answer))
+        quality = assess_code(generated, example.answer, example.task_type)
+        if quality is not None:
+            code_quality.append(quality)
         rows.append(
             {
                 "id": example.id,
@@ -129,6 +134,7 @@ def evaluate(model, tokenizer, examples, *, max_new_tokens: int) -> dict:
                 "task_prediction": model.config.task_types[task_prediction],
                 "error_prediction": model.config.error_categories[error_prediction],
                 "confidence_bucket_prediction": confidence_prediction,
+                "code_quality": quality.to_dict() if quality is not None else None,
             }
         )
     total = len(examples)
@@ -137,6 +143,16 @@ def evaluate(model, tokenizer, examples, *, max_new_tokens: int) -> dict:
     confidence_metrics = classification_metrics(
         torch.stack(confidence_logits), torch.tensor(confidence_targets)
     )
+    code_metrics = None
+    if code_quality:
+        code_metrics = {
+            "records": len(code_quality),
+            "syntax_validity": sum(item.syntax_valid for item in code_quality) / len(code_quality),
+            "required_symbol_recall": sum(
+                item.required_symbol_recall for item in code_quality
+            ) / len(code_quality),
+            "static_score": sum(item.static_score for item in code_quality) / len(code_quality),
+        }
     return {
         "records": total,
         "task_accuracy": task_correct / total,
@@ -146,6 +162,7 @@ def evaluate(model, tokenizer, examples, *, max_new_tokens: int) -> dict:
         "task_metrics": task_metrics,
         "error_metrics": error_metrics,
         "confidence_metrics": confidence_metrics,
+        "code_metrics": code_metrics,
         "rows": rows,
     }
 

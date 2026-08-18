@@ -25,8 +25,8 @@ python -m cognition_slm.audit --train data/demo.jsonl --eval data/eval.jsonl --r
 
 Current snapshot:
 
-- `data/demo.jsonl`: 31 training records across code generation, debugging, explanation, algorithm reasoning, and metacognitive review.
-- `data/eval.jsonl`: 8 held-out records covering the same task families with different prompts and IDs.
+- `data/demo.jsonl`: 45 training records across code generation, debugging, explanation, algorithm reasoning, and metacognitive review.
+- `data/eval.jsonl`: 16 held-out records covering the same task families with different prompts and IDs.
 - `data/MANIFEST.json`: record counts, provenance, licenses, and SHA-256 hashes for both files.
 
 Do not pipe private prompts, API keys, repository secrets, or unlicensed scraped code into the dataset.

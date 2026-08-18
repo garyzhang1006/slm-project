@@ -8,7 +8,7 @@ import re
 
 import torch
 
-from .data import load_jsonl, format_prompt
+from .data import encode_prompt, load_jsonl
 from .generate import generate_text, load_checkpoint
 
 
@@ -26,11 +26,18 @@ def evaluate(model, tokenizer, examples, *, max_new_tokens: int) -> dict:
     exact_correct = 0
     rows = []
     for example in examples:
-        prompt_ids = tokenizer.encode(format_prompt(example), add_eos=False)
+        prompt_ids = encode_prompt(example, tokenizer, model.config.block_size)
         input_ids = torch.tensor(
             [prompt_ids], dtype=torch.long, device=next(model.parameters()).device
         )
-        output = model(input_ids, attention_mask=torch.ones_like(input_ids))
+        pool_positions = torch.tensor(
+            [len(prompt_ids) - 1], dtype=torch.long, device=input_ids.device
+        )
+        output = model(
+            input_ids,
+            attention_mask=torch.ones_like(input_ids),
+            pool_positions=pool_positions,
+        )
         task_prediction = int(output.task_logits.argmax(dim=-1).item())
         error_prediction = int(output.error_logits.argmax(dim=-1).item())
         confidence_prediction = int(output.confidence_logits.argmax(dim=-1).item())

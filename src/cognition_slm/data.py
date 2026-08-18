@@ -169,17 +169,28 @@ def format_training_text(example: CognitionExample) -> str:
     return format_prompt(example) + example.answer.strip()
 
 
+def encode_prompt(
+    example: CognitionExample, tokenizer: ByteTokenizer, block_size: int
+) -> list[int]:
+    """Encode only prompt tokens so auxiliary heads cannot read the answer."""
+    return tokenizer.encode(format_prompt(example), add_eos=False, max_length=block_size)
+
+
 def encode_examples(
     examples: Iterable[CognitionExample], tokenizer: ByteTokenizer, block_size: int
 ) -> list[dict[str, Any]]:
     encoded: list[dict[str, Any]] = []
     for example in examples:
+        prompt_ids = encode_prompt(example, tokenizer, block_size)
+        input_ids = tokenizer.encode(format_training_text(example), max_length=block_size)
+        pool_position = min(len(prompt_ids), len(input_ids)) - 1
+        if pool_position < 0:
+            raise ValueError(f"prompt for {example.id!r} produced no tokens")
         encoded.append(
             {
                 "id": example.id,
-                "input_ids": tokenizer.encode(
-                    format_training_text(example), max_length=block_size
-                ),
+                "input_ids": input_ids,
+                "pool_position": pool_position,
                 "task_label": TASK_TYPES.index(example.task_type),
                 "error_label": ERROR_CATEGORIES.index(example.error_category),
                 "confidence_label": example.confidence_bucket,

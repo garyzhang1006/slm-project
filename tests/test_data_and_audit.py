@@ -4,7 +4,8 @@ import unittest
 from pathlib import Path
 
 from cognition_slm.audit import audit_dataset, audit_split_overlap
-from cognition_slm.data import DataValidationError, load_jsonl, validate_record
+from cognition_slm.data import DataValidationError, encode_examples, load_jsonl, validate_record
+from cognition_slm.tokenizer import ByteTokenizer
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -16,6 +17,11 @@ class DataAndAuditTests(unittest.TestCase):
         evaluation = load_jsonl(ROOT / "data" / "eval.jsonl")
         self.assertEqual(len(train), 31)
         self.assertEqual(len(evaluation), 8)
+        encoded = encode_examples(train, ByteTokenizer(), block_size=256)
+        self.assertTrue(
+            all(0 <= item["pool_position"] < len(item["input_ids"])
+                for item in encoded)
+        )
         self.assertEqual(audit_split_overlap(ROOT / "data" / "demo.jsonl", ROOT / "data" / "eval.jsonl"), [])
 
         manifest = json.loads((ROOT / "data" / "MANIFEST.json").read_text())

@@ -101,10 +101,29 @@ class CognitionSLM(nn.Module):
         elif isinstance(module, nn.Embedding):
             nn.init.normal_(module.weight, mean=0.0, std=0.02)
 
-    def _pool_last(self, hidden: Tensor, attention_mask: Tensor | None) -> Tensor:
-        if attention_mask is None:
-            return hidden[:, -1]
-        positions = attention_mask.sum(dim=1).long().clamp_min(1) - 1
+    def _pool_last(
+        self,
+        hidden: Tensor,
+        attention_mask: Tensor | None,
+        pool_positions: Tensor | None,
+    ) -> Tensor:
+        if pool_positions is None:
+            if attention_mask is None:
+                positions = torch.full(
+                    (hidden.size(0),), hidden.size(1) - 1, device=hidden.device, dtype=torch.long
+                )
+            else:
+                positions = attention_mask.sum(dim=1).long().clamp_min(1) - 1
+        else:
+            if pool_positions.shape != (hidden.size(0),):
+                raise ValueError("pool_positions must have shape (batch,)")
+            positions = pool_positions.to(hidden.device, dtype=torch.long)
+            if torch.any(positions < 0) or torch.any(positions >= hidden.size(1)):
+                raise ValueError("pool_positions must point inside the sequence")
+            if attention_mask is not None:
+                batch_positions = torch.arange(hidden.size(0), device=hidden.device)
+                if torch.any(attention_mask[batch_positions, positions] == 0):
+                    raise ValueError("pool_positions cannot point to padding")
         batch_positions = torch.arange(hidden.size(0), device=hidden.device)
         return hidden[batch_positions, positions]
 
@@ -112,6 +131,7 @@ class CognitionSLM(nn.Module):
         self,
         input_ids: Tensor,
         attention_mask: Tensor | None = None,
+        pool_positions: Tensor | None = None,
         task_labels: Tensor | None = None,
         error_labels: Tensor | None = None,
         confidence_labels: Tensor | None = None,
@@ -128,7 +148,7 @@ class CognitionSLM(nn.Module):
             hidden = block(hidden, attention_mask)
         hidden = self.final_norm(hidden)
         logits = self.lm_head(hidden)
-        pooled = self._pool_last(hidden, attention_mask)
+        pooled = self._pool_last(hidden, attention_mask, pool_positions)
         task_logits = self.task_head(pooled)
         error_logits = self.error_head(pooled)
         confidence_logits = self.confidence_head(pooled)

@@ -40,6 +40,7 @@ def _batch(torch, encoded, indices, device):
     task_labels = []
     error_labels = []
     confidence_labels = []
+    pool_positions = []
     for index in indices:
         item = encoded[index]
         padding = [0] * (max_length - len(item["input_ids"]))
@@ -48,12 +49,14 @@ def _batch(torch, encoded, indices, device):
         task_labels.append(item["task_label"])
         error_labels.append(item["error_label"])
         confidence_labels.append(item["confidence_label"])
+        pool_positions.append(item["pool_position"])
     return (
         torch.tensor(input_ids, dtype=torch.long, device=device),
         torch.tensor(attention_mask, dtype=torch.long, device=device),
         torch.tensor(task_labels, dtype=torch.long, device=device),
         torch.tensor(error_labels, dtype=torch.long, device=device),
         torch.tensor(confidence_labels, dtype=torch.long, device=device),
+        torch.tensor(pool_positions, dtype=torch.long, device=device),
     )
 
 
@@ -91,6 +94,7 @@ def train(args: argparse.Namespace) -> dict:
             task_labels=batch[2],
             error_labels=batch[3],
             confidence_labels=batch[4],
+            pool_positions=batch[5],
         )
         if output.loss is None:
             raise RuntimeError("model returned no loss")

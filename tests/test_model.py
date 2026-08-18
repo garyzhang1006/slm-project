@@ -31,6 +31,17 @@ class ModelTests(unittest.TestCase):
         self.assertIsNotNone(output.loss)
         self.assertTrue(torch.isfinite(output.loss))
 
+    def test_answer_only_language_loss_can_ignore_prompt_tokens(self):
+        from cognition_slm.config import ModelConfig
+        from cognition_slm.model import CognitionSLM
+
+        model = CognitionSLM(ModelConfig(block_size=16, n_layer=1, n_head=2, n_embd=16))
+        input_ids = torch.randint(3, model.config.vocab_size, (1, 8))
+        prompt_only = torch.zeros((1, 7), dtype=torch.bool)
+        output = model(input_ids, lm_loss_mask=prompt_only)
+
+        self.assertEqual(float(output.lm_loss), 0.0)
+
     def test_pool_position_rejects_padding(self):
         from cognition_slm.config import ModelConfig
         from cognition_slm.model import CognitionSLM

@@ -58,6 +58,7 @@ def _batch(torch, encoded, indices, device):
     error_labels = []
     confidence_labels = []
     pool_positions = []
+    lm_loss_masks = []
     for index in indices:
         item = encoded[index]
         padding = [0] * (max_length - len(item["input_ids"]))
@@ -67,6 +68,13 @@ def _batch(torch, encoded, indices, device):
         error_labels.append(item["error_label"])
         confidence_labels.append(item["confidence_label"])
         pool_positions.append(item["pool_position"])
+        lm_loss_masks.append(
+            [
+                int(target_position >= item["answer_start"])
+                for target_position in range(1, len(item["input_ids"]))
+            ]
+            + [0] * max(0, max_length - len(item["input_ids"])),
+        )
     return (
         torch.tensor(input_ids, dtype=torch.long, device=device),
         torch.tensor(attention_mask, dtype=torch.long, device=device),
@@ -74,6 +82,7 @@ def _batch(torch, encoded, indices, device):
         torch.tensor(error_labels, dtype=torch.long, device=device),
         torch.tensor(confidence_labels, dtype=torch.long, device=device),
         torch.tensor(pool_positions, dtype=torch.long, device=device),
+        torch.tensor(lm_loss_masks, dtype=torch.bool, device=device),
     )
 
 
@@ -94,6 +103,7 @@ def _validation_summary(torch, model, encoded, batch_size: int, device) -> dict[
                 error_labels=batch[3],
                 confidence_labels=batch[4],
                 pool_positions=batch[5],
+                lm_loss_mask=batch[6],
             )
             if output.loss is None:
                 raise RuntimeError("model returned no validation loss")
@@ -202,6 +212,7 @@ def train(args: argparse.Namespace) -> dict:
             error_labels=batch[3],
             confidence_labels=batch[4],
             pool_positions=batch[5],
+            lm_loss_mask=batch[6],
         )
         if output.loss is None:
             raise RuntimeError("model returned no loss")

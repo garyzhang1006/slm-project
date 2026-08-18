@@ -19,7 +19,9 @@ class DataAndAuditTests(unittest.TestCase):
         self.assertEqual(len(evaluation), 8)
         encoded = encode_examples(train, ByteTokenizer(), block_size=256)
         self.assertTrue(
-            all(0 <= item["pool_position"] < len(item["input_ids"])
+            all(
+                0 <= item["pool_position"] < len(item["input_ids"])
+                and item["answer_start"] < len(item["input_ids"])
                 for item in encoded)
         )
         self.assertEqual(audit_split_overlap(ROOT / "data" / "demo.jsonl", ROOT / "data" / "eval.jsonl"), [])

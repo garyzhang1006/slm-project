@@ -192,6 +192,7 @@ class CognitionSLM(nn.Module):
         input_ids: Tensor,
         attention_mask: Tensor | None = None,
         pool_positions: Tensor | None = None,
+        lm_loss_mask: Tensor | None = None,
         task_labels: Tensor | None = None,
         error_labels: Tensor | None = None,
         confidence_labels: Tensor | None = None,
@@ -219,11 +220,21 @@ class CognitionSLM(nn.Module):
         if length > 1:
             shift_logits = logits[:, :-1].contiguous()
             shift_labels = input_ids[:, 1:].contiguous()
-            losses["lm_loss"] = F.cross_entropy(
+            token_losses = F.cross_entropy(
                 shift_logits.view(-1, shift_logits.size(-1)),
                 shift_labels.view(-1),
                 ignore_index=PAD_ID,
-            )
+                reduction="none",
+            ).view_as(shift_labels)
+            if lm_loss_mask is None:
+                losses["lm_loss"] = token_losses.masked_select(shift_labels.ne(PAD_ID)).mean()
+            else:
+                if lm_loss_mask.shape != shift_labels.shape:
+                    raise ValueError("lm_loss_mask must have shape (batch, sequence_length - 1)")
+                selected = token_losses.masked_select(lm_loss_mask.to(input_ids.device).bool())
+                losses["lm_loss"] = (
+                    selected.mean() if selected.numel() else token_losses.new_zeros(())
+                )
         if task_labels is not None:
             losses["task_loss"] = F.cross_entropy(task_logits, task_labels)
         if error_labels is not None:

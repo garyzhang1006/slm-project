@@ -191,6 +191,7 @@ def encode_examples(
                 "id": example.id,
                 "input_ids": input_ids,
                 "pool_position": pool_position,
+                "answer_start": min(len(prompt_ids), len(input_ids)),
                 "task_label": TASK_TYPES.index(example.task_type),
                 "error_label": ERROR_CATEGORIES.index(example.error_category),
                 "confidence_label": example.confidence_bucket,

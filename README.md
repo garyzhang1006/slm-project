@@ -1,6 +1,6 @@
-# slm-project
+# slm project
 
-Mini research project: a small decoder-only language model aimed at coding help and observable LLM cognition signals.
+mini research project: a small decoder-only language model aimed at coding help and observable LLM cognition signals.
 
 The project studies behavior, not hidden chain-of-thought. Each training example carries a coding task, an answer, a task type, a confidence bucket, an error category, and a source/license record. The transformer learns next-token prediction while small auxiliary heads predict the task type, error category, and confidence bucket.
 

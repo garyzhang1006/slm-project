@@ -21,6 +21,7 @@ cognition-slm-generate = "cognition_slm.generate:main"
 cognition-slm-evaluate = "cognition_slm.evaluate:main"
 cognition-slm-audit = "cognition_slm.audit:main"
 cognition-slm-benchmark = "cognition_slm.benchmark:main"
+cognition-slm-context-therapist = "cognition_slm.context_therapy:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

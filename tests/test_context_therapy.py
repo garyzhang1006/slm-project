@@ -1,6 +1,19 @@
 import unittest
+import json
+import tempfile
+from contextlib import redirect_stdout
+from pathlib import Path
+from io import StringIO
+from unittest.mock import patch
 
-from cognition_slm.context_therapy import ContextMessage, ContextTherapist, estimate_tokens, parse_messages
+from cognition_slm.context_therapy import (
+    ContextMessage,
+    ContextTherapist,
+    estimate_tokens,
+    load_messages,
+    main,
+    parse_messages,
+)
 
 
 class ContextTherapyTests(unittest.TestCase):
@@ -66,6 +79,54 @@ class ContextTherapyTests(unittest.TestCase):
         ).to_dict()
         self.assertNotIn("chain_of_thought", report)
         self.assertNotIn("private_thoughts", report)
+
+    def test_repair_prompt_contains_focus_and_safe_handoff_sections(self):
+        assessment = ContextTherapist().assess(
+            [{"role": "user", "content": "Write and test parser."}],
+            focus="Improve parser reliability",
+        )
+        prompt = assessment.repair_prompt()
+        self.assertIn("Improve parser reliability", prompt)
+        self.assertIn("CURRENT GOAL", prompt)
+        self.assertIn("Do not infer private thoughts", prompt)
+
+    def test_load_messages_accepts_json_envelope(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "context.json"
+            path.write_text(json.dumps({"messages": [{"role": "user", "content": "task"}]}))
+            self.assertEqual(load_messages(path)[0]["role"], "user")
+
+    def test_cli_emits_json_report_and_writes_output(self):
+        with tempfile.TemporaryDirectory() as directory:
+            input_path = Path(directory) / "context.json"
+            output_path = Path(directory) / "nested" / "report.json"
+            input_path.write_text(
+                json.dumps(
+                    {
+                        "messages": [
+                            {"role": "user", "content": "Use Python."},
+                            {"role": "user", "content": "Do not use Python."},
+                        ]
+                    }
+                )
+            )
+            stdout = StringIO()
+            with patch(
+                "sys.argv",
+                [
+                    "context-therapist",
+                    "--input",
+                    str(input_path),
+                    "--goal",
+                    "Resolve coding requirement",
+                    "--output",
+                    str(output_path),
+                ],
+            ), redirect_stdout(stdout):
+                main()
+            report = json.loads(stdout.getvalue())
+            self.assertEqual(report["state"], "conflicted")
+            self.assertEqual(json.loads(output_path.read_text())["state"], "conflicted")
 
 
 if __name__ == "__main__":

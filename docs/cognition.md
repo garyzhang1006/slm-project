@@ -13,6 +13,37 @@ The training path pools auxiliary heads at the end of the encoded prompt, before
 
 For Python generation and debugging tasks, evaluation also parses and compiles generated text without executing it. It reports syntax validity, required function-name recall, and a narrow static score. These metrics measure output form, not runtime behavior.
 
+## Context care for long conversations
+
+`cognition_slm.context_therapy` is a separate, deterministic controller for visible message history. It is intended to sit beside another LLM when a conversation becomes long or internally inconsistent. It can identify:
+
+- approximate token pressure using this repository's byte tokenizer;
+- repeated visible turns that can waste context budget;
+- contradictory directives after role-aware normalization;
+- text that tries to discard earlier instructions;
+- assistant success claims without nearby evidence markers;
+- explicit uncertainty that should remain visible during compression.
+
+The controller never receives or emits private chain-of-thought. Its repair prompt tells a downstream model to return a compact handoff with current goal, hard constraints, decisions, open questions, evidence status, and next action. The handoff packet lists every input index, preserves higher-authority and current turns, and labels lower-priority turns for human or model review. Review is a suggestion, not an instruction to delete context.
+
+Example integration:
+
+```python
+from cognition_slm.context_therapy import ContextTherapist
+
+handoff = ContextTherapist().build_handoff(
+    messages,
+    token_budget=8_000,
+    focus="finish parser tests",
+)
+if handoff.assessment.state != "stable":
+    controller_prompt = handoff.assessment.repair_prompt()
+    # Send controller_prompt through a trusted system/developer channel.
+report = handoff.to_dict()
+```
+
+The byte-token estimate is exact for this project's tokenizer, not for an arbitrary provider. A production adapter should measure the target model's own tokenization before deciding that context is safe. The controller also does not prove that a model is conscious, has a private monologue, or has recovered every fact from a compressed history.
+
 ## Measurement protocol
 
 Run the audit first, then train with a separate evaluation file:

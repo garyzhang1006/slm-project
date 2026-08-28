@@ -78,6 +78,21 @@ Resume a checkpoint by setting `--steps` to the target total step count. New che
 
 If PyTorch is unavailable, the audit and data tests still run. Training and model tests fail with an actionable installation message rather than silently using a fake model.
 
+## Context therapist for long histories
+
+The repository also includes a deterministic context-care controller for another language model. It checks visible message history for token pressure, repeated turns, conflicting directives, instruction drift, unsupported success claims, and unresolved uncertainty. It returns a repair prompt plus a handoff packet that marks turns to retain or review.
+
+Run it against the included synthetic fixture:
+
+```bash
+.venv/bin/cognition-slm-context-therapist \
+  --input examples/context_history.json \
+  --token-budget 512 \
+  --goal "Preserve the coding task and verified evidence"
+```
+
+This layer is an observable context controller, not a consciousness probe or hidden-thought reader. `estimated_tokens` uses this project's byte tokenizer, so use a conservative budget when the downstream model uses a different tokenizer. See [`docs/context_therapy.md`](docs/context_therapy.md) for the integration contract.
+
 ## Data boundary
 
 `data/demo.jsonl` and `data/eval.jsonl` contain project-authored synthetic examples marked `CC0-1.0`. The current snapshot has 45 training records and 16 held-out records. No external training corpus is bundled. `scripts/prepare_data.py` converts a local JSONL file into the canonical schema and requires an explicit source and license. Add only data you are allowed to use, and run the audit before training.

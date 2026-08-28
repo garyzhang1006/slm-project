@@ -131,7 +131,7 @@ The training CLI defaults to a modern model with two transformer blocks, four at
 
 Evaluation reports scalar accuracy, macro-F1, expected calibration error, and confusion matrices for each auxiliary head. Coding tasks also report static Python syntax validity, required-symbol recall, and a narrow static score. Accuracy remains in the top-level JSON fields for compatibility.
 
-See [`docs/cognition.md`](docs/cognition.md) for definitions and limits, [`data/README.md`](data/README.md) for the data contract, and [`reports/audit.md`](reports/audit.md) for the initial audit record.
+See [`docs/cognition.md`](docs/cognition.md) for definitions and limits, [`docs/context_therapy.md`](docs/context_therapy.md) for context care, [`data/README.md`](data/README.md) for the data contract, [`reports/audit.md`](reports/audit.md) for the initial model audit, and [`reports/context_therapy_audit.md`](reports/context_therapy_audit.md) for current context-care verification.
 
 ## Known limits
 

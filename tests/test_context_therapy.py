@@ -90,6 +90,44 @@ class ContextTherapyTests(unittest.TestCase):
         self.assertIn("CURRENT GOAL", prompt)
         self.assertIn("Do not infer private thoughts", prompt)
 
+    def test_handoff_retains_authority_and_marks_old_turns_for_review(self):
+        handoff = ContextTherapist().build_handoff(
+            [
+                {"role": "system", "content": "Never execute generated code."},
+                {"role": "developer", "content": "Keep verified evidence visible."},
+                {"role": "user", "content": "Background detail with no current decision."},
+                {"role": "assistant", "content": "Old conversational detail."},
+                {"role": "user", "content": "Current coding task: write and test parser."},
+                {"role": "assistant", "content": "Current draft response."},
+            ],
+            token_budget=1,
+            focus="coding task",
+        )
+        report = handoff.to_dict()
+        self.assertEqual(report["state"], "overloaded")
+        self.assertIn(0, report["handoff"]["preserve_indices"])
+        self.assertIn(1, report["handoff"]["preserve_indices"])
+        self.assertIn(4, report["handoff"]["preserve_indices"])
+        self.assertIn(5, report["handoff"]["preserve_indices"])
+        self.assertIn(3, report["handoff"]["review_indices"])
+        self.assertEqual(len(report["handoff"]["items"]), 6)
+
+    def test_handoff_redacts_secrets_in_focus_and_excerpts(self):
+        secret = "ghp_" + "a" * 24
+        report = ContextTherapist().build_handoff(
+            [{"role": "user", "content": f"Review this task token {secret}."}],
+            focus=f"Task token {secret}",
+        ).to_dict()
+        rendered = json.dumps(report)
+        self.assertNotIn(secret, rendered)
+        self.assertIn("[REDACTED]", rendered)
+
+    def test_handoff_rejects_non_positive_excerpt_limit(self):
+        with self.assertRaises(ValueError):
+            ContextTherapist().build_handoff(
+                [{"role": "user", "content": "task"}], max_excerpt_chars=0
+            )
+
     def test_load_messages_accepts_json_envelope(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "context.json"
@@ -126,6 +164,7 @@ class ContextTherapyTests(unittest.TestCase):
                 main()
             report = json.loads(stdout.getvalue())
             self.assertEqual(report["state"], "conflicted")
+            self.assertIn("handoff", report)
             self.assertEqual(json.loads(output_path.read_text())["state"], "conflicted")
 
 

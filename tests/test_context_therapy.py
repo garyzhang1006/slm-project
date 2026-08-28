@@ -134,6 +134,25 @@ class ContextTherapyTests(unittest.TestCase):
             path.write_text(json.dumps({"messages": [{"role": "user", "content": "task"}]}))
             self.assertEqual(load_messages(path)[0]["role"], "user")
 
+    def test_load_messages_rejects_invalid_json_and_shapes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            invalid_path = Path(directory) / "invalid.json"
+            invalid_path.write_text("not-json")
+            with self.assertRaisesRegex(ValueError, "invalid JSON"):
+                load_messages(invalid_path)
+
+            wrong_shape_path = Path(directory) / "wrong-shape.json"
+            wrong_shape_path.write_text(json.dumps({"messages": {}}))
+            with self.assertRaisesRegex(ValueError, "messages array"):
+                load_messages(wrong_shape_path)
+
+    def test_assessment_rejects_invalid_budget_and_focus(self):
+        messages = [{"role": "user", "content": "task"}]
+        with self.assertRaisesRegex(ValueError, "token_budget must be positive"):
+            ContextTherapist().assess(messages, token_budget=0)
+        with self.assertRaisesRegex(ValueError, "focus must be non-empty"):
+            ContextTherapist().assess(messages, focus=" ")
+
     def test_cli_emits_json_report_and_writes_output(self):
         with tempfile.TemporaryDirectory() as directory:
             input_path = Path(directory) / "context.json"

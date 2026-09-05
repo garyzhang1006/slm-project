@@ -1,6 +1,6 @@
-# slm-project
+# slm project
 
-A decoder-only small language model for coding experiments, with a 2048-byte-token training context and a 50M-class preset.
+A decoder-only small language model for coding experiments, with a 2048-byte-token training context and a 50M-class preset. It studies coding help and observable model behavior.
 
 The project studies behavior, not hidden chain-of-thought. Each training example carries a coding task, an answer, a task type, a confidence bucket, an error category, and a source/license record. The transformer learns next-token prediction while small auxiliary heads predict the task type, error category, and confidence bucket.
 

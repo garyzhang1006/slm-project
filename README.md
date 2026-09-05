@@ -32,7 +32,7 @@ Visit [SLM Studio](http://127.0.0.1:8766). The first launch creates a separate P
 
 Studio loads `artifacts/slm-50m-2048-smoke.pt` once and runs inference locally on CPU. Checkpoint weights are not included in Git; use a checkpoint downloaded from your Kaggle outputs or supply `./launch-studio.command --checkpoint /path/to/model.pt`. An occupied port can be changed with `--port 8767`.
 
-The interface includes starter prompts, task selection, temperature and response-length controls, context budgeting, response copying, and session history. Each prompt is independent; history is kept in page memory and clears on refresh. Prompts stay on your machine. Model text is displayed without execution. Empty or nonsensical responses are expected from the smoke checkpoint.
+The interface includes starter prompts, task selection, temperature and response-length controls, context budgeting, response copying, and session history. Language generation is the first-run task; code starter cards select code tasks explicitly. Each prompt is independent; history is kept in page memory and clears on refresh. Prompts stay on your machine. Model text is displayed without execution.
 
 ## 2048 context and Kaggle
 
@@ -63,6 +63,19 @@ kaggle kernels status YOUR_KAGGLE_USERNAME/slm-2048-verification
 ```
 
 The generated kernel is private and runs without internet. Its synthetic length fixture covers both coding and language task labels; it is a smoke test, not a capability benchmark. `verification.json` records hardware, source hashes, parameter count, and completion evidence. See [Kaggle verification details](docs/kaggle.md).
+
+To build a Studio checkpoint after changing training data, select the quality runner. It trains the 50M preset on Kaggle for 600 steps and probes greeting, capability, and code prompts:
+
+```bash
+python scripts/prepare_kaggle.py \
+  --owner YOUR_KAGGLE_USERNAME \
+  --slug slm-50m-studio-quality \
+  --runner kaggle_quality_run.py \
+  --out /tmp/slm-kaggle-quality
+kaggle kernels push -p /tmp/slm-kaggle-quality --accelerator NvidiaTeslaT4
+```
+
+Download `artifacts/slm-50m-language-quality.pt` from the completed kernel and start Studio with `--checkpoint` pointing to it. The quality runner remains a synthetic smoke experiment; it is intended to remove the random-byte demo behavior, not establish broad language ability.
 
 ## Quick start
 
@@ -141,7 +154,7 @@ This layer is an observable context controller, not a consciousness probe or hid
 
 ## Data boundary
 
-`data/demo.jsonl` and `data/eval.jsonl` contain project-authored synthetic examples marked `CC0-1.0`. The current snapshot has 53 training records and 20 held-out records, including `language_generation` examples for summaries, rewriting, translation, and short-form writing. No external training corpus is bundled. `scripts/prepare_data.py` converts a local JSONL file into the canonical schema and requires an explicit source and license. Add only data you are allowed to use, and run the audit before training.
+`data/demo.jsonl` and `data/eval.jsonl` contain project-authored synthetic examples marked `CC0-1.0`. The current snapshot has 57 training records and 22 held-out records, including `language_generation` examples for greetings, summaries, rewriting, translation, and short-form writing. No external training corpus is bundled. `scripts/prepare_data.py` converts a local JSONL file into the canonical schema and requires an explicit source and license. Add only data you are allowed to use, and run the audit before training.
 
 The project deliberately does not accept fields named `chain_of_thought`, `cot`, `hidden_reasoning`, or `private_thoughts`. A short inspectable explanation can be represented in the answer, but a verbal explanation is not evidence of a model's hidden internal process.
 

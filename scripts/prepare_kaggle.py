@@ -14,13 +14,13 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 
 
-def prepare(output: Path, owner: str, slug: str) -> None:
+def prepare(output: Path, owner: str, slug: str, runner: str) -> None:
     files = [ROOT / name for name in ("pyproject.toml", "README.md", "LICENSE")]
     for folder, pattern in (("src/cognition_slm", "*.py"), ("tests", "*.py"), ("data", "*.json*")):
         files.extend(sorted((ROOT / folder).glob(pattern)))
     for filename in ("index.html", "style.css", "app.js"):
         files.append(ROOT / "src/cognition_slm/web" / filename)
-    files.append(ROOT / "scripts/kaggle_run.py")
+    files.append(ROOT / "scripts" / runner)
     manifest = {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest() for path in files}
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
@@ -39,7 +39,7 @@ def prepare(output: Path, owner: str, slug: str) -> None:
         "with zipfile.ZipFile(io.BytesIO(base64.b64decode(payload))) as archive:\n"
         "    archive.extractall(root)\n"
         "os.chdir(root)\n"
-        "runpy.run_path(str(root / 'scripts/kaggle_run.py'), run_name='__main__')\n"
+        f"runpy.run_path(str(root / 'scripts' / {runner!r}), run_name='__main__')\n"
     )
     (output / "run.py").write_text(script)
     (output / "source-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
@@ -57,5 +57,11 @@ if __name__ == "__main__":
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--owner", required=True)
     parser.add_argument("--slug", default="slm-2048-verification")
+    parser.add_argument(
+        "--runner",
+        choices=("kaggle_run.py", "kaggle_quality_run.py"),
+        default="kaggle_run.py",
+        help="Kaggle entrypoint; quality runner trains a Studio checkpoint.",
+    )
     args = parser.parse_args()
-    prepare(args.out, args.owner, args.slug)
+    prepare(args.out, args.owner, args.slug, args.runner)

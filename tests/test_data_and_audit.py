@@ -28,8 +28,8 @@ class DataAndAuditTests(unittest.TestCase):
     def test_demo_data_loads(self):
         train = load_jsonl(ROOT / "data" / "demo.jsonl")
         evaluation = load_jsonl(ROOT / "data" / "eval.jsonl")
-        self.assertEqual(len(train), 53)
-        self.assertEqual(len(evaluation), 20)
+        self.assertEqual(len(train), 57)
+        self.assertEqual(len(evaluation), 22)
         encoded = encode_examples(train, ByteTokenizer(), block_size=256)
         self.assertTrue(
             all(

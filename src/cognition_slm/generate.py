@@ -32,6 +32,7 @@ def generate_ids(
         raise ValueError("top_k must be non-negative")
     model.eval()
     generated = input_ids
+    finished = torch.zeros((input_ids.size(0), 1), dtype=torch.bool, device=input_ids.device)
     for _ in range(max_new_tokens):
         context = generated[:, -model.config.block_size :]
         attention_mask = torch.ones_like(context)
@@ -50,8 +51,10 @@ def generate_ids(
                 next_logits = next_logits.masked_fill(next_logits < cutoff, float("-inf"))
             probabilities = torch.softmax(next_logits, dim=-1)
             next_token = torch.multinomial(probabilities, num_samples=1)
+        next_token = next_token.masked_fill(finished, tokenizer.eos_id)
+        finished = finished | next_token.eq(tokenizer.eos_id)
         generated = torch.cat([generated, next_token], dim=1)
-        if bool((next_token == tokenizer.eos_id).all()):
+        if bool(finished.all()):
             break
     return generated
 

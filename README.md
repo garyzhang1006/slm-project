@@ -88,7 +88,7 @@ python scripts/prepare_kaggle.py \
 kaggle kernels push -p /tmp/slm-kaggle-500m-quality --accelerator NvidiaTeslaT4
 ```
 
-This 500M run is remote-only. Download its checkpoint only after the kernel report and probe outputs pass; it is substantially larger than the 50M Studio artifact.
+This 500M run is remote-only. Download its checkpoint only after the kernel report and probe outputs pass; it is substantially larger than the 50M Studio artifact. To point Studio at the downloaded weights, run `./launch-studio.command --checkpoint artifacts/slm-500m-language-quality.pt`.
 
 ## Quick start
 

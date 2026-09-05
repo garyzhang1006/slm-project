@@ -1,0 +1,19 @@
+{
+  "kernel": "garyzhang11111/slm-500m-2048-language",
+  "kernel_url": "https://www.kaggle.com/code/garyzhang11111/slm-500m-2048-language",
+  "source_commit": "4ed3ca3093751d2b78c106d883e876c7db9168c1",
+  "torch": "2.10.0+cu128",
+  "gpu": "Tesla T4",
+  "preset": "slm-500m",
+  "parameters": 499524075,
+  "actual_training_sequence_length": 2048,
+  "optimizer_steps": 10,
+  "skipped_optimizer_steps": 0,
+  "resumed_from_step": 8,
+  "final_loss": 3.954845905303955,
+  "regression_suite": "passed",
+  "data_audit": "passed",
+  "generated_smoke_text": "",
+  "elapsed_seconds": 148.79,
+  "purpose": "Pipeline verification only; synthetic smoke data cannot establish coding or language quality."
+}

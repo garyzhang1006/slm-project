@@ -64,7 +64,7 @@ kaggle kernels status YOUR_KAGGLE_USERNAME/slm-2048-verification
 
 The generated kernel is private and runs without internet. Its synthetic length fixture covers both coding and language task labels; it is a smoke test, not a capability benchmark. `verification.json` records hardware, source hashes, parameter count, and completion evidence. See [Kaggle verification details](docs/kaggle.md).
 
-To build a Studio checkpoint after changing training data, select the quality runner. It trains the 50M preset on Kaggle for 600 steps and probes greeting, capability, and code prompts:
+To build a Studio checkpoint after changing training data, select the quality runner. It builds a deterministic project-authored English/Python curriculum, trains the 50M preset on Kaggle for 1,200 steps, and probes greetings, grammar, explanations, code generation, debugging, and algorithm reasoning:
 
 ```bash
 python scripts/prepare_kaggle.py \
@@ -75,7 +75,7 @@ python scripts/prepare_kaggle.py \
 kaggle kernels push -p /tmp/slm-kaggle-quality --accelerator NvidiaTeslaT4
 ```
 
-Download `artifacts/slm-50m-language-quality.pt` from the completed kernel and start Studio with `--checkpoint` pointing to it. The quality runner remains a synthetic smoke experiment; it is intended to remove the random-byte demo behavior, not establish broad language ability.
+Download `artifacts/slm-50m-language-quality.pt` from the completed kernel and start Studio with `--checkpoint` pointing to it. The quality runner remains a synthetic smoke experiment; it is intended to teach narrow English and Python patterns, not establish broad language ability. Downloaded weights stay out of Git.
 
 ## Quick start
 

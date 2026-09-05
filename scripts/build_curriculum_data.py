@@ -76,6 +76,13 @@ WRITING_SCENARIOS = (
     ("a polite request", "Could you send the file when you have a moment? Thank you."),
 )
 
+DIRECT_LANGUAGE = (
+    ("hi", "Hello! What would you like to explore today?"),
+    ("hello", "Hello. I can help with code, explanations, summaries, or translations."),
+    ("What can you help me with?", "I can help write and explain code, summarize text, improve wording, and translate short passages."),
+    ("Thanks for your help.", "You are welcome. I am glad that helped."),
+)
+
 UNARY_SPECS = (
     ("square", "number", "number * number", "returns the square of a number"),
     ("cube", "number", "number * number * number", "returns the cube of a number"),
@@ -160,6 +167,9 @@ def _language_rows(split: str) -> list[dict[str, object]]:
     for scenario_index, (scenario, answer) in enumerate(WRITING_SCENARIOS):
         for wording_index, wording in enumerate(("Write a concise message for {scenario}.", "Create a friendly note about {scenario}.", "Draft two clear sentences for {scenario}.")):
             rows.append(_row(f"{split}-english-writing-{scenario_index}-{wording_index}", wording.format(scenario=scenario), answer, "language_generation"))
+    if split == "train":
+        for direct_index, (prompt, answer) in enumerate(DIRECT_LANGUAGE):
+            rows.append(_row(f"{split}-english-direct-{direct_index}", prompt, answer, "language_generation"))
     return rows
 
 
@@ -185,8 +195,14 @@ def _code_rows(split: str) -> list[dict[str, object]]:
             rows.append(_row(f"{split}-python-debug-{debug_index}-{wording_index}", wording.format(broken=broken), fixed, "code_debugging"))
     for explanation_index, (question, answer) in enumerate(EXPLANATIONS):
         rows.append(_row(f"{split}-python-explanation-{explanation_index}", question, answer, "code_explanation"))
+    algorithm_wordings = (
+        "Describe the core idea behind {name}.",
+        "Explain {name} for a beginner.",
+        "Give a short plain-English explanation of {name}.",
+    )
     for algorithm_index, (name, answer) in enumerate(ALGORITHMS):
-        rows.append(_row(f"{split}-python-algorithm-{algorithm_index}", f"Describe the core idea behind {name}.", answer, "algorithm_reasoning"))
+        for wording_index, wording in enumerate(algorithm_wordings):
+            rows.append(_row(f"{split}-python-algorithm-{algorithm_index}-{wording_index}", wording.format(name=name), answer, "algorithm_reasoning"))
     return rows
 
 

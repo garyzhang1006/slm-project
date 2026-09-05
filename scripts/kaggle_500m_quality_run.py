@@ -79,11 +79,11 @@ def main() -> None:
     command = [
         sys.executable, "-m", "cognition_slm.train",
         "--data", str(train_path), "--eval-data", str(eval_path),
-        "--out", str(checkpoint), "--preset", "slm-500m", "--steps", "600",
+        "--out", str(checkpoint), "--preset", "slm-500m", "--steps", "1200",
         "--batch-size", "1", "--gradient-accumulation-steps", "8",
         "--gradient-checkpointing", "--precision", "fp16", "--device", "cuda",
-        "--warmup-steps", "50", "--save-every", "100", "--eval-every", "150",
-        "--log-every", "50", "--seed", "17",
+        "--warmup-steps", "100", "--save-every", "200", "--eval-every", "300",
+        "--log-every", "100", "--seed", "17",
     ]
     training = subprocess.run(command, check=True, capture_output=True, text=True)
     model, tokenizer = load_checkpoint(checkpoint, torch.device("cuda"))

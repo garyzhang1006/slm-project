@@ -188,10 +188,10 @@ class ContextHandoff:
 
 
 def _safe_excerpt(text: str, limit: int = 120) -> str:
-    excerpt = re.sub(r"\s+", " ", text).strip()[:limit]
+    excerpt = re.sub(r"\s+", " ", text).strip()
     for pattern in _SECRET_PATTERNS:
         excerpt = pattern.sub("[REDACTED]", excerpt)
-    return excerpt
+    return excerpt[:limit]
 
 
 def parse_messages(raw_messages: Iterable[ContextMessage | Mapping[str, Any]]) -> tuple[ContextMessage, ...]:

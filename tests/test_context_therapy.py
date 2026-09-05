@@ -122,6 +122,17 @@ class ContextTherapyTests(unittest.TestCase):
         self.assertNotIn(secret, rendered)
         self.assertIn("[REDACTED]", rendered)
 
+    def test_handoff_redacts_secrets_crossing_excerpt_boundary(self):
+        for secret in ("ghp_" + "a" * 24, "sk-" + "b" * 24, "AKIA" + "C" * 16):
+            with self.subTest(secret_type=secret[:4]):
+                report = ContextTherapist().build_handoff(
+                    [{"role": "user", "content": f"Token {secret}"}],
+                    max_excerpt_chars=16,
+                ).to_dict()
+                self.assertEqual(
+                    report["handoff"]["items"][0]["excerpt"], "Token [REDACTED]"
+                )
+
     def test_handoff_rejects_non_positive_excerpt_limit(self):
         with self.assertRaises(ValueError):
             ContextTherapist().build_handoff(

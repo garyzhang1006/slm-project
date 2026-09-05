@@ -30,7 +30,7 @@ Open `launch-studio.command` in Finder, or run it from this project:
 
 Visit [SLM Studio](http://127.0.0.1:8766). The first launch creates a separate Python 3.11 environment with `uv` if needed; subsequent launches reuse it. Keep the terminal open, and press Control-C to stop. If you prefer manual setup, create `.venv-ui`, install `.[dev]`, and run `PYTHONPATH=src .venv-ui/bin/python -m cognition_slm.server`.
 
-Studio automatically loads `artifacts/slm-50m-language-quality.pt` when that downloaded checkpoint exists, then falls back to `artifacts/slm-50m-2048-smoke.pt`. Checkpoint weights are not included in Git; use a checkpoint downloaded from your Kaggle outputs or supply `./launch-studio.command --checkpoint /path/to/model.pt`. An occupied port can be changed with `--port 8767`.
+Studio defaults to `artifacts/slm-500m-language-quality.pt` and checks that it contains exactly 499,524,075 model parameters. Missing weights produce an error; Studio never silently falls back to a smaller checkpoint. Weights are not included in Git: download the completed Kaggle quality checkpoint into that path before launching. To deliberately use another checkpoint, supply `./launch-studio.command --checkpoint /path/to/model.pt`. An occupied port can be changed with `--port 8767`.
 
 The interface includes starter prompts, task selection, temperature and response-length controls, context budgeting, response copying, and session history. Language generation is the first-run task; code starter cards select code tasks explicitly. Each prompt is independent; history is kept in page memory and clears on refresh. Prompts stay on your machine. Model text is displayed without execution.
 
@@ -38,7 +38,7 @@ The interface includes starter prompts, task selection, temperature and response
 
 New training runs default to 2048 tokens. This tokenizer represents UTF-8 bytes, so 2048 includes prompt markup and special tokens and is much shorter in text than 2048 subword tokens. Existing checkpoints retain their saved context and architecture when resumed.
 
-The `slm-50m` preset uses 12 layers and 512 hidden dimensions. The `slm-500m` preset uses 24 layers, 1,140 hidden dimensions, 10 attention heads, RoPE, RMSNorm, SwiGLU, and tied embeddings, for exactly 499,524,075 parameters with the current six task types. Use `slm-500m` only on a Kaggle GPU with activation checkpointing; it is not a local development preset. A larger model still requires a substantial licensed training corpus before its outputs become useful.
+The `slm-50m` preset uses 12 layers and 512 hidden dimensions. The `slm-500m` preset uses 24 layers, 1,140 hidden dimensions, 10 attention heads, RoPE, RMSNorm, SwiGLU, and tied embeddings, for exactly 499,524,075 parameters with the current six task types. Train `slm-500m` on a Kaggle GPU with activation checkpointing. Studio can load the resulting checkpoint for inference; the existing training checkpoint is about 6 GB because it includes optimizer state, so startup requires substantial free RAM. A larger model still requires a substantial licensed training corpus before its outputs become useful.
 
 Run this inside a Kaggle GPU session with your prepared data:
 
@@ -85,7 +85,11 @@ For a remote 500M quality run, use the dedicated Kaggle runner. It keeps the 2,0
 
 The launcher accepts optional kernel slug and output directory arguments. It only packages source and submits Kaggle work; it never trains locally. The equivalent underlying commands are `scripts/prepare_kaggle.py` followed by `kaggle kernels push`.
 
-This 500M run is remote-only. Download its checkpoint only after the kernel report and probe outputs pass; it is substantially larger than the 50M Studio artifact. To point Studio at the downloaded weights, run `./launch-studio.command --checkpoint artifacts/slm-500m-language-quality.pt`.
+This training run is remote-only. Its report records probe outputs; it does not automatically grade their correctness. Download the checkpoint to `artifacts/slm-500m-language-quality.pt`, then run `./launch-studio.command` to load it with the default parameter-count check.
+
+`scripts/kaggle_studio_verify.py` verifies the default server on Kaggle using an attached completed quality kernel. Package it with `--runner kaggle_studio_verify.py`, add the completed kernel's owner/slug to `kernel_sources` in the generated metadata, and submit. It runs the regression suite, launches Studio, checks its actual parameter count and context, and sends an HTTP generation request without retraining.
+
+Historical quality reports used overlapping training/evaluation prompts and must not be interpreted as held-out performance. The curriculum generator now holds out prompt wording, but shares concepts and answers across splits; this measures narrow wording transfer. Existing weights and reports are unchanged. In the previous 500M probes, the loop explanation was incorrect and the binary-search answer was truncated.
 
 ## Quick start
 

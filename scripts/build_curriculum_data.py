@@ -1,4 +1,8 @@
-"""Build a deterministic English and Python curriculum for remote training."""
+"""Build a deterministic curriculum with evaluation prompts held out by wording.
+
+The splits share underlying concepts and answers, so evaluation measures transfer
+to different wording rather than acquisition of unseen programming skills.
+"""
 
 from __future__ import annotations
 
@@ -140,6 +144,17 @@ EXPLANATIONS = (
     ("What is recursion?", "Recursion is a function solving a problem by calling itself on a smaller case until a base case."),
 )
 
+EVAL_EXPLANATION_QUESTIONS = (
+    "How does set membership compare with searching a list?",
+    "Explain how a for statement processes an iterable.",
+    "What happens when a Python function reaches return?",
+    "How can a test protect existing behavior during an edit?",
+    "How do keys identify values in a dictionary?",
+    "Why avoid catching every exception in one handler?",
+    "Describe the output and side-effect properties of a pure function.",
+    "Explain how recursive calls eventually stop.",
+)
+
 ALGORITHMS = (
     ("binary search", "On a sorted list, compare the target with the midpoint and discard the half that cannot contain it."),
     ("a stack", "A stack removes the most recently added item first, which makes it useful for nested delimiters."),
@@ -158,14 +173,21 @@ def _language_rows(split: str) -> list[dict[str, object]]:
     for name_index, name in enumerate(names):
         for wording_index, wording in enumerate(GREETING_WORDINGS):
             rows.append(_row(f"{split}-english-greeting-{name_index}-{wording_index}", wording.format(name=name), f"Hello, {name}! What would you like to explore today?", "language_generation"))
+    concept_wordings = ("Explain {concept} in plain English.", "Give a short definition of {concept}.", "What is {concept}?", "Describe {concept} for a beginner.")
+    grammar_wordings = ("Correct the grammar: {text}", "Rewrite this sentence correctly: {text}", "Improve the grammar in: {text}")
+    writing_wordings = ("Write a concise message for {scenario}.", "Create a friendly note about {scenario}.", "Draft two clear sentences for {scenario}.")
+    if split == "eval":
+        concept_wordings = ("In one sentence, describe the purpose of {concept}.",)
+        grammar_wordings = ("Return a grammatically correct version of this sentence: {text}",)
+        writing_wordings = ("Compose a brief note suitable for {scenario}.",)
     for concept_index, (concept, answer) in enumerate(CONCEPTS):
-        for wording_index, wording in enumerate(("Explain {concept} in plain English.", "Give a short definition of {concept}.", "What is {concept}?", "Describe {concept} for a beginner.")):
+        for wording_index, wording in enumerate(concept_wordings):
             rows.append(_row(f"{split}-english-concept-{concept_index}-{wording_index}", wording.format(concept=concept), answer, "language_generation"))
     for fix_index, (incorrect, corrected) in enumerate(GRAMMAR_FIXES):
-        for wording_index, wording in enumerate(("Correct the grammar: {text}", "Rewrite this sentence correctly: {text}", "Improve the grammar in: {text}")):
+        for wording_index, wording in enumerate(grammar_wordings):
             rows.append(_row(f"{split}-english-grammar-{fix_index}-{wording_index}", wording.format(text=incorrect), corrected, "language_generation"))
     for scenario_index, (scenario, answer) in enumerate(WRITING_SCENARIOS):
-        for wording_index, wording in enumerate(("Write a concise message for {scenario}.", "Create a friendly note about {scenario}.", "Draft two clear sentences for {scenario}.")):
+        for wording_index, wording in enumerate(writing_wordings):
             rows.append(_row(f"{split}-english-writing-{scenario_index}-{wording_index}", wording.format(scenario=scenario), answer, "language_generation"))
     if split == "train":
         for direct_index, (prompt, answer) in enumerate(DIRECT_LANGUAGE):
@@ -176,30 +198,43 @@ def _language_rows(split: str) -> list[dict[str, object]]:
 def _code_rows(split: str) -> list[dict[str, object]]:
     rows: list[dict[str, object]] = []
     unary_wordings = ("Write a Python function named {name} that {description}.", "Implement {name} in Python; it should {description}.", "Give Python code for a function that {description}.", "Create a small Python helper that {description}.")
+    if split == "eval":
+        unary_wordings = ("Provide the implementation of {name}: a Python function that {description}.",)
     for spec_index, (name, argument, expression, description) in enumerate(UNARY_SPECS):
         answer = f"def {name}({argument}):\n    return {expression}"
         for wording_index, wording in enumerate(unary_wordings):
             rows.append(_row(f"{split}-python-unary-{spec_index}-{wording_index}", wording.format(name=name, description=description), answer, "code_generation"))
-    binary_wordings = ("Write {name}(left, right) in Python to {description}.", "Implement a Python function called {name} that {description}.", "Generate Python code for {name}; it should {description}.")
+    binary_wordings = ("Write {name}({left}, {right}) in Python to {description}.", "Implement a Python function called {name} that {description}.", "Generate Python code for {name}; it should {description}.")
+    if split == "eval":
+        binary_wordings = ("Supply Python code defining {name}({left}, {right}), which {description}.",)
     for spec_index, (name, left, right, expression, description) in enumerate(BINARY_SPECS):
         answer = f"def {name}({left}, {right}):\n    return {expression}"
         for wording_index, wording in enumerate(binary_wordings):
-            rows.append(_row(f"{split}-python-binary-{spec_index}-{wording_index}", wording.format(name=name, description=description), answer, "code_generation"))
+            rows.append(_row(f"{split}-python-binary-{spec_index}-{wording_index}", wording.format(name=name, left=left, right=right, description=description), answer, "code_generation"))
     list_wordings = ("Write a Python function named {name} that {description}.", "Implement {name}(values) so it {description}.", "Create Python code that {description}.")
+    if split == "eval":
+        list_wordings = ("Define a Python helper called {name} which {description}.",)
     for spec_index, (name, argument, body, description) in enumerate(LIST_SPECS):
         answer = f"def {name}({argument}):\n    {body}"
         for wording_index, wording in enumerate(list_wordings):
             rows.append(_row(f"{split}-python-list-{spec_index}-{wording_index}", wording.format(name=name, description=description), answer, "code_generation"))
+    debug_wordings = ("Fix this Python function: {broken}", "Correct the bug in this Python code: {broken}", "Repair this Python snippet: {broken}")
+    if split == "eval":
+        debug_wordings = ("Show a corrected implementation for this Python function: {broken}",)
     for debug_index, (broken, fixed) in enumerate(DEBUG_SPECS):
-        for wording_index, wording in enumerate(("Fix this Python function: {broken}", "Correct the bug in this Python code: {broken}", "Repair this Python snippet: {broken}")):
+        for wording_index, wording in enumerate(debug_wordings):
             rows.append(_row(f"{split}-python-debug-{debug_index}-{wording_index}", wording.format(broken=broken), fixed, "code_debugging"))
     for explanation_index, (question, answer) in enumerate(EXPLANATIONS):
+        if split == "eval":
+            question = EVAL_EXPLANATION_QUESTIONS[explanation_index]
         rows.append(_row(f"{split}-python-explanation-{explanation_index}", question, answer, "code_explanation"))
     algorithm_wordings = (
         "Describe the core idea behind {name}.",
         "Explain {name} for a beginner.",
         "Give a short plain-English explanation of {name}.",
     )
+    if split == "eval":
+        algorithm_wordings = ("How does {name} work? Give its main principle.",)
     for algorithm_index, (name, answer) in enumerate(ALGORITHMS):
         for wording_index, wording in enumerate(algorithm_wordings):
             rows.append(_row(f"{split}-python-algorithm-{algorithm_index}-{wording_index}", wording.format(name=name), answer, "algorithm_reasoning"))

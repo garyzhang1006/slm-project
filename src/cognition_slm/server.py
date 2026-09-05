@@ -14,14 +14,13 @@ from urllib.parse import urlsplit
 from .config import TASK_TYPES
 from .data import format_prompt, validate_record
 
-QUALITY_CHECKPOINT = Path("artifacts/slm-50m-language-quality.pt")
-SMOKE_CHECKPOINT = Path("artifacts/slm-50m-2048-smoke.pt")
-DEFAULT_CHECKPOINT = QUALITY_CHECKPOINT
+DEFAULT_CHECKPOINT = Path("artifacts/slm-500m-language-quality.pt")
+DEFAULT_PARAMETERS = 499_524_075
 
 
 def default_checkpoint() -> Path:
-    """Prefer downloaded quality weights while keeping fresh clones launchable."""
-    return QUALITY_CHECKPOINT if QUALITY_CHECKPOINT.is_file() else SMOKE_CHECKPOINT
+    """Select 500M explicitly; missing weights must never select a smaller model."""
+    return DEFAULT_CHECKPOINT
 
 
 WEB_ROOT = Path(__file__).with_name("web")
@@ -36,8 +35,9 @@ STATIC_FILES = {
 class ModelRuntime:
     """Keep one model in memory and serialize inference requests."""
 
-    def __init__(self, checkpoint: Path, device: str = "cpu") -> None:
+    def __init__(self, checkpoint: Path, device: str = "cpu", expected_parameters: int | None = None) -> None:
         self.checkpoint = checkpoint
+        self.expected_parameters = expected_parameters
         self.device = device
         self.state = "loading"
         self.error = None
@@ -64,18 +64,28 @@ class ModelRuntime:
             if device.type == "cpu":
                 torch.set_num_threads(min(4, torch.get_num_threads()))
             payload, config = load_checkpoint_payload(torch, self.checkpoint)
+            # Training checkpoints include Adam state unused by Studio.
+            weights = payload["model_state_dict"]
+            metadata = payload.get("metadata", {})
+            del payload
             model = CognitionSLM(config)
-            model.load_state_dict(payload["model_state_dict"])
+            parameters = sum(parameter.numel() for parameter in model.parameters())
+            if self.expected_parameters is not None and parameters != self.expected_parameters:
+                raise ValueError(
+                    f"Expected {self.expected_parameters:,} parameters; checkpoint has {parameters:,}. "
+                    "Download the 500M checkpoint or select another model with --checkpoint PATH."
+                )
+            model.load_state_dict(weights)
+            del weights
             model.to(device).eval()
             self.model = model
             self.tokenizer = ByteTokenizer(vocab_size=config.vocab_size)
             self.metadata.update(
-                parameters=sum(parameter.numel() for parameter in model.parameters()),
+                parameters=parameters,
                 context_window=config.block_size,
                 device=str(device),
                 architecture=config.architecture,
             )
-            metadata = payload.get("metadata", {})
             step = metadata.get("step") if isinstance(metadata, dict) else None
             if isinstance(step, int):
                 self.metadata["training_steps"] = step
@@ -148,7 +158,7 @@ def validate_request(request: dict) -> tuple[dict, object]:
         raise ValueError("temperature must be a finite number between 0 and 2.")
     record = validate_record({
         "id": "workbench", "prompt": request.get("prompt"), "answer": "placeholder",
-        "task_type": request.get("task_type", "code_generation"), "confidence": 0.5,
+        "task_type": request.get("task_type", "language_generation"), "confidence": 0.5,
         "error_category": "none", "source": "runtime", "license": "runtime",
     })
     return options, record
@@ -262,7 +272,10 @@ def main() -> None:
     args = parser.parse_args()
     if not 1 <= args.port <= 65535:
         parser.error("--port must be between 1 and 65535")
-    runtime = ModelRuntime(args.checkpoint or default_checkpoint(), args.device)
+    checkpoint = args.checkpoint or default_checkpoint()
+    if not checkpoint.is_file():
+        parser.error(f"Checkpoint not found: {checkpoint}. Download the Kaggle weights to this path or use --checkpoint PATH.")
+    runtime = ModelRuntime(checkpoint, args.device, expected_parameters=DEFAULT_PARAMETERS if args.checkpoint is None else None)
     try:
         server = WorkbenchServer(("127.0.0.1", args.port), runtime)
     except OSError as exc:

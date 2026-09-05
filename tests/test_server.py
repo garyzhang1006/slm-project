@@ -6,10 +6,38 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from cognition_slm.server import ModelRuntime, WorkbenchServer, validate_request
+from cognition_slm.server import DEFAULT_PARAMETERS, ModelRuntime, WorkbenchServer, default_checkpoint, main, validate_request
 
 
 class RequestValidationTests(unittest.TestCase):
+    def test_default_is_500m_even_without_weights(self):
+        with patch.object(Path, "is_file", return_value=False):
+            self.assertEqual(default_checkpoint(), Path("artifacts/slm-500m-language-quality.pt"))
+
+    def test_default_cli_requires_500m(self):
+        with patch("sys.argv", ["studio"]), patch.object(Path, "is_file", return_value=True), \
+             patch("cognition_slm.server.ModelRuntime") as runtime, \
+             patch("cognition_slm.server.WorkbenchServer") as server, \
+             patch("cognition_slm.server.threading.Thread"):
+            server.return_value.serve_forever.side_effect = KeyboardInterrupt
+            main()
+            runtime.assert_called_once_with(default_checkpoint(), "cpu", expected_parameters=DEFAULT_PARAMETERS)
+
+    def test_wrong_size_checkpoint_rejected(self):
+        import torch
+        import tempfile
+        from cognition_slm.config import ModelConfig
+        from cognition_slm.model import CognitionSLM
+
+        config = ModelConfig(n_layer=1, n_head=2, n_embd=16, block_size=32)
+        with tempfile.TemporaryDirectory() as directory:
+            checkpoint = Path(directory) / "small.pt"
+            torch.save({"model_config": config.to_dict(), "model_state_dict": CognitionSLM(config).state_dict()}, checkpoint)
+            runtime = ModelRuntime(checkpoint, expected_parameters=DEFAULT_PARAMETERS)
+            runtime.load()
+            self.assertEqual(runtime.state, "error")
+            self.assertIn("Expected 499,524,075 parameters", runtime.error)
+
     def test_invalid_sampling_options(self):
         for key, value in (
             ("temperature", float("nan")), ("temperature", float("inf")),

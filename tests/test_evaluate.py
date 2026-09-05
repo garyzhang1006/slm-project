@@ -9,6 +9,12 @@ except ImportError:
 
 @unittest.skipUnless(torch is not None, "PyTorch not installed")
 class EvaluationTests(unittest.TestCase):
+    def test_exact_match_preserves_python_structure(self):
+        from cognition_slm.evaluate import _normalize
+
+        self.assertNotEqual(_normalize("def f():\n    return 1"), _normalize("def f():\nreturn 1"))
+        self.assertEqual(_normalize("```python\ndef f():\n    return 1\n```"), "def f():\n    return 1")
+
     def test_classification_metrics_report_confusion_and_calibration(self):
         from cognition_slm.evaluate import classification_metrics
 

@@ -15,7 +15,8 @@ from .generate import generate_text, load_checkpoint
 
 def _normalize(text: str) -> str:
     text = re.sub(r"```(?:python)?", "", text, flags=re.IGNORECASE)
-    return " ".join(text.strip().split())
+    # Indentation and line breaks are significant in Python answers.
+    return text.strip()
 
 
 def classification_metrics(

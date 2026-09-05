@@ -2,7 +2,7 @@
 
 Use `scripts/prepare_kaggle.py` to bundle the current working source. No GitHub push is needed. The generated private kernel contains the package, tests, committed JSON data, and a source hash manifest. `scripts/kaggle_run.py` refuses to train outside Kaggle or without working CUDA.
 
-The verification run checks the regression suite and existing data audit before running ten synthetic training iterations, including resume after iteration eight, with the `slm-50m` preset at actual sequence length 2048. It uses FP16, microbatch size one, accumulation two, and activation checkpointing. The checkpoint and `verification.json` become Kaggle outputs. These iterations establish execution and recovery, not trained coding ability.
+The verification run checks the regression suite and existing data audit before running ten synthetic training iterations, including resume after iteration eight, with the `slm-500m` preset at actual sequence length 2048. It uses FP16, microbatch size one, accumulation two, and activation checkpointing. Alternating length fixtures exercise coding and `language_generation` task labels. The checkpoint and `verification.json` become Kaggle outputs. These iterations establish execution and recovery, not trained coding or language ability.
 
 The source package uses the runtime's installed PyTorch and NumPy; it does not install dependencies or need internet. PyTorch 2.3 or later is required. See the [PyTorch mixed-precision API](https://docs.pytorch.org/docs/2.3/amp.html) and [official Kaggle kernel commands](https://github.com/Kaggle/kaggle-cli/blob/main/docs/kernels.md).
 

@@ -1,8 +1,8 @@
 # Observable cognition, not hidden thought
 
-This project uses “cognition” as shorthand for measurable behavior around coding tasks:
+This project uses “cognition” as shorthand for measurable behavior around coding and language tasks:
 
-- task type: generation, debugging, explanation, algorithm reasoning, or review;
+- task type: code generation, debugging, explanation, algorithm reasoning, review, or language generation;
 - error category: none, syntax, logic, hallucination, incomplete, or unsafe;
 - confidence bucket: low, medium, or high based on an annotation in `[0, 1]`;
 - held-out answer behavior: exact-match generation in the tiny demo.

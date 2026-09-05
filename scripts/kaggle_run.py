@@ -1,4 +1,4 @@
-"""Run the regression suite and a full-length 50M GPU smoke train on Kaggle."""
+"""Run the regression suite and a full-length 500M GPU smoke train on Kaggle."""
 
 from __future__ import annotations
 
@@ -38,6 +38,7 @@ def main() -> None:
     report = {
         "torch": torch.__version__, "gpu": torch.cuda.get_device_name(0),
         "source_manifest": manifest,
+        "preset": "slm-500m",
         "purpose": "pipeline verification only; synthetic smoke data cannot establish coding quality",
     }
     print(json.dumps({key: value for key, value in report.items() if key != "source_manifest"}), flush=True)
@@ -50,11 +51,14 @@ def main() -> None:
     long_data.parent.mkdir(exist_ok=True)
     records = []
     for index in range(8):
+        language_fixture = index % 2 == 1
         record = validate_record({
             "id": f"long-smoke-{index}",
-            "prompt": "Read this module and implement identity.\n" + "# Project-authored test fixture.\n" * 51,
-            "answer": "def identity(value):\n    return value\n" + "# Synthetic length coverage only.\n" * 18,
-            "task_type": "code_generation", "confidence": 0.5,
+            "prompt": ("Summarize this note in one sentence.\n" if language_fixture else "Read this module and implement identity.\n")
+                      + "# Project-authored test fixture.\n" * 51,
+            "answer": ("Small experiments turn observations into useful next steps.\n" if language_fixture else "def identity(value):\n    return value\n")
+                     + "# Synthetic length coverage only.\n" * 18,
+            "task_type": "language_generation" if language_fixture else "code_generation", "confidence": 0.5,
             "error_category": "none", "source": "project-authored length smoke fixture",
             "license": "CC0-1.0",
         })
@@ -63,14 +67,15 @@ def main() -> None:
     encoded = encode_examples(load_jsonl(long_data), ByteTokenizer(), 2048)
     assert all(len(item["input_ids"]) == 2048 for item in encoded)
     report["actual_training_sequence_length"] = 2048
-    config = ModelConfig(**MODEL_PRESETS["slm-50m"])
+    config = ModelConfig(**MODEL_PRESETS["slm-500m"])
     with torch.device("meta"):
         model = CognitionSLM(config)
     report["parameters"] = sum(parameter.numel() for parameter in model.parameters())
+    assert report["parameters"] == 499_524_075, report["parameters"]
     del model
-    checkpoint = root / "artifacts/slm-50m-2048-smoke.pt"
+    checkpoint = root / "artifacts/slm-500m-2048-smoke.pt"
     command = [sys.executable, "-m", "cognition_slm.train", "--data", str(long_data),
-               "--out", str(checkpoint), "--preset", "slm-50m", "--steps", "8",
+               "--out", str(checkpoint), "--preset", "slm-500m", "--steps", "8",
                "--batch-size", "1", "--gradient-accumulation-steps", "2",
                "--gradient-checkpointing", "--precision", "fp16", "--device", "cuda",
                "--warmup-steps", "2", "--save-every", "4", "--log-every", "1"]

@@ -6,12 +6,17 @@ from dataclasses import asdict, dataclass
 from typing import Any
 
 
-TASK_TYPES = (
+LEGACY_TASK_TYPES = (
     "code_generation",
     "code_debugging",
     "code_explanation",
     "algorithm_reasoning",
     "metacognitive_review",
+)
+
+TASK_TYPES = (
+    *LEGACY_TASK_TYPES,
+    "language_generation",
 )
 
 ERROR_CATEGORIES = (
@@ -28,6 +33,8 @@ ARCHITECTURES = ("legacy", "modern")
 MODEL_PRESETS = {
     "demo": dict(block_size=2048, n_layer=2, n_head=4, n_embd=128, architecture="modern"),
     "slm-50m": dict(block_size=2048, n_layer=12, n_head=8, n_embd=512, architecture="modern"),
+    # 24 x 1,140 x 10 keeps 2,048-byte context and yields 499,524,075 parameters.
+    "slm-500m": dict(block_size=2048, n_layer=24, n_head=10, n_embd=1140, architecture="modern"),
 }
 
 
@@ -73,7 +80,8 @@ class ModelConfig:
         # Historical checkpoints may omit these fields; never reinterpret their weights.
         values.setdefault("architecture", "legacy")
         values.setdefault("block_size", 256)
-        values["task_types"] = tuple(values.get("task_types", TASK_TYPES))
+        # Checkpoints created before language_generation used five task classes.
+        values["task_types"] = tuple(values.get("task_types", LEGACY_TASK_TYPES))
         values["error_categories"] = tuple(values.get("error_categories", ERROR_CATEGORIES))
         config = cls(**values)
         config.validate()

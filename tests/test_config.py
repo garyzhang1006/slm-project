@@ -15,3 +15,9 @@ class ConfigTests(unittest.TestCase):
         config = ModelConfig.from_dict({"n_layer": 1, "n_head": 2, "n_embd": 16})
         self.assertEqual(config.architecture, "legacy")
         self.assertEqual(config.block_size, 256)
+        self.assertEqual(len(config.task_types), 5)
+
+    def test_500m_preset_has_expected_shape(self):
+        config = ModelConfig(**MODEL_PRESETS["slm-500m"])
+        self.assertEqual((config.n_layer, config.n_embd, config.n_head), (24, 1140, 10))
+        self.assertEqual(len(config.task_types), 6)

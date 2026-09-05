@@ -18,6 +18,8 @@ def prepare(output: Path, owner: str, slug: str) -> None:
     files = [ROOT / name for name in ("pyproject.toml", "README.md", "LICENSE")]
     for folder, pattern in (("src/cognition_slm", "*.py"), ("tests", "*.py"), ("data", "*.json*")):
         files.extend(sorted((ROOT / folder).glob(pattern)))
+    for filename in ("index.html", "style.css", "app.js"):
+        files.append(ROOT / "src/cognition_slm/web" / filename)
     files.append(ROOT / "scripts/kaggle_run.py")
     manifest = {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest() for path in files}
     buffer = io.BytesIO()

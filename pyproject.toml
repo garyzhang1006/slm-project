@@ -22,6 +22,10 @@ cognition-slm-evaluate = "cognition_slm.evaluate:main"
 cognition-slm-audit = "cognition_slm.audit:main"
 cognition-slm-benchmark = "cognition_slm.benchmark:main"
 cognition-slm-context-therapist = "cognition_slm.context_therapy:main"
+cognition-slm-studio = "cognition_slm.server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+cognition_slm = ["web/*.html", "web/*.css", "web/*.js"]

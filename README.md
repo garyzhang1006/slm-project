@@ -20,6 +20,20 @@ The project studies behavior, not hidden chain-of-thought. Each training example
 
 This is a mini project. The demo corpus is intentionally too small to produce a useful coding assistant. It proves the pipeline shape, not model quality.
 
+## Local Studio
+
+Open `launch-studio.command` in Finder, or run it from this project:
+
+```bash
+./launch-studio.command
+```
+
+Visit [SLM Studio](http://127.0.0.1:8766). The first launch creates a separate Python 3.11 environment with `uv` if needed; subsequent launches reuse it. Keep the terminal open, and press Control-C to stop. If you prefer manual setup, create `.venv-ui`, install `.[dev]`, and run `PYTHONPATH=src .venv-ui/bin/python -m cognition_slm.server`.
+
+Studio loads `artifacts/slm-50m-2048-smoke.pt` once and runs inference locally on CPU. Checkpoint weights are not included in Git; use a checkpoint downloaded from your Kaggle outputs or supply `./launch-studio.command --checkpoint /path/to/model.pt`. An occupied port can be changed with `--port 8767`.
+
+The interface includes starter prompts, task selection, temperature and response-length controls, context budgeting, response copying, and session history. Each prompt is independent; history is kept in page memory and clears on refresh. Prompts stay on your machine. Model text is displayed without execution. Empty or nonsensical responses are expected from the smoke checkpoint.
+
 ## 2048 context and Kaggle
 
 New training runs default to 2048 tokens. This tokenizer represents UTF-8 bytes, so 2048 includes prompt markup and special tokens and is much shorter in text than 2048 subword tokens. Existing checkpoints retain their saved context and architecture when resumed.

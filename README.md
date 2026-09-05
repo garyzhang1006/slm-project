@@ -80,13 +80,10 @@ Download `artifacts/slm-50m-language-quality.pt` from the completed kernel and s
 For a remote 500M quality run, use the dedicated Kaggle runner. It keeps the 2,048-token context, uses activation checkpointing with an effective batch size of eight, and writes `artifacts/slm-500m-language-quality.pt` plus `quality_verification_500m.json`:
 
 ```bash
-python scripts/prepare_kaggle.py \
-  --owner YOUR_KAGGLE_USERNAME \
-  --slug slm-500m-english-code-quality \
-  --runner kaggle_500m_quality_run.py \
-  --out /tmp/slm-kaggle-500m-quality
-kaggle kernels push -p /tmp/slm-kaggle-500m-quality --accelerator NvidiaTeslaT4
+./scripts/launch_500m_kaggle.sh YOUR_KAGGLE_USERNAME
 ```
+
+The launcher accepts optional kernel slug and output directory arguments. It only packages source and submits Kaggle work; it never trains locally. The equivalent underlying commands are `scripts/prepare_kaggle.py` followed by `kaggle kernels push`.
 
 This 500M run is remote-only. Download its checkpoint only after the kernel report and probe outputs pass; it is substantially larger than the 50M Studio artifact. To point Studio at the downloaded weights, run `./launch-studio.command --checkpoint artifacts/slm-500m-language-quality.pt`.
 

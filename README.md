@@ -77,6 +77,19 @@ kaggle kernels push -p /tmp/slm-kaggle-quality --accelerator NvidiaTeslaT4
 
 Download `artifacts/slm-50m-language-quality.pt` from the completed kernel and start Studio with `--checkpoint` pointing to it. The quality runner remains a synthetic smoke experiment; it is intended to teach narrow English and Python patterns, not establish broad language ability. Downloaded weights stay out of Git.
 
+For a remote 500M quality run, use the dedicated Kaggle runner. It keeps the 2,048-token context, uses activation checkpointing with an effective batch size of eight, and writes `artifacts/slm-500m-language-quality.pt` plus `quality_verification_500m.json`:
+
+```bash
+python scripts/prepare_kaggle.py \
+  --owner YOUR_KAGGLE_USERNAME \
+  --slug slm-500m-english-code-quality \
+  --runner kaggle_500m_quality_run.py \
+  --out /tmp/slm-kaggle-500m-quality
+kaggle kernels push -p /tmp/slm-kaggle-500m-quality --accelerator NvidiaTeslaT4
+```
+
+This 500M run is remote-only. Download its checkpoint only after the kernel report and probe outputs pass; it is substantially larger than the 50M Studio artifact.
+
 ## Quick start
 
 ```bash

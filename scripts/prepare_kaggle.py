@@ -21,7 +21,7 @@ def prepare(output: Path, owner: str, slug: str, runner: str) -> None:
     for filename in ("index.html", "style.css", "app.js"):
         files.append(ROOT / "src/cognition_slm/web" / filename)
     files.append(ROOT / "scripts" / runner)
-    if runner == "kaggle_quality_run.py":
+    if runner in ("kaggle_quality_run.py", "kaggle_500m_quality_run.py"):
         files.append(ROOT / "scripts" / "build_curriculum_data.py")
     manifest = {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest() for path in files}
     buffer = io.BytesIO()
@@ -61,7 +61,7 @@ if __name__ == "__main__":
     parser.add_argument("--slug", default="slm-2048-verification")
     parser.add_argument(
         "--runner",
-        choices=("kaggle_run.py", "kaggle_quality_run.py"),
+        choices=("kaggle_run.py", "kaggle_quality_run.py", "kaggle_500m_quality_run.py"),
         default="kaggle_run.py",
         help="Kaggle entrypoint; quality runner trains a Studio checkpoint.",
     )

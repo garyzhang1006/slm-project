@@ -10,6 +10,8 @@ The quality runner result is recorded in [`reports/slm-50m-language-quality-veri
 
 The dedicated `kaggle_500m_quality_run.py` uses the same combined curriculum with the `slm-500m` preset, 2,048-token context, FP16, activation checkpointing, and effective batch size eight. It records `quality_verification_500m.json` and checks the exact 499,524,075-parameter count before probing generation. The 500M run is remote-only and may take substantially longer than the 50M run.
 
+The completed 1,200-step result is recorded in [`reports/slm-500m-language-quality-verification.json`](../reports/slm-500m-language-quality-verification.json). Its probes returned the expected greeting, grammar correction, code functions, debugging fix, code explanation, and capability response. Algorithm output is concise and may end at the configured generation limit.
+
 The source package uses the runtime's installed PyTorch and NumPy; it does not install dependencies or need internet. PyTorch 2.3 or later is required. See the [PyTorch mixed-precision API](https://docs.pytorch.org/docs/2.3/amp.html) and [official Kaggle kernel commands](https://github.com/Kaggle/kaggle-cli/blob/main/docs/kernels.md).
 
 For real training, replace the synthetic fixture with licensed canonical JSONL records and a disjoint evaluation split. Run the existing audit first. Include examples that exercise the intended context length; increasing `block_size` alone cannot teach long-range dependencies. Inspect `truncated_records` and `max_tokens` in the training report.

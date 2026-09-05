@@ -1,0 +1,61 @@
+{
+  "kernel_purpose": "500M Studio quality checkpoint; project-authored synthetic English and Python curriculum",
+  "preset": "slm-500m",
+  "context_window": 2048,
+  "parameters": 499524075,
+  "torch": "2.10.0+cu128",
+  "gpu": "Tesla T4",
+  "checkpoint": "artifacts/slm-500m-language-quality.pt",
+  "curriculum": {
+    "base_train_records": 57,
+    "base_eval_records": 22,
+    "generated_train_records": 316,
+    "generated_eval_records": 280,
+    "train_records": 373,
+    "eval_records": 302,
+    "source": "project-authored base data plus generated curriculum",
+    "license": "CC0-1.0"
+  },
+  "training": {
+    "records": 373,
+    "steps": 1200,
+    "final_loss": 0.0006394443280441919,
+    "checkpoint": "/kaggle/working/slm-project/artifacts/slm-500m-language-quality.pt",
+    "device": "cuda",
+    "resumed_from_step": 0,
+    "validation": {
+      "records": 302,
+      "loss": 0.44005384491087046,
+      "lm_loss": 0.41422997866864725,
+      "supervised_tokens": 18348,
+      "task_accuracy": 1.0,
+      "error_accuracy": 0.9867549668874173,
+      "confidence_bucket_accuracy": 0.9933774834437086,
+      "step": 1200
+    },
+    "parameter_count": 499524075,
+    "effective_batch_size": 8,
+    "optimizer_steps": 1200,
+    "skipped_optimizer_steps": 0,
+    "max_tokens": 362,
+    "block_size": 2048,
+    "precision": "fp16",
+    "truncated_records": 0,
+    "status": "trained"
+  },
+  "probes": {
+    "hi": "Hello! What would you like to explore today?",
+    "grammar": "She walks to school.",
+    "concept": "A model checkpoint is a saved copy of learned weights and training state.",
+    "code_square": "def square(number):\n    return number * number",
+    "code_dedupe": "def dedupe(values):\n    return list(dict.fromkeys(values))",
+    "code_debugging": "def add(left, right):\n    return left + right",
+    "code_explanation": "A set uses hashing, so membership is usually constant time instead of scanning every list item.",
+    "algorithm": "On a sorted list, compare the target with the midpoint and discard the half that cannot contain",
+    "capabilities": "I can help write and explain code, summarize text, improve wording, and translate short passages"
+  },
+  "elapsed_seconds": 2325.82,
+  "source_commit": "17964dcc481915d3d3281ccd56dd0d2fc4f8a71a",
+  "kernel": "garyzhang11111/slm-500m-english-code-quality-v2",
+  "kernel_url": "https://www.kaggle.com/code/garyzhang11111/slm-500m-english-code-quality-v2"
+}

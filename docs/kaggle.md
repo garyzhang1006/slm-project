@@ -6,6 +6,8 @@ The verification run checks the regression suite and existing data audit before 
 
 The latest completed run is recorded in [`reports/slm-500m-2048-language-verification.json`](../reports/slm-500m-2048-language-verification.json). It reached 499,524,075 parameters on a Tesla T4 with ten optimizer steps and zero skipped updates.
 
+The quality runner result is recorded in [`reports/slm-50m-language-quality-verification.json`](../reports/slm-50m-language-quality-verification.json). Its 600-step `hi` probe returned a complete greeting; the code probe remained weak, so treat this as a narrow Studio smoke checkpoint.
+
 The source package uses the runtime's installed PyTorch and NumPy; it does not install dependencies or need internet. PyTorch 2.3 or later is required. See the [PyTorch mixed-precision API](https://docs.pytorch.org/docs/2.3/amp.html) and [official Kaggle kernel commands](https://github.com/Kaggle/kaggle-cli/blob/main/docs/kernels.md).
 
 For real training, replace the synthetic fixture with licensed canonical JSONL records and a disjoint evaluation split. Run the existing audit first. Include examples that exercise the intended context length; increasing `block_size` alone cannot teach long-range dependencies. Inspect `truncated_records` and `max_tokens` in the training report.

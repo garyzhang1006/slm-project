@@ -14,7 +14,16 @@ from urllib.parse import urlsplit
 from .config import TASK_TYPES
 from .data import format_prompt, validate_record
 
-DEFAULT_CHECKPOINT = Path("artifacts/slm-50m-2048-smoke.pt")
+QUALITY_CHECKPOINT = Path("artifacts/slm-50m-language-quality.pt")
+SMOKE_CHECKPOINT = Path("artifacts/slm-50m-2048-smoke.pt")
+DEFAULT_CHECKPOINT = QUALITY_CHECKPOINT
+
+
+def default_checkpoint() -> Path:
+    """Prefer downloaded quality weights while keeping fresh clones launchable."""
+    return QUALITY_CHECKPOINT if QUALITY_CHECKPOINT.is_file() else SMOKE_CHECKPOINT
+
+
 WEB_ROOT = Path(__file__).with_name("web")
 STATIC_FILES = {
     "/": ("index.html", "text/html; charset=utf-8"),
@@ -247,13 +256,13 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--checkpoint", type=Path, default=DEFAULT_CHECKPOINT)
+    parser.add_argument("--checkpoint", type=Path, default=None)
     parser.add_argument("--device", choices=("cpu", "mps", "cuda", "auto"), default="cpu")
     parser.add_argument("--port", type=int, default=8766)
     args = parser.parse_args()
     if not 1 <= args.port <= 65535:
         parser.error("--port must be between 1 and 65535")
-    runtime = ModelRuntime(args.checkpoint, args.device)
+    runtime = ModelRuntime(args.checkpoint or default_checkpoint(), args.device)
     try:
         server = WorkbenchServer(("127.0.0.1", args.port), runtime)
     except OSError as exc:

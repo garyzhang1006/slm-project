@@ -30,7 +30,7 @@ Open `launch-studio.command` in Finder, or run it from this project:
 
 Visit [SLM Studio](http://127.0.0.1:8766). The first launch creates a separate Python 3.11 environment with `uv` if needed; subsequent launches reuse it. Keep the terminal open, and press Control-C to stop. If you prefer manual setup, create `.venv-ui`, install `.[dev]`, and run `PYTHONPATH=src .venv-ui/bin/python -m cognition_slm.server`.
 
-Studio loads `artifacts/slm-50m-2048-smoke.pt` once and runs inference locally on CPU. Checkpoint weights are not included in Git; use a checkpoint downloaded from your Kaggle outputs or supply `./launch-studio.command --checkpoint /path/to/model.pt`. An occupied port can be changed with `--port 8767`.
+Studio automatically loads `artifacts/slm-50m-language-quality.pt` when that downloaded checkpoint exists, then falls back to `artifacts/slm-50m-2048-smoke.pt`. Checkpoint weights are not included in Git; use a checkpoint downloaded from your Kaggle outputs or supply `./launch-studio.command --checkpoint /path/to/model.pt`. An occupied port can be changed with `--port 8767`.
 
 The interface includes starter prompts, task selection, temperature and response-length controls, context budgeting, response copying, and session history. Language generation is the first-run task; code starter cards select code tasks explicitly. Each prompt is independent; history is kept in page memory and clears on refresh. Prompts stay on your machine. Model text is displayed without execution.
 

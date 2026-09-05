@@ -1,0 +1,22 @@
+{
+  "kernel": "garyzhang11111/slm-50m-studio-quality",
+  "kernel_url": "https://www.kaggle.com/code/garyzhang11111/slm-50m-studio-quality",
+  "source_commit": "41f650dd3e0969723df82eee16d9bb38e299f098",
+  "torch": "2.10.0+cu128",
+  "gpu": "Tesla T4",
+  "preset": "slm-50m",
+  "parameters": 50509327,
+  "training_records": 57,
+  "held_out_records": 22,
+  "optimizer_steps": 600,
+  "skipped_optimizer_steps": 0,
+  "final_train_loss": 0.00256080599501729,
+  "held_out_lm_loss": 4.464475822372518,
+  "probes": {
+    "hi": "Hello! What would you like to explore today?",
+    "capabilities": "I can help write and explain code, summarize text, improve wording, and translate short passages",
+    "code": "def falattttten_once(groups):\n    return [inul(t):\n        return for man in m ipiget(ker(kensee"
+  },
+  "elapsed_seconds": 137.55,
+  "purpose": "Studio smoke checkpoint; conversational probe passes, but the tiny synthetic corpus does not establish broad language or coding ability."
+}

@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cognition-slm"
-version = "0.4.0"
-description = "A tiny, inspectable coding SLM with context-care diagnostics."
+version = "0.5.0"
+description = "A decoder-only coding SLM with 2048-byte context and GPU training."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { file = "LICENSE" }
 authors = [{ name = "Gary Zhang" }]
-dependencies = ["numpy>=1.24", "torch>=2.0"]
+dependencies = ["numpy>=1.24", "torch>=2.3"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]

@@ -1,0 +1,148 @@
+[{"stream_name":"stdout","time":7.882889436,"data":"{\"torch\": \"2.10.0+cu128\", \"gpu\": \"Tesla T4\", \"purpose\": \"pipeline verification only; synthetic smoke data cannot establish coding quality\"}\n"}
+,{"stream_name":"stderr","time":9.714534123,"data":"test_parse_model_spec_requires_label_and_path (test_benchmark.BenchmarkTests.test_parse_model_spec_requires_label_and_path) ... ok\n"}
+,{"stream_name":"stderr","time":9.714601926,"data":"test_scalar_metrics_include_static_code_metrics_when_present (test_benchmark.BenchmarkTests.test_scalar_metrics_include_static_code_metrics_when_present) ... ok\n"}
+,{"stream_name":"stderr","time":9.714818774,"data":"test_assess_python_rejects_invalid_syntax_without_execution (test_code_eval.CodeEvaluationTests.test_assess_python_rejects_invalid_syntax_without_execution) ... ok\n"}
+,{"stream_name":"stderr","time":9.716266889,"data":"test_assess_python_scores_syntax_and_required_function (test_code_eval.CodeEvaluationTests.test_assess_python_scores_syntax_and_required_function) ... ok\n"}
+,{"stream_name":"stderr","time":9.71631893,"data":"test_extract_python_prefers_largest_fenced_block (test_code_eval.CodeEvaluationTests.test_extract_python_prefers_largest_fenced_block) ... ok\n"}
+,{"stream_name":"stderr","time":9.716468344,"data":"test_prose_tasks_are_not_treated_as_code (test_code_eval.CodeEvaluationTests.test_prose_tasks_are_not_treated_as_code) ... ok\n"}
+,{"stream_name":"stderr","time":9.716737995,"data":"test_python_syntax_check_ignores_code_fences (test_code_eval.CodeEvaluationTests.test_python_syntax_check_ignores_code_fences) ... ok\n"}
+,{"stream_name":"stderr","time":9.716837531,"data":"test_historical_checkpoint_defaults_preserved (test_config.ConfigTests.test_historical_checkpoint_defaults_preserved) ... ok\n"}
+,{"stream_name":"stderr","time":9.716971558000001,"data":"test_presets_are_valid_2048_modern_models (test_config.ConfigTests.test_presets_are_valid_2048_modern_models) ... ok\n"}
+,{"stream_name":"stderr","time":9.717398526,"data":"test_assessment_rejects_invalid_budget_and_focus (test_context_therapy.ContextTherapyTests.test_assessment_rejects_invalid_budget_and_focus) ... ok\n"}
+,{"stream_name":"stderr","time":9.717761045,"data":"test_budget_pressure_is_explicit_and_actionable (test_context_therapy.ContextTherapyTests.test_budget_pressure_is_explicit_and_actionable) ... ok\n"}
+,{"stream_name":"stderr","time":9.720151103,"data":"test_cli_emits_json_report_and_writes_output (test_context_therapy.ContextTherapyTests.test_cli_emits_json_report_and_writes_output) ... ok\n"}
+,{"stream_name":"stderr","time":9.720396384,"data":"test_handoff_redacts_secrets_in_focus_and_excerpts (test_context_therapy.ContextTherapyTests.test_handoff_redacts_secrets_in_focus_and_excerpts) ... ok\n"}
+,{"stream_name":"stderr","time":9.720500125000001,"data":"test_handoff_rejects_non_positive_excerpt_limit (test_context_therapy.ContextTherapyTests.test_handoff_rejects_non_positive_excerpt_limit) ... ok\n"}
+,{"stream_name":"stderr","time":9.721025816000001,"data":"test_handoff_retains_authority_and_marks_old_turns_for_review (test_context_therapy.ContextTherapyTests.test_handoff_retains_authority_and_marks_old_turns_for_review) ... ok\n"}
+,{"stream_name":"stderr","time":9.721272806,"data":"test_instruction_drift_and_unsupported_claims_are_flagged (test_context_therapy.ContextTherapyTests.test_instruction_drift_and_unsupported_claims_are_flagged) ... ok\n"}
+,{"stream_name":"stderr","time":9.721831153,"data":"test_load_messages_accepts_json_envelope (test_context_therapy.ContextTherapyTests.test_load_messages_accepts_json_envelope) ... ok\n"}
+,{"stream_name":"stderr","time":9.722692993999999,"data":"test_load_messages_rejects_invalid_json_and_shapes (test_context_therapy.ContextTherapyTests.test_load_messages_rejects_invalid_json_and_shapes) ... ok\n"}
+,{"stream_name":"stderr","time":9.722721608,"data":"test_message_boundary_rejects_unknown_role_and_empty_context (test_context_therapy.ContextTherapyTests.test_message_boundary_rejects_unknown_role_and_empty_context) ... ok\n"}
+,{"stream_name":"stderr","time":9.723034696,"data":"test_opposite_directives_trigger_conflict_care (test_context_therapy.ContextTherapyTests.test_opposite_directives_trigger_conflict_care) ... ok\n"}
+,{"stream_name":"stderr","time":9.723207976,"data":"test_repair_prompt_contains_focus_and_safe_handoff_sections (test_context_therapy.ContextTherapyTests.test_repair_prompt_contains_focus_and_safe_handoff_sections) ... ok\n"}
+,{"stream_name":"stderr","time":9.723477889,"data":"test_repeated_turns_trigger_deduplication (test_context_therapy.ContextTherapyTests.test_repeated_turns_trigger_deduplication) ... ok\n"}
+,{"stream_name":"stderr","time":9.723582268,"data":"test_serialized_report_contains_no_hidden_reasoning_field (test_context_therapy.ContextTherapyTests.test_serialized_report_contains_no_hidden_reasoning_field) ... ok\n"}
+,{"stream_name":"stderr","time":9.7237263,"data":"test_stable_context_returns_continue_action (test_context_therapy.ContextTherapyTests.test_stable_context_returns_continue_action) ... ok\n"}
+,{"stream_name":"stderr","time":9.726396196,"data":"test_committed_data_passes_audit (test_data_and_audit.DataAndAuditTests.test_committed_data_passes_audit) ... ok\n"}
+,{"stream_name":"stderr","time":9.731605975,"data":"test_demo_data_loads (test_data_and_audit.DataAndAuditTests.test_demo_data_loads) ... ok\n"}
+,{"stream_name":"stderr","time":9.731812587,"data":"test_encoding_rejects_examples_without_answer_tokens (test_data_and_audit.DataAndAuditTests.test_encoding_rejects_examples_without_answer_tokens) ... ok\n"}
+,{"stream_name":"stderr","time":9.731894055,"data":"test_hidden_and_unknown_fields_are_rejected (test_data_and_audit.DataAndAuditTests.test_hidden_and_unknown_fields_are_rejected) ... ok\n"}
+,{"stream_name":"stderr","time":9.733613921,"data":"test_truncated_answer_has_no_artificial_eos (test_data_and_audit.DataAndAuditTests.test_truncated_answer_has_no_artificial_eos) ... ok\n"}
+,{"stream_name":"stderr","time":9.822517626,"data":"test_classification_metrics_report_confusion_and_calibration (test_evaluate.EvaluationTests.test_classification_metrics_report_confusion_and_calibration) ... ok\n"}
+,{"stream_name":"stderr","time":9.824024327,"data":"test_oversized_prompt_rejected_before_model_execution (test_generation.GenerationTests.test_oversized_prompt_rejected_before_model_execution) ... ok\n"}
+,{"stream_name":"stderr","time":9.824047329999999,"data":"test_prose_ranking_uses_model_score_only (test_generation.GenerationTests.test_prose_ranking_uses_model_score_only) ... ok\n"}
+,{"stream_name":"stderr","time":9.82405239,"data":"test_syntax_bonus_can_prefer_valid_code (test_generation.GenerationTests.test_syntax_bonus_can_prefer_valid_code) ... ok\n"}
+,{"stream_name":"stderr","time":10.979613496,"data":"test_2048_boundary_backward (test_model.ModelTests.test_2048_boundary_backward) ... ok\n"}
+,{"stream_name":"stderr","time":11.051576192,"data":"test_answer_only_language_loss_can_ignore_prompt_tokens (test_model.ModelTests.test_answer_only_language_loss_can_ignore_prompt_tokens) ... /kaggle/working/slm-project/tests/test_model.py:43: UserWarning: Converting a tensor with requires_grad=True to a scalar may lead to unexpected behavior.\n"}
+,{"stream_name":"stderr","time":11.051603933,"data":"Consider using tensor.detach() first. (Triggered internally at /pytorch/torch/csrc/autograd/generated/python_variable_methods.cpp:836.)\n"}
+,{"stream_name":"stderr","time":11.051631892,"data":"  self.assertEqual(float(output.lm_loss), 0.0)\n"}
+,{"stream_name":"stderr","time":11.053002287,"data":"ok\n"}
+,{"stream_name":"stderr","time":11.073181839,"data":"test_attention_matches_reference_with_padding (test_model.ModelTests.test_attention_matches_reference_with_padding) ... ok\n"}
+,{"stream_name":"stderr","time":11.093775918,"data":"test_causality_preserves_prompt_logits_and_heads (test_model.ModelTests.test_causality_preserves_prompt_logits_and_heads) ... ok\n"}
+,{"stream_name":"stderr","time":16.658381352,"data":"test_checkpointing_preserves_loss_and_gradients (test_model.ModelTests.test_checkpointing_preserves_loss_and_gradients) ... ok\n"}
+,{"stream_name":"stderr","time":16.662603848,"data":"test_forward_shapes_and_loss (test_model.ModelTests.test_forward_shapes_and_loss) ... ok\n"}
+,{"stream_name":"stderr","time":16.66466877,"data":"test_invalid_masks_and_empty_input_rejected (test_model.ModelTests.test_invalid_masks_and_empty_input_rejected) ... ok\n"}
+,{"stream_name":"stderr","time":16.680096826,"data":"test_loss_excludes_padding_and_empty_targets_can_backward (test_model.ModelTests.test_loss_excludes_padding_and_empty_targets_can_backward) ... ok\n"}
+,{"stream_name":"stderr","time":16.683941587,"data":"test_modern_architecture_forward_and_weight_tying (test_model.ModelTests.test_modern_architecture_forward_and_weight_tying) ... ok\n"}
+,{"stream_name":"stderr","time":16.686778561,"data":"test_pool_position_rejects_padding (test_model.ModelTests.test_pool_position_rejects_padding) ... ok\n"}
+,{"stream_name":"stderr","time":16.68706757,"data":"test_round_trip_unicode (test_tokenizer.TokenizerTests.test_round_trip_unicode) ... ok\n"}
+,{"stream_name":"stderr","time":16.687095965,"data":"test_vocab_and_padding_ids_are_stable (test_tokenizer.TokenizerTests.test_vocab_and_padding_ids_are_stable) ... ok\n"}
+,{"stream_name":"stderr","time":16.773345796,"data":"test_accumulation_matches_combined_batch_with_unequal_lengths (test_train.TrainingIntegrationTests.test_accumulation_matches_combined_batch_with_unequal_lengths) ... ok\n"}
+,{"stream_name":"stderr","time":16.795423831,"data":"test_all_skipped_updates_save_diagnostics_and_fail (test_train.TrainingIntegrationTests.test_all_skipped_updates_save_diagnostics_and_fail) ... ok\n"}
+,{"stream_name":"stderr","time":16.797222587,"data":"test_atomic_save_failure_preserves_checkpoint (test_train.TrainingIntegrationTests.test_atomic_save_failure_preserves_checkpoint) ... ok\n"}
+,{"stream_name":"stderr","time":16.801773456,"data":"test_cpu_rejects_cuda_precision (test_train.TrainingIntegrationTests.test_cpu_rejects_cuda_precision) ... ok\n"}
+,{"stream_name":"stderr","time":17.579132023,"data":"test_cuda_fp16_checkpoint_roundtrip (test_train.TrainingIntegrationTests.test_cuda_fp16_checkpoint_roundtrip) ... ok\n"}
+,{"stream_name":"stderr","time":17.616381798,"data":"test_legacy_single_optimizer_group_remains_loadable (test_train.TrainingIntegrationTests.test_legacy_single_optimizer_group_remains_loadable) ... ok\n"}
+,{"stream_name":"stderr","time":17.617534405,"data":"test_overflow_does_not_advance_schedule (test_train.TrainingIntegrationTests.test_overflow_does_not_advance_schedule) ... ok\n"}
+,{"stream_name":"stderr","time":17.714305677,"data":"test_periodic_checkpoint_resume_matches_uninterrupted_dropout (test_train.TrainingIntegrationTests.test_periodic_checkpoint_resume_matches_uninterrupted_dropout) ... ok\n"}
+,{"stream_name":"stderr","time":17.716568025,"data":"test_runtime_rejects_invalid_accumulation_and_save_interval (test_train.TrainingIntegrationTests.test_runtime_rejects_invalid_accumulation_and_save_interval) ... ok\n"}
+,{"stream_name":"stderr","time":17.725314638,"data":"test_validation_loss_does_not_depend_on_batch_size (test_train.TrainingIntegrationTests.test_validation_loss_does_not_depend_on_batch_size) ... ok\n"}
+,{"stream_name":"stderr","time":17.725503173,"data":"test_warmup_and_cosine_schedule_boundaries (test_train.TrainingTests.test_warmup_and_cosine_schedule_boundaries) ... ok\n"}
+,{"stream_name":"stderr","time":17.725532129,"data":"\n"}
+,{"stream_name":"stderr","time":17.725536571,"data":"----------------------------------------------------------------------\n"}
+,{"stream_name":"stderr","time":17.725540072,"data":"Ran 56 tests in 8.011s\n"}
+,{"stream_name":"stderr","time":17.725543304,"data":"\n"}
+,{"stream_name":"stderr","time":17.725546475,"data":"OK\n"}
+,{"stream_name":"stdout","time":17.77446534,"data":"step=1 loss=6.6857 device=cpu\n"}
+,{"stream_name":"stdout","time":17.774509275,"data":"step=1 loss=6.6857 device=cpu\n"}
+,{"stream_name":"stdout","time":17.774515818,"data":"step=1 loss=6.6857 device=cpu\n"}
+,{"stream_name":"stdout","time":17.774520116,"data":"step=1 loss=6.6857 device=cuda\n"}
+,{"stream_name":"stdout","time":17.774524008,"data":"step=6 loss=6.6405 device=cuda\n"}
+,{"stream_name":"stdout","time":17.774528062999998,"data":"step=8 loss=6.6464 device=cuda\n"}
+,{"stream_name":"stdout","time":17.774532097,"data":"step=1 loss=6.7067 device=cpu\n"}
+,{"stream_name":"stdout","time":17.774536297,"data":"step=1 loss=6.6761 device=cpu\n"}
+,{"stream_name":"stdout","time":17.774540202,"data":"step=3 loss=6.6640 device=cpu\n"}
+,{"stream_name":"stdout","time":17.774543881,"data":"step=3 loss=6.6640 device=cpu\n"}
+,{"stream_name":"stdout","time":20.050386187,"data":"{\n"}
+,{"stream_name":"stdout","time":20.050420517,"data":"  \"reports\": [\n"}
+,{"stream_name":"stdout","time":20.050426281,"data":"    {\n"}
+,{"stream_name":"stdout","time":20.050436699,"data":"      \"dataset\": \"data/demo.jsonl\",\n"}
+,{"stream_name":"stdout","time":20.050439919,"data":"      \"records\": 45,\n"}
+,{"stream_name":"stdout","time":20.050442782,"data":"      \"errors\": [],\n"}
+,{"stream_name":"stdout","time":20.050445605,"data":"      \"warnings\": [],\n"}
+,{"stream_name":"stdout","time":20.050448341,"data":"      \"status\": \"pass\"\n"}
+,{"stream_name":"stdout","time":20.050454567,"data":"    },\n"}
+,{"stream_name":"stdout","time":20.050457154,"data":"    {\n"}
+,{"stream_name":"stdout","time":20.050459753,"data":"      \"dataset\": \"data/eval.jsonl\",\n"}
+,{"stream_name":"stdout","time":20.050462537,"data":"      \"records\": 16,\n"}
+,{"stream_name":"stdout","time":20.050465107,"data":"      \"errors\": [],\n"}
+,{"stream_name":"stdout","time":20.050467778,"data":"      \"warnings\": [],\n"}
+,{"stream_name":"stdout","time":20.050470409,"data":"      \"status\": \"pass\"\n"}
+,{"stream_name":"stdout","time":20.050473007,"data":"    }\n"}
+,{"stream_name":"stdout","time":20.050475496,"data":"  ],\n"}
+,{"stream_name":"stdout","time":20.050478012,"data":"  \"overlap_errors\": []\n"}
+,{"stream_name":"stdout","time":20.050480755,"data":"}\n"}
+,{"stream_name":"stdout","time":29.954638816,"data":"step=1 loss=6.6143 device=cuda\n"}
+,{"stream_name":"stdout","time":29.954675338,"data":"step=2 loss=5.1605 device=cuda\n"}
+,{"stream_name":"stdout","time":29.954681887,"data":"step=3 loss=4.2329 device=cuda\n"}
+,{"stream_name":"stdout","time":29.954688029,"data":"step=4 loss=3.8894 device=cuda\n"}
+,{"stream_name":"stdout","time":29.954693689,"data":"step=5 loss=3.6874 device=cuda\n"}
+,{"stream_name":"stdout","time":29.954699388,"data":"step=6 loss=3.5899 device=cuda\n"}
+,{"stream_name":"stdout","time":29.954704772,"data":"step=7 loss=3.5418 device=cuda\n"}
+,{"stream_name":"stdout","time":29.954710826,"data":"step=8 loss=3.5276 device=cuda\n"}
+,{"stream_name":"stdout","time":29.954716143,"data":"{\n"}
+,{"stream_name":"stdout","time":29.954721955,"data":"  \"records\": 8,\n"}
+,{"stream_name":"stdout","time":29.9547453,"data":"  \"steps\": 8,\n"}
+,{"stream_name":"stdout","time":29.954749746,"data":"  \"final_loss\": 3.5275814533233643,\n"}
+,{"stream_name":"stdout","time":29.954754072,"data":"  \"checkpoint\": \"/kaggle/working/slm-project/artifacts/slm-50m-2048-smoke.pt\",\n"}
+,{"stream_name":"stdout","time":29.954758558,"data":"  \"device\": \"cuda\",\n"}
+,{"stream_name":"stdout","time":29.954763081,"data":"  \"resumed_from_step\": 0,\n"}
+,{"stream_name":"stdout","time":29.954767645,"data":"  \"validation\": null,\n"}
+,{"stream_name":"stdout","time":29.954771894,"data":"  \"parameter_count\": 50508814,\n"}
+,{"stream_name":"stdout","time":29.954776591,"data":"  \"effective_batch_size\": 2,\n"}
+,{"stream_name":"stdout","time":29.954780886,"data":"  \"optimizer_steps\": 8,\n"}
+,{"stream_name":"stdout","time":29.954785428,"data":"  \"skipped_optimizer_steps\": 0,\n"}
+,{"stream_name":"stdout","time":29.954790206,"data":"  \"max_tokens\": 2048,\n"}
+,{"stream_name":"stdout","time":29.954794585,"data":"  \"block_size\": 2048,\n"}
+,{"stream_name":"stdout","time":29.954799286,"data":"  \"precision\": \"fp16\",\n"}
+,{"stream_name":"stdout","time":29.954803877,"data":"  \"truncated_records\": 8,\n"}
+,{"stream_name":"stdout","time":29.954808348,"data":"  \"status\": \"trained\"\n"}
+,{"stream_name":"stdout","time":29.954812628,"data":"}\n"}
+,{"stream_name":"stdout","time":37.706107194,"data":"step=9 loss=3.5276 device=cuda\n"}
+,{"stream_name":"stdout","time":37.706142113,"data":"step=10 loss=3.5184 device=cuda\n"}
+,{"stream_name":"stdout","time":37.706147925,"data":"{\n"}
+,{"stream_name":"stdout","time":37.706153189,"data":"  \"records\": 8,\n"}
+,{"stream_name":"stdout","time":37.706158184,"data":"  \"steps\": 10,\n"}
+,{"stream_name":"stdout","time":37.706163074,"data":"  \"final_loss\": 3.518423318862915,\n"}
+,{"stream_name":"stdout","time":37.706168928,"data":"  \"checkpoint\": \"/kaggle/working/slm-project/artifacts/slm-50m-2048-smoke.pt\",\n"}
+,{"stream_name":"stdout","time":37.706174148,"data":"  \"device\": \"cuda\",\n"}
+,{"stream_name":"stdout","time":37.706178709,"data":"  \"resumed_from_step\": 8,\n"}
+,{"stream_name":"stdout","time":37.706183452,"data":"  \"validation\": null,\n"}
+,{"stream_name":"stdout","time":37.706188717,"data":"  \"parameter_count\": 50508814,\n"}
+,{"stream_name":"stdout","time":37.706193459,"data":"  \"effective_batch_size\": 2,\n"}
+,{"stream_name":"stdout","time":37.706198577,"data":"  \"optimizer_steps\": 10,\n"}
+,{"stream_name":"stdout","time":37.70620327,"data":"  \"skipped_optimizer_steps\": 0,\n"}
+,{"stream_name":"stdout","time":37.706207948,"data":"  \"max_tokens\": 2048,\n"}
+,{"stream_name":"stdout","time":37.706213018,"data":"  \"block_size\": 2048,\n"}
+,{"stream_name":"stdout","time":37.706217556,"data":"  \"precision\": \"fp16\",\n"}
+,{"stream_name":"stdout","time":37.706222195,"data":"  \"truncated_records\": 8,\n"}
+,{"stream_name":"stdout","time":37.706226859,"data":"  \"status\": \"trained\"\n"}
+,{"stream_name":"stdout","time":37.706231888,"data":"}\n"}
+,{"stream_name":"stdout","time":40.872367763,"data":"VERIFICATION_COMPLETE {\"torch\": \"2.10.0+cu128\", \"gpu\": \"Tesla T4\", \"purpose\": \"pipeline verification only; synthetic smoke data cannot establish coding quality\", \"regression_suite\": \"passed\", \"actual_training_sequence_length\": 2048, \"parameters\": 50508814, \"optimizer_steps\": 10, \"final_loss\": 3.518423318862915, \"generated_smoke_text\": \"\", \"checkpoint\": \"artifacts/slm-50m-2048-smoke.pt\", \"completed_steps\": 10, \"elapsed_seconds\": 32.99}\n"}
+,{"stream_name":"stderr","time":43.690175968,"data":"/usr/local/lib/python3.12/dist-packages/mistune.py:435: SyntaxWarning: invalid escape sequence '\\|'\n"}
+,{"stream_name":"stderr","time":43.690215137,"data":"  cells[i][c] = re.sub('\\\\\\\\\\|', '|', cell)\n"}
+,{"stream_name":"stderr","time":43.945531447,"data":"/usr/local/lib/python3.12/dist-packages/nbconvert/filters/filter_links.py:36: SyntaxWarning: invalid escape sequence '\\_'\n"}
+,{"stream_name":"stderr","time":43.945557613,"data":"  text = re.sub(r'_', '\\_', text) # Escape underscores in display text\n"}
+,{"stream_name":"stderr","time":44.569914576,"data":"[NbConvertApp] Converting notebook __script__.ipynb to html\n"}
+,{"stream_name":"stderr","time":45.77445042,"data":"[NbConvertApp] Writing 359602 bytes to __results__.html\n"}
+]

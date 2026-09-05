@@ -1,0 +1,13 @@
+# Kaggle verification and training
+
+Use `scripts/prepare_kaggle.py` to bundle the current working source. No GitHub push is needed. The generated private kernel contains the package, tests, committed JSON data, and a source hash manifest. `scripts/kaggle_run.py` refuses to train outside Kaggle or without working CUDA.
+
+The verification run checks the regression suite and existing data audit before running ten synthetic training iterations, including resume after iteration eight, with the `slm-50m` preset at actual sequence length 2048. It uses FP16, microbatch size one, accumulation two, and activation checkpointing. The checkpoint and `verification.json` become Kaggle outputs. These iterations establish execution and recovery, not trained coding ability.
+
+The source package uses the runtime's installed PyTorch and NumPy; it does not install dependencies or need internet. PyTorch 2.3 or later is required. See the [PyTorch mixed-precision API](https://docs.pytorch.org/docs/2.3/amp.html) and [official Kaggle kernel commands](https://github.com/Kaggle/kaggle-cli/blob/main/docs/kernels.md).
+
+For real training, replace the synthetic fixture with licensed canonical JSONL records and a disjoint evaluation split. Run the existing audit first. Include examples that exercise the intended context length; increasing `block_size` alone cannot teach long-range dependencies. Inspect `truncated_records` and `max_tokens` in the training report.
+
+Resume preserves the checkpoint's model dimensions and context. Old modern or legacy weights remain loadable; `--preset` and dimension flags do not resize them. Model-only checkpoints start a fresh optimizer. Old checkpoints with one optimizer parameter group retain that grouping. New checkpoints save random state for interruption recovery on the same hardware configuration. Changing seed, batch layout, precision, warmup, or total steps changes the continuation; extending total steps replans cosine decay. Weights trained at 256 are not presented as trained 2048 weights.
+
+Periodic checkpoints atomically replace the output path, keeping the last complete checkpoint if serialization fails. Download the output before deleting a Kaggle session. A failed kernel has no successful `verification.json`; inspect its log and resolve the first error before rerunning.

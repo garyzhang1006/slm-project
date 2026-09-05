@@ -7,6 +7,7 @@ from dataclasses import dataclass
 import torch
 from torch import Tensor, nn
 from torch.nn import functional as F
+from torch.utils.checkpoint import checkpoint
 
 from .config import ModelConfig
 from .tokenizer import PAD_ID
@@ -86,18 +87,21 @@ class CausalSelfAttention(nn.Module):
         qkv = self.qkv(x).view(batch, length, 3, self.n_head, self.head_dim)
         q, k, v = qkv.permute(2, 0, 3, 1, 4).unbind(0)
         if self.use_rotary:
-            cos = self.rope_cos[:, :, :length, :]
-            sin = self.rope_sin[:, :, :length, :]
+            cos = self.rope_cos[:, :, :length, :].to(dtype=q.dtype)
+            sin = self.rope_sin[:, :, :length, :].to(dtype=q.dtype)
             q = q * cos + _rotate_half(q) * sin
             k = k * cos + _rotate_half(k) * sin
-        scores = (q @ k.transpose(-2, -1)) / (self.head_dim**0.5)
-        scores = scores.masked_fill(self.causal_mask[:length, :length], float("-inf"))
+        allowed = None
         if attention_mask is not None:
-            key_padding = attention_mask[:, None, None, :].eq(0)
-            scores = scores.masked_fill(key_padding, float("-inf"))
-        weights = F.softmax(scores, dim=-1)
-        weights = self.attn_dropout(weights)
-        attended = weights @ v
+            # SDPA boolean masks use True for allowed attention positions.
+            allowed = (~self.causal_mask[:length, :length])[None, None, :, :]
+            allowed = allowed & attention_mask[:, None, None, :].bool()
+        attended = F.scaled_dot_product_attention(
+            q, k, v,
+            attn_mask=allowed,
+            dropout_p=self.attn_dropout.p if self.training else 0.0,
+            is_causal=allowed is None,
+        )
         attended = attended.transpose(1, 2).contiguous().view(batch, length, channels)
         return self.resid_dropout(self.proj(attended))
 
@@ -131,6 +135,7 @@ class CognitionSLM(nn.Module):
         super().__init__()
         config.validate()
         self.config = config
+        self.gradient_checkpointing = False
         self.token_embedding = nn.Embedding(config.vocab_size, config.n_embd)
         self.position_embedding = (
             nn.Embedding(config.block_size, config.n_embd)
@@ -197,7 +202,19 @@ class CognitionSLM(nn.Module):
         error_labels: Tensor | None = None,
         confidence_labels: Tensor | None = None,
     ) -> ModelOutput:
+        if input_ids.ndim != 2 or input_ids.size(0) == 0 or input_ids.size(1) == 0:
+            raise ValueError("input_ids must have non-empty shape (batch, sequence_length)")
         batch, length = input_ids.shape
+        if attention_mask is not None:
+            if attention_mask.shape != input_ids.shape:
+                raise ValueError("attention_mask must have the same shape as input_ids")
+            attention_mask = attention_mask.to(input_ids.device)
+            if torch.any((attention_mask != 0) & (attention_mask != 1)):
+                raise ValueError("attention_mask must contain only zero and one")
+            if torch.any(attention_mask[:, 0] == 0) or torch.any(
+                attention_mask[:, 1:] > attention_mask[:, :-1]
+            ):
+                raise ValueError("attention_mask must describe non-empty, right-padded sequences")
         if length > self.config.block_size:
             raise ValueError(
                 f"sequence length {length} exceeds block_size {self.config.block_size}"
@@ -207,8 +224,15 @@ class CognitionSLM(nn.Module):
         if self.position_embedding is not None:
             hidden = hidden + self.position_embedding(positions)[None, :, :]
         hidden = self.dropout(hidden)
+        # Unpadded batches can use SDPA's causal fast path without a dense mask.
+        block_mask = attention_mask
+        if attention_mask is not None and bool(attention_mask.bool().all()):
+            block_mask = None
         for block in self.blocks:
-            hidden = block(hidden, attention_mask)
+            if self.gradient_checkpointing and self.training and torch.is_grad_enabled():
+                hidden = checkpoint(block, hidden, block_mask, use_reentrant=False)
+            else:
+                hidden = block(hidden, block_mask)
         hidden = self.final_norm(hidden)
         logits = self.lm_head(hidden)
         pooled = self._pool_last(hidden, attention_mask, pool_positions)
@@ -226,15 +250,16 @@ class CognitionSLM(nn.Module):
                 ignore_index=PAD_ID,
                 reduction="none",
             ).view_as(shift_labels)
-            if lm_loss_mask is None:
-                losses["lm_loss"] = token_losses.masked_select(shift_labels.ne(PAD_ID)).mean()
-            else:
+            valid_targets = shift_labels.ne(PAD_ID)
+            if attention_mask is not None:
+                valid_targets = valid_targets & attention_mask[:, 1:].bool()
+            if lm_loss_mask is not None:
                 if lm_loss_mask.shape != shift_labels.shape:
                     raise ValueError("lm_loss_mask must have shape (batch, sequence_length - 1)")
-                selected = token_losses.masked_select(lm_loss_mask.to(input_ids.device).bool())
-                losses["lm_loss"] = (
-                    selected.mean() if selected.numel() else token_losses.new_zeros(())
-                )
+                valid_targets = valid_targets & lm_loss_mask.to(input_ids.device).bool()
+            selected = token_losses.masked_select(valid_targets)
+            # Empty supervision remains differentiable for accumulation/backward.
+            losses["lm_loss"] = selected.sum() / valid_targets.sum().clamp_min(1)
         if task_labels is not None:
             losses["task_loss"] = F.cross_entropy(task_logits, task_labels)
         if error_labels is not None:

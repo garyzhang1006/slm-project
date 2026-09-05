@@ -1,4 +1,5 @@
 import hashlib
+from dataclasses import replace
 import json
 import unittest
 from pathlib import Path
@@ -12,6 +13,18 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class DataAndAuditTests(unittest.TestCase):
+    def test_truncated_answer_has_no_artificial_eos(self):
+        tokenizer = ByteTokenizer()
+        example = replace(load_jsonl(ROOT / "data" / "demo.jsonl")[0], answer="x" * 3000)
+        item = encode_examples([example], tokenizer, 2048)[0]
+        self.assertTrue(item["truncated"])
+        self.assertGreater(item["original_tokens"], 2048)
+        self.assertEqual(len(item["input_ids"]), 2048)
+        self.assertNotEqual(item["input_ids"][-1], tokenizer.eos_id)
+        complete = encode_examples([replace(example, answer="return 1")], tokenizer, 2048)[0]
+        self.assertFalse(complete["truncated"])
+        self.assertEqual(complete["input_ids"][-1], tokenizer.eos_id)
+
     def test_demo_data_loads(self):
         train = load_jsonl(ROOT / "data" / "demo.jsonl")
         evaluation = load_jsonl(ROOT / "data" / "eval.jsonl")

@@ -125,9 +125,12 @@ def generate_text(
             "license": "runtime",
         }
     )
-    prompt_ids = tokenizer.encode(
-        format_prompt(record), add_eos=False, max_length=model.config.block_size
-    )
+    prompt_ids = tokenizer.encode(format_prompt(record), add_eos=False)
+    if len(prompt_ids) > model.config.block_size:
+        raise ValueError(
+            f"formatted prompt has {len(prompt_ids)} byte tokens, exceeding "
+            f"block_size {model.config.block_size}; shorten the prompt"
+        )
     input_ids = torch.tensor([prompt_ids], dtype=torch.long, device=next(model.parameters()).device)
     candidates = [
         generate_ids(

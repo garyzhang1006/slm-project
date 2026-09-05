@@ -181,8 +181,10 @@ def encode_examples(
 ) -> list[dict[str, Any]]:
     encoded: list[dict[str, Any]] = []
     for example in examples:
-        prompt_ids = encode_prompt(example, tokenizer, block_size)
-        input_ids = tokenizer.encode(format_training_text(example), max_length=block_size)
+        prompt_ids = tokenizer.encode(format_prompt(example), add_eos=False)
+        full_ids = tokenizer.encode(format_training_text(example))
+        # A cut answer is a continuation, so do not teach EOS at an artificial boundary.
+        input_ids = full_ids[:block_size]
         pool_position = min(len(prompt_ids), len(input_ids)) - 1
         if pool_position < 0:
             raise ValueError(f"prompt for {example.id!r} produced no tokens")
@@ -194,6 +196,8 @@ def encode_examples(
         encoded.append(
             {
                 "id": example.id,
+                "original_tokens": len(full_ids),
+                "truncated": len(full_ids) > block_size,
                 "input_ids": input_ids,
                 "pool_position": pool_position,
                 "answer_start": answer_start,

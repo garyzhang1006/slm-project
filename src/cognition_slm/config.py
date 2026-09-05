@@ -25,6 +25,11 @@ ERROR_CATEGORIES = (
 
 ARCHITECTURES = ("legacy", "modern")
 
+MODEL_PRESETS = {
+    "demo": dict(block_size=2048, n_layer=2, n_head=4, n_embd=128, architecture="modern"),
+    "slm-50m": dict(block_size=2048, n_layer=12, n_head=8, n_embd=512, architecture="modern"),
+}
+
 
 @dataclass(frozen=True)
 class ModelConfig:
@@ -65,6 +70,9 @@ class ModelConfig:
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "ModelConfig":
         values = dict(raw)
+        # Historical checkpoints may omit these fields; never reinterpret their weights.
+        values.setdefault("architecture", "legacy")
+        values.setdefault("block_size", 256)
         values["task_types"] = tuple(values.get("task_types", TASK_TYPES))
         values["error_categories"] = tuple(values.get("error_categories", ERROR_CATEGORIES))
         config = cls(**values)

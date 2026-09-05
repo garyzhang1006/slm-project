@@ -1,13 +1,13 @@
 # slm-project
 
-Mini research project: a small decoder-only language model aimed at coding help and observable LLM cognition signals.
+A decoder-only small language model for coding experiments, with a 2048-byte-token training context and a 50M-class preset.
 
 The project studies behavior, not hidden chain-of-thought. Each training example carries a coding task, an answer, a task type, a confidence bucket, an error category, and a source/license record. The transformer learns next-token prediction while small auxiliary heads predict the task type, error category, and confidence bucket.
 
 ## What is included
 
 - Byte-level tokenizer with no downloaded vocabulary.
-- Tiny causal transformer implemented in PyTorch.
+- Causal transformer implemented in PyTorch, with demo and `slm-50m` presets.
 - Selectable legacy or modern transformer blocks with rotary positions, RMSNorm, SwiGLU, and tied embeddings.
 - JSONL data schema with validation and license metadata.
 - Expanded project-authored synthetic data for coding tasks.
@@ -15,8 +15,40 @@ The project studies behavior, not hidden chain-of-thought. Each training example
 - Tests for data and tokenizer paths, plus model tests when PyTorch is installed.
 - Prompt-only pooling for cognition heads, answer-focused language loss, resumable training, validation checkpoints, and calibrated evaluation metrics.
 - Static Python syntax and required-symbol checks, plus optional multi-candidate reranking without code execution.
+- Optimized scaled dot-product attention, CUDA mixed precision, gradient accumulation, and optional activation checkpointing.
+- Periodic atomic checkpoints with optimizer, scheduler, gradient scaler, and random state for interrupted training.
 
 This is a mini project. The demo corpus is intentionally too small to produce a useful coding assistant. It proves the pipeline shape, not model quality.
+
+## 2048 context and Kaggle
+
+New training runs default to 2048 tokens. This tokenizer represents UTF-8 bytes, so 2048 includes prompt markup and special tokens and is much shorter in text than 2048 subword tokens. Existing checkpoints retain their saved context and architecture when resumed.
+
+The `slm-50m` preset uses 12 layers, 512 hidden dimensions, eight attention heads, RoPE, RMSNorm, SwiGLU, and tied embeddings. The training report records the exact parameter count. Keep `demo` for small pipeline checks. A larger model still requires a substantial licensed training corpus before its outputs become useful.
+
+Run this inside a Kaggle GPU session with your prepared data:
+
+```bash
+PYTHONPATH=src python -m cognition_slm.train \
+  --data /kaggle/input/your-data/train.jsonl \
+  --eval-data /kaggle/input/your-data/eval.jsonl \
+  --out /kaggle/working/slm-2048.pt \
+  --preset slm-50m --device cuda --precision fp16 \
+  --batch-size 1 --gradient-accumulation-steps 8 \
+  --gradient-checkpointing --save-every 100 --steps 1000
+```
+
+`--steps` counts training iterations; the effective batch is microbatch size times accumulation steps. AMP may skip an optimizer update when gradients overflow. Biases and normalization vectors are excluded from weight decay in new runs. Accumulation weights language loss by supervised tokens, and auxiliary losses by examples, so variable answer lengths do not change the objective when splitting a batch.
+
+For a reproducible private verification run, `scripts/prepare_kaggle.py` packages an explicit source allowlist, tests, and synthetic data into one script with SHA-256 checks. It excludes credentials and existing checkpoints. The runner requires Kaggle and a working CUDA device, runs the regression suite, and exercises full-length training, checkpoint resume, and generation with the larger preset:
+
+```bash
+python scripts/prepare_kaggle.py --owner YOUR_KAGGLE_USERNAME --out /tmp/slm-kaggle
+kaggle kernels push -p /tmp/slm-kaggle --accelerator NvidiaTeslaT4
+kaggle kernels status YOUR_KAGGLE_USERNAME/slm-2048-verification
+```
+
+The generated kernel is private and runs without internet. Its synthetic length fixture is a smoke test, not a coding benchmark. `verification.json` records hardware, source hashes, parameter count, and completion evidence. See [Kaggle verification details](docs/kaggle.md).
 
 ## Quick start
 
@@ -120,7 +152,9 @@ answer-token loss       prompt-boundary pooling
 candidate generation -> static code checks -> selected output
 ```
 
-The training CLI defaults to a modern model with two transformer blocks, four attention heads, 128 hidden dimensions, and a 256-token context window. `ModelConfig` still defaults to the legacy path when loading older checkpoints that lack an architecture field. Change CLI settings after the demo works.
+The training CLI defaults to the `demo` preset: a modern model with two transformer blocks, four attention heads, 128 hidden dimensions, and a 2048-token context window. `ModelConfig` retains historical legacy/256 defaults for direct construction and checkpoints missing those fields. Select `--preset slm-50m` for the larger model; explicit dimension flags override a preset on new runs.
+
+Training reports the actual maximum encoded length and number of truncated records. Truncated answers retain their last real byte rather than receiving an artificial end-of-sequence token. An oversized prompt that leaves no answer tokens is rejected. Generation rejects oversized formatted prompts instead of silently removing the answer delimiter; decoding beyond the window uses rolling context.
 
 ## Research questions
 

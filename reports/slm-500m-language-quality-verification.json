@@ -6,6 +6,8 @@
   "torch": "2.10.0+cu128",
   "gpu": "Tesla T4",
   "checkpoint": "artifacts/slm-500m-language-quality.pt",
+  "checkpoint_sha256": "a2f5aca4607c9d35be7a35063045ca8d7f1bc90108e7906b072646d7401dce77",
+  "checkpoint_bytes": 5994595091,
   "curriculum": {
     "base_train_records": 57,
     "base_eval_records": 22,

@@ -20,6 +20,7 @@ def main() -> None:
 
     import torch
 
+    from cognition_slm.data import load_jsonl
     from cognition_slm.generate import generate_text, load_checkpoint
 
     if not torch.cuda.is_available():
@@ -31,8 +32,18 @@ def main() -> None:
 
     curriculum_train = root / "artifacts/curriculum_train.jsonl"
     curriculum_eval = root / "artifacts/curriculum_eval.jsonl"
-    write_jsonl(build_rows("train"), curriculum_train)
-    write_jsonl(build_rows("eval"), curriculum_eval)
+    generated_train = build_rows("train")
+    generated_eval = build_rows("eval")
+    base_train = [example.to_dict() for example in load_jsonl(root / "data/demo.jsonl")]
+    base_eval = [example.to_dict() for example in load_jsonl(root / "data/eval.jsonl")]
+    train_rows = base_train + generated_train
+    eval_rows = base_eval + generated_eval
+    if len({row["id"] for row in train_rows}) != len(train_rows):
+        raise RuntimeError("combined train curriculum contains duplicate ids")
+    if len({row["id"] for row in eval_rows}) != len(eval_rows):
+        raise RuntimeError("combined eval curriculum contains duplicate ids")
+    write_jsonl(train_rows, curriculum_train)
+    write_jsonl(eval_rows, curriculum_eval)
     checkpoint = root / "artifacts/slm-50m-language-quality.pt"
     command = [
         sys.executable, "-m", "cognition_slm.train",
@@ -99,9 +110,13 @@ def main() -> None:
         "preset": "slm-50m",
         "checkpoint": str(checkpoint.relative_to(root)),
         "curriculum": {
-            "train_records": len(build_rows("train")),
-            "eval_records": len(build_rows("eval")),
-            "source": "project-authored curriculum",
+            "base_train_records": len(base_train),
+            "base_eval_records": len(base_eval),
+            "generated_train_records": len(generated_train),
+            "generated_eval_records": len(generated_eval),
+            "train_records": len(train_rows),
+            "eval_records": len(eval_rows),
+            "source": "project-authored base data plus generated curriculum",
             "license": "CC0-1.0",
         },
         "parameters": sum(parameter.numel() for parameter in model.parameters()),

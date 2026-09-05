@@ -6,7 +6,7 @@ The verification run checks the regression suite and existing data audit before 
 
 The latest completed run is recorded in [`reports/slm-500m-2048-language-verification.json`](../reports/slm-500m-2048-language-verification.json). It reached 499,524,075 parameters on a Tesla T4 with ten optimizer steps and zero skipped updates.
 
-The quality runner result is recorded in [`reports/slm-50m-language-quality-verification.json`](../reports/slm-50m-language-quality-verification.json). It trains 1,200 steps on the deterministic project-authored English/Python curriculum and probes greetings, grammar, explanations, code generation, debugging, and algorithm reasoning. Treat the result as a narrow Studio smoke checkpoint, not a broad capability benchmark.
+The quality runner result is recorded in [`reports/slm-50m-language-quality-verification.json`](../reports/slm-50m-language-quality-verification.json). It combines the base conversational examples with a deterministic project-authored English/Python curriculum, trains 1,200 steps, and probes greetings, grammar, explanations, code generation, debugging, and algorithm reasoning. Treat the result as a narrow Studio smoke checkpoint, not a broad capability benchmark.
 
 The source package uses the runtime's installed PyTorch and NumPy; it does not install dependencies or need internet. PyTorch 2.3 or later is required. See the [PyTorch mixed-precision API](https://docs.pytorch.org/docs/2.3/amp.html) and [official Kaggle kernel commands](https://github.com/Kaggle/kaggle-cli/blob/main/docs/kernels.md).
 

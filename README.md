@@ -64,7 +64,7 @@ kaggle kernels status YOUR_KAGGLE_USERNAME/slm-2048-verification
 
 The generated kernel is private and runs without internet. Its synthetic length fixture covers both coding and language task labels; it is a smoke test, not a capability benchmark. `verification.json` records hardware, source hashes, parameter count, and completion evidence. See [Kaggle verification details](docs/kaggle.md).
 
-To build a Studio checkpoint after changing training data, select the quality runner. It builds a deterministic project-authored English/Python curriculum, trains the 50M preset on Kaggle for 1,200 steps, and probes greetings, grammar, explanations, code generation, debugging, and algorithm reasoning:
+To build a Studio checkpoint after changing training data, select the quality runner. It combines the base conversational examples with a deterministic project-authored English/Python curriculum, trains the 50M preset on Kaggle for 1,200 steps, and probes greetings, grammar, explanations, code generation, debugging, and algorithm reasoning:
 
 ```bash
 python scripts/prepare_kaggle.py \

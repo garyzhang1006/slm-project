@@ -52,6 +52,19 @@ class ContextTherapyTests(unittest.TestCase):
         self.assertEqual(assessment.observations[0].code, "contradictory_directives")
         self.assertEqual(assessment.actions[0].code, "resolve_conflict")
 
+    def test_repetition_evidence_redacts_secrets_before_case_normalization(self):
+        secret = "AKIA" + "ABCDEFGHIJKLMNOP"
+        content = f"Deployment credential {secret} is recorded here."
+        assessment = ContextTherapist().assess([
+            {"role": "user", "content": content},
+            {"role": "user", "content": content},
+        ])
+        repeated = next(item for item in assessment.observations if item.code == "repeated_context")
+        self.assertIn("[REDACTED]", repeated.evidence[0])
+        rendered = json.dumps(assessment.to_dict())
+        self.assertNotIn(secret, rendered)
+        self.assertNotIn(secret.casefold(), rendered)
+
     def test_instruction_drift_and_unsupported_claims_are_flagged(self):
         assessment = ContextTherapist().assess(
             [

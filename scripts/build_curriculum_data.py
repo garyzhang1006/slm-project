@@ -175,7 +175,7 @@ def _language_rows(split: str) -> list[dict[str, object]]:
             rows.append(_row(f"{split}-english-greeting-{name_index}-{wording_index}", wording.format(name=name), f"Hello, {name}! What would you like to explore today?", "language_generation"))
     concept_wordings = ("Explain {concept} in plain English.", "Give a short definition of {concept}.", "What is {concept}?", "Describe {concept} for a beginner.")
     grammar_wordings = ("Correct the grammar: {text}", "Rewrite this sentence correctly: {text}", "Improve the grammar in: {text}")
-    writing_wordings = ("Write a concise message for {scenario}.", "Create a friendly note about {scenario}.", "Draft two clear sentences for {scenario}.")
+    writing_wordings = ("Write a concise message for {scenario}.", "Create a friendly note about {scenario}.", "Draft a clear message for {scenario}.")
     if split == "eval":
         concept_wordings = ("In one sentence, describe the purpose of {concept}.",)
         grammar_wordings = ("Return a grammatically correct version of this sentence: {text}",)

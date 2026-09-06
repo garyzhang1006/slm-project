@@ -267,6 +267,7 @@ def _pressure_observation(estimated: int, budget: int) -> ContextObservation | N
 
 def _repetition_observation(messages: tuple[ContextMessage, ...]) -> ContextObservation | None:
     normalized = [_normalized(message.content) for message in messages]
+    originals = dict(zip(normalized, messages))
     counts = Counter(item for item in normalized if len(item) >= 20)
     repeated = [item for item, count in counts.items() if count > 1]
     if not repeated:
@@ -275,7 +276,7 @@ def _repetition_observation(messages: tuple[ContextMessage, ...]) -> ContextObse
         "repeated_context",
         "warning",
         "Multiple visible turns repeat the same substantial text.",
-        tuple(_safe_excerpt(item) for item in repeated[:3]),
+        tuple(_safe_excerpt(originals[item].content) for item in repeated[:3]),
     )
 
 

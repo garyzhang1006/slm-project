@@ -23,8 +23,8 @@ class ByteTokenizer:
     eos_id: int = EOS_ID
 
     def __post_init__(self) -> None:
-        if self.vocab_size < VOCAB_SIZE:
-            raise ValueError("vocab_size must be at least 259")
+        if self.vocab_size != VOCAB_SIZE:
+            raise ValueError("vocab_size must be exactly 259 for the byte tokenizer")
 
     def encode(
         self,

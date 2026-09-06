@@ -28,7 +28,7 @@ Open `launch-studio.command` in Finder, or run it from this project:
 ./launch-studio.command
 ```
 
-Visit [SLM Studio](http://127.0.0.1:8766). The first launch creates a separate Python 3.11 environment with `uv` if needed; subsequent launches reuse it. Keep the terminal open, and press Control-C to stop. If you prefer manual setup, create `.venv-ui`, install `.[dev]`, and run `PYTHONPATH=src .venv-ui/bin/python -m cognition_slm.server`.
+Visit [SLM Studio](http://127.0.0.1:8766). The first launch creates a separate Python 3.13 environment named `.venv-ui-py313` with `uv` if needed; subsequent launches reuse it. Keep the terminal open, and press Control-C to stop. If you prefer manual setup, create `.venv-ui-py313`, install `.[dev]`, and run `PYTHONPATH=src .venv-ui-py313/bin/python -m cognition_slm.server`. The launcher checks PyTorch with a 30-second deadline and reports import failures instead of waiting indefinitely. Inference memory-maps ZIP checkpoints and excludes optimizer state; training resume still loads its full state.
 
 Studio defaults to `artifacts/slm-500m-language-quality.pt` and checks that it contains exactly 499,524,075 model parameters. Missing weights produce an error; Studio never silently falls back to a smaller checkpoint. Weights are not included in Git: download the completed Kaggle quality checkpoint into that path before launching. To deliberately use another checkpoint, supply `./launch-studio.command --checkpoint /path/to/model.pt`. An occupied port can be changed with `--port 8767`.
 

@@ -63,7 +63,7 @@ class ModelRuntime:
             device = _device(self.device)
             if device.type == "cpu":
                 torch.set_num_threads(min(4, torch.get_num_threads()))
-            payload, config = load_checkpoint_payload(torch, self.checkpoint)
+            payload, config = load_checkpoint_payload(torch, self.checkpoint, inference_only=True)
             # Training checkpoints include Adam state unused by Studio.
             weights = payload["model_state_dict"]
             metadata = payload.get("metadata", {})

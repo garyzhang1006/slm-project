@@ -1,5 +1,6 @@
 import unittest
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import torch
 
@@ -8,6 +9,14 @@ from cognition_slm.tokenizer import ByteTokenizer
 
 
 class BatchedGenerationTests(unittest.TestCase):
+    def test_invalid_temperature_rejected_before_model_execution(self):
+        model = Mock()
+        for temperature in (-1, float("nan"), float("inf"), float("-inf"), True, "warm", 10 ** 500):
+            with self.subTest(temperature=temperature), self.assertRaisesRegex(ValueError, "finite, non-negative"):
+                generate_ids(model, None, ByteTokenizer(), temperature=temperature)
+        model.eval.assert_not_called()
+        model.assert_not_called()
+
     def test_finished_rows_stay_at_eos_until_all_rows_finish(self):
         tokenizer = ByteTokenizer()
 

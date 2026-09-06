@@ -2,6 +2,7 @@ import hashlib
 from dataclasses import replace
 import json
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 from cognition_slm.audit import audit_dataset, audit_split_overlap
@@ -13,6 +14,33 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 class DataAndAuditTests(unittest.TestCase):
+    def test_split_audit_rejects_prompt_overlap_with_different_ids(self):
+        train = replace(load_jsonl(ROOT / "data" / "demo.jsonl")[0],
+                        id="train-question", prompt="Explain a loop.")
+        evaluation = replace(train, id="eval-question", prompt="  explain\n A   LOOP. ",
+                             answer="A differently worded answer.")
+        with patch("cognition_slm.audit.load_jsonl", side_effect=[[train], [evaluation]]):
+            errors = audit_split_overlap("train.jsonl", "eval.jsonl")
+        self.assertEqual(len(errors), 1)
+        self.assertIn("prompt overlap", errors[0])
+        self.assertIn("train-question", errors[0])
+        self.assertIn("eval-question", errors[0])
+        self.assertIn("held-out prompt", errors[0])
+
+    def test_split_audit_preserves_id_checks_for_distinct_prompts(self):
+        train = load_jsonl(ROOT / "data" / "demo.jsonl")[0]
+        evaluation = replace(train, prompt="An unrelated evaluation question.")
+        with patch("cognition_slm.audit.load_jsonl", side_effect=[[train], [evaluation]]):
+            errors = audit_split_overlap("train.jsonl", "eval.jsonl")
+        self.assertEqual(errors, [f"train/eval id overlap: {train.id}"])
+
+    def test_split_audit_keeps_task_types_distinct(self):
+        train = replace(load_jsonl(ROOT / "data" / "demo.jsonl")[0],
+                        id="train-question", task_type="code_generation")
+        evaluation = replace(train, id="eval-question", task_type="code_explanation")
+        with patch("cognition_slm.audit.load_jsonl", side_effect=[[train], [evaluation]]):
+            self.assertEqual(audit_split_overlap("train.jsonl", "eval.jsonl"), [])
+
     def test_truncated_answer_has_no_artificial_eos(self):
         tokenizer = ByteTokenizer()
         example = replace(load_jsonl(ROOT / "data" / "demo.jsonl")[0], answer="x" * 3000)

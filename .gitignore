@@ -1,6 +1,8 @@
 .DS_Store
 .venv/
 .venv-ui/
+.venv-ui-py313/
+.venv-ui-py314/
 __pycache__/
 *.py[cod]
 .pytest_cache/

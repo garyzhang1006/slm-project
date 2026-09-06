@@ -85,14 +85,29 @@ def audit_dataset(path: str | Path) -> AuditReport:
 
 def audit_split_overlap(train_path: str | Path, eval_path: str | Path) -> list[str]:
     try:
-        train_ids = {item.id for item in load_jsonl(train_path)}
-        eval_ids = {item.id for item in load_jsonl(eval_path)}
+        train_examples = load_jsonl(train_path)
+        eval_examples = load_jsonl(eval_path)
     except (DataValidationError, FileNotFoundError) as exc:
         return [str(exc)]
+    train_ids = {item.id for item in train_examples}
+    eval_ids = {item.id for item in eval_examples}
+    errors = []
     overlap = sorted(train_ids.intersection(eval_ids))
     if overlap:
-        return [f"train/eval id overlap: {', '.join(overlap)}"]
-    return []
+        errors.append(f"train/eval id overlap: {', '.join(overlap)}")
+    train_prompts: dict[tuple[str, str], list[str]] = {}
+    for item in train_examples:
+        key = (item.task_type, " ".join(item.prompt.split()).casefold())
+        train_prompts.setdefault(key, []).append(item.id)
+    for item in eval_examples:
+        key = (item.task_type, " ".join(item.prompt.split()).casefold())
+        if key in train_prompts:
+            errors.append(
+                f"train/eval prompt overlap for task {item.task_type!r}: "
+                f"eval id {item.id!r} matches train ids {', '.join(sorted(train_prompts[key]))}. "
+                "Remove the duplicate from evaluation or replace it with a held-out prompt."
+            )
+    return errors
 
 
 def render_report(reports: list[AuditReport], overlap_errors: list[str]) -> str:

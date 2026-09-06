@@ -54,8 +54,8 @@ class ModelConfig:
     error_categories: tuple[str, ...] = ERROR_CATEGORIES
 
     def validate(self) -> None:
-        if self.vocab_size < 259:
-            raise ValueError("vocab_size must include 256 byte tokens and 3 specials")
+        if self.vocab_size != 259:
+            raise ValueError("vocab_size must be exactly 259 for the byte tokenizer")
         if self.block_size < 8:
             raise ValueError("block_size must be at least 8")
         if self.n_layer < 1 or self.n_head < 1 or self.n_embd < 1:

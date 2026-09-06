@@ -4,6 +4,11 @@ from cognition_slm.tokenizer import BOS_ID, EOS_ID, PAD_ID, ByteTokenizer, VOCAB
 
 
 class TokenizerTests(unittest.TestCase):
+    def test_unsupported_vocabulary_sizes_rejected(self):
+        for size in (258, 260, 512):
+            with self.subTest(vocab_size=size), self.assertRaisesRegex(ValueError, "exactly 259"):
+                ByteTokenizer(vocab_size=size)
+
     def test_round_trip_unicode(self):
         tokenizer = ByteTokenizer()
         encoded = tokenizer.encode("print('café')")

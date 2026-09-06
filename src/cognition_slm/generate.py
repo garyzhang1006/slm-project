@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import math
 from pathlib import Path
 
 import torch
@@ -26,8 +27,16 @@ def generate_ids(
 ) -> torch.Tensor:
     if max_new_tokens < 1:
         raise ValueError("max_new_tokens must be positive")
-    if temperature < 0:
-        raise ValueError("temperature must be non-negative")
+    try:
+        valid_temperature = (
+            type(temperature) in (int, float)
+            and temperature >= 0
+            and math.isfinite(temperature)
+        )
+    except OverflowError:
+        valid_temperature = False
+    if not valid_temperature:
+        raise ValueError("temperature must be a finite, non-negative number")
     if top_k < 0:
         raise ValueError("top_k must be non-negative")
     model.eval()
@@ -95,7 +104,7 @@ def rank_candidate_indices(
 
 
 def load_checkpoint(path: str | Path, device: torch.device) -> tuple[CognitionSLM, ByteTokenizer]:
-    checkpoint, config = load_checkpoint_payload(torch, path)
+    checkpoint, config = load_checkpoint_payload(torch, path, inference_only=True)
     model = CognitionSLM(config)
     model.load_state_dict(checkpoint["model_state_dict"])
     model.to(device)

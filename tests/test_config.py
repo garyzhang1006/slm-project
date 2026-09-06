@@ -4,6 +4,11 @@ from cognition_slm.config import MODEL_PRESETS, ModelConfig
 
 
 class ConfigTests(unittest.TestCase):
+    def test_vocabulary_matches_byte_tokenizer(self):
+        for size in (258, 260, 512):
+            with self.subTest(vocab_size=size), self.assertRaisesRegex(ValueError, "exactly 259"):
+                ModelConfig(vocab_size=size).validate()
+
     def test_presets_are_valid_2048_modern_models(self):
         for preset in MODEL_PRESETS.values():
             config = ModelConfig(**preset)

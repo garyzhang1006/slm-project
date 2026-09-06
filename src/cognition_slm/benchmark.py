@@ -61,6 +61,7 @@ def benchmark(checkpoints: list[tuple[str, Path]], data_path: str | Path, max_ne
                 "metrics": _scalar_metrics(result),
             }
         )
+        del model, tokenizer
     reference = models[0]
     deltas = []
     for item in models[1:]:

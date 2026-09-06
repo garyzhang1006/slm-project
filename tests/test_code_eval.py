@@ -4,6 +4,12 @@ from cognition_slm.code_eval import assess_code, assess_python, extract_python, 
 
 
 class CodeEvaluationTests(unittest.TestCase):
+    def test_other_languages_do_not_hide_python(self):
+        text = "```javascript\nconst veryLongVariableName = 'this is not Python';\n```\n```python\nx = 1\n```"
+        self.assertEqual(extract_python(text), "x = 1")
+        self.assertEqual(extract_python("```\nx = 2\n```"), "x = 2")
+        self.assertFalse(python_syntax_valid("```javascript\nconst x = 1;\n```"))
+
     def test_extract_python_prefers_largest_fenced_block(self):
         text = "note\n```python\ndef short():\n    return 1\n```\n```python\ndef long():\n    return 2\n\n# detail\n```"
         self.assertIn("def long", extract_python(text))

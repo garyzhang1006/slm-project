@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 
 CODE_TASK_TYPES = frozenset({"code_generation", "code_debugging"})
-_FENCED_BLOCK = re.compile(r"```(?:python|py)?\s*(.*?)```", re.IGNORECASE | re.DOTALL)
+_FENCED_BLOCK = re.compile(r"```([^\n`]*)\n(.*?)```", re.DOTALL)
 
 
 @dataclass(frozen=True)
@@ -29,7 +29,8 @@ class PythonQuality:
 
 def extract_python(text: str) -> str:
     """Return the largest fenced Python block, or raw text when no fence exists."""
-    matches = _FENCED_BLOCK.findall(text)
+    matches = [body for language, body in _FENCED_BLOCK.findall(text)
+               if language.strip().casefold() in {"", "python", "py"}]
     return max(matches, key=len).strip() if matches else text.strip()
 
 

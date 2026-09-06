@@ -1,0 +1,234 @@
+{
+  "status": {
+    "state": "ready",
+    "busy": false,
+    "model": {
+      "name": "Cognition SLM",
+      "checkpoint": "slm-500m-language-quality.pt",
+      "parameters": 499524075,
+      "context_window": 2048,
+      "device": "cuda",
+      "architecture": "modern",
+      "training_steps": 1200
+    },
+    "task_types": [
+      "code_generation",
+      "code_debugging",
+      "code_explanation",
+      "algorithm_reasoning",
+      "metacognitive_review",
+      "language_generation"
+    ]
+  },
+  "generation": {
+    "text": "Hello! What would you like to explore today?",
+    "elapsed_seconds": 2.469,
+    "prompt_tokens": 85,
+    "generated_tokens": 45,
+    "finish_reason": "eos"
+  },
+  "question_probes": [
+    {
+      "id": "fact",
+      "prompt": "Which planet do humans live on? Answer with its name.",
+      "task_type": "language_generation",
+      "expected_rubric": "Earth",
+      "result": {
+        "text": "Could you send the file by Friday? Thatks so much.",
+        "elapsed_seconds": 3.185,
+        "prompt_tokens": 136,
+        "generated_tokens": 51,
+        "finish_reason": "eos"
+      }
+    },
+    {
+      "id": "arithmetic",
+      "prompt": "What is 7 plus 5? Answer with only the number.",
+      "task_type": "language_generation",
+      "expected_rubric": "12",
+      "result": {
+        "text": "Hello, Riley! What would you like to explore today?",
+        "elapsed_seconds": 3.23,
+        "prompt_tokens": 129,
+        "generated_tokens": 52,
+        "finish_reason": "eos"
+      }
+    },
+    {
+      "id": "vocabulary",
+      "prompt": "In one word, give the opposite of cold.",
+      "task_type": "language_generation",
+      "expected_rubric": "hot or warm",
+      "result": {
+        "text": "Hello, Noah! What would you like to explore today?",
+        "elapsed_seconds": 3.04,
+        "prompt_tokens": 122,
+        "generated_tokens": 51,
+        "finish_reason": "eos"
+      }
+    },
+    {
+      "id": "reading",
+      "prompt": "Mira put her keys in a blue box. The box is under her desk. Where are Mira's keys?",
+      "task_type": "language_generation",
+      "expected_rubric": "in the blue box under her desk",
+      "result": {
+        "text": "Les can text works som.",
+        "elapsed_seconds": 1.566,
+        "prompt_tokens": 165,
+        "generated_tokens": 24,
+        "finish_reason": "eos"
+      }
+    },
+    {
+      "id": "instruction",
+      "prompt": "Reply with exactly these two words: orange bicycle",
+      "task_type": "language_generation",
+      "expected_rubric": "orange bicycle",
+      "result": {
+        "text": "The project ins moving fordard reaneon lesuvion somo cansere an le feersamatent or adatainim.",
+        "elapsed_seconds": 6.59,
+        "prompt_tokens": 133,
+        "generated_tokens": 94,
+        "finish_reason": "eos"
+      }
+    },
+    {
+      "id": "grammar_unseen",
+      "prompt": "Fix the grammar in this sentence: The dogs is playing outside.",
+      "task_type": "language_generation",
+      "expected_rubric": "The dogs are playing outside.",
+      "result": {
+        "text": "A model text.",
+        "elapsed_seconds": 0.891,
+        "prompt_tokens": 145,
+        "generated_tokens": 14,
+        "finish_reason": "eos"
+      }
+    },
+    {
+      "id": "reason",
+      "prompt": "Why should you save your work before closing a computer program?",
+      "task_type": "language_generation",
+      "expected_rubric": "to avoid losing unsaved changes",
+      "result": {
+        "text": "Could you send the file by Friday? Thanks so muct ons usy results expering your Bre naments expenthe is ust result o nearlts one byst o s otse.",
+        "elapsed_seconds": 12.085,
+        "prompt_tokens": 147,
+        "generated_tokens": 144,
+        "finish_reason": "eos"
+      }
+    },
+    {
+      "id": "explanation",
+      "prompt": "Explain how a variable differs from a loop in Python.",
+      "task_type": "code_explanation",
+      "expected_rubric": "a variable binds a value; a loop repeats operations",
+      "result": {
+        "text": "It returns ends en rellers Bregrase the lease it a faile reaints bureuses proble or starle cout int o def chail is reep chand onp is cronting that inst be cates be that pagitain.",
+        "elapsed_seconds": 15.609,
+        "prompt_tokens": 133,
+        "generated_tokens": 179,
+        "finish_reason": "eos"
+      }
+    },
+    {
+      "id": "code_unseen",
+      "prompt": "Write a Python function named triple(value) that returns three times value.",
+      "task_type": "code_generation",
+      "expected_rubric": "def triple(value):\n    return 3 * value",
+      "result": {
+        "text": "def tount_ivalues(values):\n    return value * 2",
+        "elapsed_seconds": 3.451,
+        "prompt_tokens": 154,
+        "generated_tokens": 48,
+        "finish_reason": "eos"
+      }
+    },
+    {
+      "id": "code_question",
+      "prompt": "What does len([10, 20, 30]) return?",
+      "task_type": "code_explanation",
+      "expected_rubric": "3",
+      "result": {
+        "text": "A fousitive  ndor at a forr adding so leach ope falle for that inater can noputes op bynctary rey lain grot)",
+        "elapsed_seconds": 7.728,
+        "prompt_tokens": 115,
+        "generated_tokens": 109,
+        "finish_reason": "eos"
+      }
+    },
+    {
+      "id": "unknown",
+      "prompt": "What is the name of my pet? I have not told you.",
+      "task_type": "language_generation",
+      "expected_rubric": "acknowledge that the pet name is unknown",
+      "result": {
+        "text": "Hello, Lee! What would you like to explore today?",
+        "elapsed_seconds": 3.419,
+        "prompt_tokens": 131,
+        "generated_tokens": 50,
+        "finish_reason": "eos"
+      }
+    },
+    {
+      "id": "follow_context",
+      "prompt": "Alex has two apples. Sam gives Alex three more apples. How many apples does Alex have now?",
+      "task_type": "language_generation",
+      "expected_rubric": "five",
+      "result": {
+        "text": "Could you sevew the marlag by Friday and behat an operidare an expelt.",
+        "elapsed_seconds": 6.055,
+        "prompt_tokens": 173,
+        "generated_tokens": 71,
+        "finish_reason": "eos"
+      }
+    }
+  ],
+  "checkpoint_sha256": "a2f5aca4607c9d35be7a35063045ca8d7f1bc90108e7906b072646d7401dce77",
+  "tests": "passed",
+  "source_manifest": {
+    "pyproject.toml": "d459383f32272fdb0f9493f09ef34a51ec4eef7cb38c1beaea8ee5733763e9a0",
+    "README.md": "0c03abcaefb945d05c9fa9ad5574a300ebf89d457ea9628fd69aeef4d3efad48",
+    "LICENSE": "ad8cc6038f2415c1c9c9a0c57af595789f5342af6edf18f0ed2957e2d9e4fe82",
+    "src/cognition_slm/__init__.py": "d30bf4997be207f9cb3168272655cdb58fb3682f775140b03db71566a3298a28",
+    "src/cognition_slm/audit.py": "08b8bfb224c4be7e5368ce0531a17eac8ac40193111ba6a2448f829f3cd26f53",
+    "src/cognition_slm/benchmark.py": "7131cc3ea03a258cda82f0263f541680e396e6cdefcce92145462a080ecdadeb",
+    "src/cognition_slm/checkpoint.py": "1d55fafc1dc9eae1f64e625488744f48895170198fe8a950c99059d2e8ed70d2",
+    "src/cognition_slm/code_eval.py": "7987be60a065d14f0b04c6c392c563a7ed9fd87b051befc492574d910df28bc8",
+    "src/cognition_slm/config.py": "f5b0a18a37d95cd9d60b36f9b4866dddbe73c13b7ad457eca4bb30c6226bb3ba",
+    "src/cognition_slm/context_therapy.py": "c67bc20456f2ae69394da9b20aade682b05f775f4f96e5583f554da3e62519de",
+    "src/cognition_slm/data.py": "5e461471079097e88fb57aa16aa9086f24465224031eae34d6a28bb0427c3cc3",
+    "src/cognition_slm/demo_data.py": "82aaee7dc08cbebdb03eca0b5fd6125fef078024992b085ff11d9c744eb5e00e",
+    "src/cognition_slm/evaluate.py": "66ae2280868935546cd929349683f6ec8b504ea5c2af009fa414670c2e9a87bb",
+    "src/cognition_slm/generate.py": "0f9415df10b32e516e2568f197aaf42f777a42ee0789ff4ca72417eeb9376f38",
+    "src/cognition_slm/model.py": "7edb5fa6e788e45c0f0fb3dd67f9cfae386b7f90e8ff2e091ceb79fe289b1635",
+    "src/cognition_slm/server.py": "e63bbeefa9cb9709f7db5c4558ae8cfad970179d0315f6f164c87a44d5fd5e5a",
+    "src/cognition_slm/tokenizer.py": "d8fabbda81ff3ab81ff6bc6b85e135658b0b7583046fb3ab890abfe37c700ae5",
+    "src/cognition_slm/train.py": "c51ff86eadfc9cb5fc152e2885236039a86bba7d246ece81fddbdfcf2ce5812f",
+    "tests/test_benchmark.py": "d6da0d26e63697d462099d9d842b3ddb7929e65ffb6afa1f3bfff606030f655c",
+    "tests/test_checkpoint.py": "fadcd1858a67e4ef73d3c100c1e89ffce476a837e5ba8bf2b8f2c63a7a728ff6",
+    "tests/test_code_eval.py": "08e650e26304e5dc88d2e01d953f857d22c5b71c6cb1cb768bc0981bce266071",
+    "tests/test_config.py": "7dedf405c12c82731f0af07be4e1c3714df99dd9281bd04ae5763dd2c1037463",
+    "tests/test_context_therapy.py": "1f7470543078d649f9e5ae8f4ba9b73393c894156fe83260d913c634ee4e12e6",
+    "tests/test_curriculum_data.py": "12e4a262641a4271d75f679e268bb9eac82ee9652d4be19eeb93dd87ddf9a565",
+    "tests/test_data_and_audit.py": "1fc21208c71c8dcb854fce717a380bb193cc8a6c2c6a658677bae8bda1333800",
+    "tests/test_evaluate.py": "8568c6b0e89c2df8b81628f7478d84c77a67e0f3c35aaf2538a295f73b5b8e34",
+    "tests/test_generate.py": "13d0e22f2792685aefe7b17d9e6960ff717c663376e29d804396fd8ad2eb56bf",
+    "tests/test_generation.py": "6e0593fbe14dceb4c847b951a3567961f7694265f582a87a1e9c66ddad8a46ef",
+    "tests/test_model.py": "881b39289936632b1844db898e41dbcf032938a8fc5c258e33be6b1d7c8fffae",
+    "tests/test_server.py": "4201e2e221f9f661c291d3cef15ff93034af84dc352ceaf121a998390bd8cac1",
+    "tests/test_tokenizer.py": "bad97c6d70a531b2a3d781aad12f3dc062897948080f09ac8f142dcf9ab403bf",
+    "tests/test_train.py": "17fbf411edf025ad2efb75a0fe5325f5a14d76df786b7d7c9dc0845c9377e75b",
+    "data/MANIFEST.json": "1683eaa3fdd2aa47b97119285185331e1a2fd00b7e809e30402a951dc4bf82fe",
+    "data/demo.jsonl": "fa72b9eb2c2c39ff3c2060e645eaf2cd7707cef501f349dc404fb4a7d3f7acce",
+    "data/eval.jsonl": "34ce51fab9d30ff551b91c10548fedeb843fb2b779e55ce08e4f896460b93d6b",
+    "src/cognition_slm/web/index.html": "cabaaf99712d39dc66b3c676027fe8904c53804985dc6e0ad371aad42ef1a40e",
+    "src/cognition_slm/web/style.css": "a5e1c655454153ce701e6650439b2b3da3c8be0c33abc739eb48fe61fb326146",
+    "src/cognition_slm/web/app.js": "85c76b3fee48bf87e5f0add84c1cdf319b2248df05ea228384e7c13da6c78152",
+    "scripts/kaggle_studio_verify.py": "49c33916d74522b6fdf915e949c10091352dedd22b00968b8476c4cf6c16c5d4",
+    "scripts/build_curriculum_data.py": "8689b9782a563334129820fa5855480a2cf8d22789ebf3a13f911718f8820594"
+  },
+  "gpu": "Tesla T4",
+  "scope": "Default server startup and HTTP inference plus ungraded unseen question probes"
+}

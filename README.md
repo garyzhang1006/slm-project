@@ -93,6 +93,8 @@ Historical quality reports used overlapping training/evaluation prompts and must
 
 ## Quick start
 
+The [500M code and capability audit](reports/slm-500m-code-and-capability-audit.md) verified the model size and passed 89 regression tests, but found zero correct answers on twelve unseen question probes. The current checkpoint is unsuitable for reliable English question answering. Software fixes in this revision do not retrain its weights.
+
 ```bash
 python3 -m venv .venv
 .venv/bin/python -m pip install ".[dev]"

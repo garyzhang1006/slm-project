@@ -170,6 +170,50 @@ This layer is an observable context controller, not a consciousness probe or hid
 
 ## Data boundary
 
+### English training on Kaggle
+
+`scripts/kaggle_english_run.py` continues training the project's own 499,524,075-parameter
+model. It retains the custom architecture and existing weights; it does not load a
+pretrained third-party model. The runner downloads text only on Kaggle, prepares up to
+30,000 accepted short stories, then trains on instruction/answer examples with some
+story replay. Oversized examples are rejected intact, and each source has 128 held-out
+examples. The existing unseen question probes remain excluded from training.
+
+Package and submit from a machine with the Kaggle CLI configured:
+
+```bash
+python scripts/prepare_kaggle.py --out /tmp/slm-english-kaggle \
+  --owner garyzhang11111 --slug slm-500m-english-corpus \
+  --runner kaggle_english_run.py
+kaggle kernels push -p /tmp/slm-english-kaggle
+```
+
+Packaging does not execute the model. The generated private notebook enables GPU and
+internet access and attaches the original checkpoint kernel. Its SHA-256 must match
+the recorded parent before any training starts. Training uses 4,000 English steps
+and 1,000 instruction-tuning steps, with eight examples per effective batch. Each stage
+resets optimizer state and preserves model weights. Checkpoints save every 250 steps;
+their step counts are local to that stage. The saved context remains 2,048 byte tokens.
+
+The notebook runs the regression suite, records source/data hashes, and evaluates both
+the original and new checkpoints. `english_training_report.json` records progress;
+`baseline_evaluation.json`, `english_evaluation.json`, and `questions_evaluation.json`
+contain held-out losses and generated answers. Completed training is not an English
+or question-answering quality pass. Read the answers before changing Studio's checkpoint.
+The runner leaves the current Studio checkpoint unchanged.
+
+Text sources are pinned to dataset revisions in the runner:
+
+- [TinyStories](https://huggingface.co/datasets/roneneldan/TinyStories), by Ronen Eldan
+  and Yuanzhi Li, contains synthetic English stories and uses CDLA-Sharing-1.0.
+- [Dolly 15k](https://huggingface.co/datasets/databricks/databricks-dolly-15k),
+  copyright 2023 Databricks, Inc., contains human-written instructions and responses
+  under CC-BY-SA-3.0. Some contexts derive from Wikipedia contributors.
+
+Converted records retain source and license fields. Filtering and prompt formatting
+are this project's modifications; dataset licenses continue to apply to redistributed
+records. No downloaded corpus is committed to this repository.
+
 `data/demo.jsonl` and `data/eval.jsonl` contain project-authored synthetic examples marked `CC0-1.0`. The current snapshot has 57 training records and 22 held-out records, including `language_generation` examples for greetings, summaries, rewriting, translation, and short-form writing. No external training corpus is bundled. `scripts/prepare_data.py` converts a local JSONL file into the canonical schema and requires an explicit source and license. Add only data you are allowed to use, and run the audit before training.
 
 The project deliberately does not accept fields named `chain_of_thought`, `cot`, `hidden_reasoning`, or `private_thoughts`. A short inspectable explanation can be represented in the answer, but a verbal explanation is not evidence of a model's hidden internal process.
@@ -218,4 +262,5 @@ See [`docs/cognition.md`](docs/cognition.md) for definitions and limits, [`docs/
 - Prompt-only pooling prevents the auxiliary heads from reading answer tokens during training; it does not prove that their labels represent internal reasoning.
 - Static syntax validity does not establish runtime correctness. Candidate reranking can select a valid-looking answer that is still wrong.
 - Generated code is untrusted text. Execute it only in a sandbox with resource limits.
-- The repository does not download internet data automatically.
+- Normal training and Studio do not download internet data. The explicitly selected
+  English Kaggle runner downloads the two licensed text datasets described above.

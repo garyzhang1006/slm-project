@@ -52,6 +52,7 @@ def prepare(output: Path, owner: str, slug: str, runner: str) -> None:
         "id": f"{owner}/{slug}", "title": slug,
         "code_file": "run.py", "language": "python", "kernel_type": "script",
         "is_private": True, "enable_gpu": True,
+        "machine_shape": "NvidiaTeslaT4",
         "enable_internet": runner == "kaggle_english_run.py",
         "dataset_sources": [], "competition_sources": [],
         "kernel_sources": ["garyzhang11111/slm-500m-english-code-quality-v2"]

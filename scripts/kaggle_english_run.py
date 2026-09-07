@@ -156,6 +156,17 @@ def main() -> None:
 
     if not torch.cuda.is_available():
         raise RuntimeError("Enable a Kaggle GPU before starting English training")
+    environment = {"gpu": torch.cuda.get_device_name(0), "torch": torch.__version__}
+    try:
+        # Availability alone also succeeds on GPUs unsupported by the torch build.
+        if (torch.ones(1, device="cuda") + 1).item() != 2:
+            raise RuntimeError("GPU arithmetic check returned an unexpected value")
+    except RuntimeError as exc:
+        write_json(root / "gpu_preflight.json", dict(environment, status="failed", error=str(exc)))
+        raise RuntimeError(
+            "Kaggle GPU execution failed; resubmit with --accelerator NvidiaTeslaT4"
+        ) from exc
+    write_json(root / "gpu_preflight.json", dict(environment, status="passed"))
     torch.set_num_threads(2)
     manifest = json.loads((root / "source-manifest.json").read_text())
     for name, expected in manifest.items():

@@ -185,15 +185,20 @@ Package and submit from a machine with the Kaggle CLI configured:
 python scripts/prepare_kaggle.py --out /tmp/slm-english-kaggle \
   --owner garyzhang11111 --slug slm-500m-english-corpus \
   --runner kaggle_english_run.py
-kaggle kernels push -p /tmp/slm-english-kaggle
+kaggle kernels push -p /tmp/slm-english-kaggle --accelerator NvidiaTeslaT4
 ```
 
-Packaging does not execute the model. The generated private notebook enables GPU and
+Packaging does not execute the model. The generated private notebook selects T4 GPU and
 internet access and attaches the original checkpoint kernel. Its SHA-256 must match
 the recorded parent before any training starts. Training uses 4,000 English steps
 and 1,000 instruction-tuning steps, with eight examples per effective batch. Each stage
 resets optimizer state and preserves model weights. Checkpoints save every 250 steps;
 their step counts are local to that stage. The saved context remains 2,048 byte tokens.
+
+The runner checks actual GPU execution before running tests. Kaggle's default P100
+can be detected successfully even when the installed PyTorch build cannot execute
+on it; keep the explicit T4 selection when submitting. `gpu_preflight.json` records
+the device, PyTorch version, and compatibility result.
 
 The notebook runs the regression suite, records source/data hashes, and evaluates both
 the original and new checkpoints. `english_training_report.json` records progress;

@@ -172,6 +172,25 @@ This layer is an observable context controller, not a consciousness probe or hid
 
 ### English training on Kaggle
 
+For the next question-answering run, use `--runner kaggle_qa_run.py` and
+`--slug slm-500m-answer-training` with the packaging command below. This runner
+attaches the completed English corpus run and verifies the latest custom question
+checkpoint's hash. It uses short Dolly answers from the existing training split and
+[SQuAD](https://huggingface.co/datasets/rajpurkar/squad) passage questions
+(Pranav Rajpurkar and collaborators; CC-BY-SA-4.0, with Wikipedia source passages).
+SQuAD passages are preserved in full; examples exceeding 1,024 byte tokens are rejected.
+This teaches passage-based answering and does not establish broad factual knowledge.
+
+The QA runner compares genuine versus shuffled prompts and records both greedy and
+sampled answers. A 500-step pilot must improve development exact match by at least
+two percentage points, or token F1 by five points without reducing exact match,
+before a further 4,000 training steps run. This gate measures early progress, not
+readiness for deployment. Each stage starts a fresh optimizer from the preceding
+model weights. Final evaluation uses 128 separate passage questions and the existing
+12 general-question probes. Development and final-test passages are kept separate.
+See `qa_training_report.json` for the gate decision, scores, and generated answers;
+no checkpoint is installed into Studio automatically.
+
 `scripts/kaggle_english_run.py` continues training the project's own 499,524,075-parameter
 model. It retains the custom architecture and existing weights; it does not load a
 pretrained third-party model. The runner downloads text only on Kaggle, prepares up to

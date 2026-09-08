@@ -24,8 +24,11 @@ def prepare(output: Path, owner: str, slug: str, runner: str) -> None:
     # The regression suite imports the curriculum generator for every runner.
     files.append(ROOT / "scripts" / "build_curriculum_data.py")
     files.append(ROOT / "scripts" / "english_corpus.py")
-    if runner == "kaggle_english_run.py":
+    files.append(ROOT / "scripts" / "qa_corpus.py")
+    if runner in {"kaggle_english_run.py", "kaggle_qa_run.py"}:
         files.append(ROOT / "scripts" / "kaggle_studio_verify.py")
+    if runner == "kaggle_qa_run.py":
+        files.append(ROOT / "scripts" / "kaggle_english_run.py")
     manifest = {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest() for path in files}
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
@@ -53,10 +56,12 @@ def prepare(output: Path, owner: str, slug: str, runner: str) -> None:
         "code_file": "run.py", "language": "python", "kernel_type": "script",
         "is_private": True, "enable_gpu": True,
         "machine_shape": "NvidiaTeslaT4",
-        "enable_internet": runner == "kaggle_english_run.py",
+        "enable_internet": runner in {"kaggle_english_run.py", "kaggle_qa_run.py"},
         "dataset_sources": [], "competition_sources": [],
-        "kernel_sources": ["garyzhang11111/slm-500m-english-code-quality-v2"]
-        if runner == "kaggle_english_run.py" else [],
+        "kernel_sources": (["garyzhang11111/slm-500m-english-corpus"]
+                           if runner == "kaggle_qa_run.py" else
+                           ["garyzhang11111/slm-500m-english-code-quality-v2"]
+                           if runner == "kaggle_english_run.py" else []),
     }, indent=2) + "\n")
     print(json.dumps({"output": str(output), "source_files": len(files), "kernel": f"{owner}/{slug}"}))
 
@@ -68,7 +73,7 @@ if __name__ == "__main__":
     parser.add_argument("--slug", default="slm-2048-verification")
     parser.add_argument(
         "--runner",
-        choices=("kaggle_run.py", "kaggle_quality_run.py", "kaggle_500m_quality_run.py", "kaggle_studio_verify.py", "kaggle_english_run.py"),
+        choices=("kaggle_run.py", "kaggle_quality_run.py", "kaggle_500m_quality_run.py", "kaggle_studio_verify.py", "kaggle_english_run.py", "kaggle_qa_run.py"),
         default="kaggle_run.py",
         help="Kaggle entrypoint; quality runner trains a Studio checkpoint.",
     )

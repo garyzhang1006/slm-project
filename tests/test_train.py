@@ -4,6 +4,17 @@ from cognition_slm.train import _lr_scale
 
 
 class TrainingTests(unittest.TestCase):
+    def test_time_budget_requires_positive_finite_seconds(self):
+        from argparse import Namespace
+        from cognition_slm.train import _runtime_options
+
+        self.assertEqual(_runtime_options(Namespace()), ("fp32", 1, 100))
+        for seconds in (0, -1, float("nan"), float("inf"), -float("inf")):
+            with self.subTest(seconds=seconds):
+                with self.assertRaisesRegex(ValueError, "max_seconds must be positive and finite"):
+                    _runtime_options(Namespace(max_seconds=seconds))
+        self.assertEqual(_runtime_options(Namespace(max_seconds=0.1)), ("fp32", 1, 100))
+
     def test_warmup_and_cosine_schedule_boundaries(self):
         self.assertAlmostEqual(_lr_scale(0, total_steps=20, warmup_steps=5), 0.2)
         self.assertAlmostEqual(_lr_scale(4, total_steps=20, warmup_steps=5), 1.0)
@@ -81,6 +92,66 @@ class TrainingIntegrationTests(unittest.TestCase):
         right = torch.load(accumulated["checkpoint"], weights_only=True)["model_state_dict"]
         for name in left:
             torch.testing.assert_close(left[name], right[name], rtol=1e-4, atol=2e-6)
+
+    def test_time_budget_saves_and_resumes_exactly_with_final_validation(self):
+        import torch
+        from unittest.mock import patch
+        from cognition_slm.train import train
+
+        full = train(self.args("full.pt", dropout=0.1))
+        validation = self.root / "validation.jsonl"
+        validation.write_bytes(self.data.read_bytes())
+        with patch("cognition_slm.train.monotonic", side_effect=[100.0, 111.0, 112.0]):
+            limited = train(self.args(
+                "limited.pt", dropout=0.1, max_seconds=10.0, save_every=100,
+                eval_every=100, eval_data=str(validation),
+            ))
+        self.assertEqual(limited["steps"], 1)
+        self.assertEqual(limited["requested_steps"], 3)
+        self.assertEqual(limited["completed_steps"], 1)
+        self.assertEqual(limited["stopped_reason"], "time_budget")
+        self.assertEqual(limited["duration_seconds"], 12.0)
+        self.assertEqual(limited["validation"]["step"], 1)
+        saved = torch.load(limited["checkpoint"], weights_only=True)
+        self.assertEqual(saved["metadata"]["step"], 1)
+        self.assertEqual(saved["metadata"]["requested_steps"], 3)
+        self.assertEqual(saved["metadata"]["stopped_reason"], "time_budget")
+        self.assertTrue(saved["optimizer_state_dict"]["state"])
+        self.assertEqual(saved["scheduler_state_dict"]["last_epoch"], 1)
+        self.assertIn("torch_rng_state", saved)
+        resumed = train(self.args("resumed.pt", resume=limited["checkpoint"]))
+        self.assertEqual(resumed["resumed_from_step"], 1)
+        self.assertEqual(resumed["completed_steps"], 2)
+        self.assertEqual(resumed["stopped_reason"], "steps_completed")
+        expected = torch.load(full["checkpoint"], weights_only=True)
+        actual = torch.load(resumed["checkpoint"], weights_only=True)
+        for name, weight in expected["model_state_dict"].items():
+            torch.testing.assert_close(weight, actual["model_state_dict"][name], rtol=0, atol=0)
+        torch.testing.assert_close(expected["torch_rng_state"], actual["torch_rng_state"], rtol=0, atol=0)
+
+    def test_time_budget_preserves_checkpoint_if_final_validation_fails(self):
+        import torch
+        from unittest.mock import patch
+        from cognition_slm.train import train
+
+        args = self.args(max_seconds=1.0, save_every=100, eval_every=100, eval_data=str(self.data))
+        with patch("cognition_slm.train.monotonic", side_effect=[0.0, 2.0, 3.0]):
+            with patch("cognition_slm.train._validation_summary", side_effect=RuntimeError("validation failed")):
+                with self.assertRaisesRegex(RuntimeError, "validation failed"):
+                    train(args)
+        saved = torch.load(args.out, weights_only=True)
+        self.assertEqual(saved["metadata"]["step"], 1)
+        self.assertEqual(saved["metadata"]["stopped_reason"], "time_budget")
+        self.assertTrue(saved["optimizer_state_dict"]["state"])
+
+    def test_finishing_requested_steps_at_deadline_reports_completion(self):
+        from unittest.mock import patch
+        from cognition_slm.train import train
+
+        with patch("cognition_slm.train.monotonic", side_effect=[0.0, 1.0, 1.0]):
+            result = train(self.args(steps=1, max_seconds=1.0))
+        self.assertEqual(result["steps"], 1)
+        self.assertEqual(result["stopped_reason"], "steps_completed")
 
     def test_cpu_rejects_cuda_precision(self):
         from cognition_slm.train import train

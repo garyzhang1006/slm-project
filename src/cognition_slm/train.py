@@ -9,6 +9,7 @@ import os
 import random
 import tempfile
 from pathlib import Path
+from time import monotonic
 
 from .checkpoint import load_checkpoint_payload
 from .config import MODEL_PRESETS, ModelConfig
@@ -172,6 +173,9 @@ def _runtime_options(args):
     precision = getattr(args, "precision", "fp32")
     accumulation = getattr(args, "gradient_accumulation_steps", 1)
     save_every = getattr(args, "save_every", 100)
+    max_seconds = getattr(args, "max_seconds", None)
+    if max_seconds is not None and (not math.isfinite(max_seconds) or max_seconds <= 0):
+        raise ValueError("max_seconds must be positive and finite")
     if precision not in ("fp32", "fp16", "bf16"):
         raise ValueError("precision must be fp32, fp16, or bf16")
     if accumulation < 1 or save_every < 1:
@@ -291,6 +295,9 @@ def train(args: argparse.Namespace) -> dict:
     skipped_optimizer_steps = 0
     history: list[float] = []
     validation_history: list[dict[str, float | int]] = []
+    max_seconds = getattr(args, "max_seconds", None)
+    stopped_reason = "steps_completed"
+    duration_seconds = 0.0
 
     def save(step: int, final_loss: float) -> None:
         _atomic_save(torch, {
@@ -302,7 +309,10 @@ def train(args: argparse.Namespace) -> dict:
             "torch_rng_state": torch.get_rng_state(),
             "cuda_rng_state_all": torch.cuda.get_rng_state_all() if device.type == "cuda" else [],
             "metadata": {
-                "records": len(examples), "steps": args.steps, "step": step,
+                "records": len(examples), "steps": step, "step": step,
+                "requested_steps": args.steps, "completed_steps": step - start_step,
+                "stopped_reason": stopped_reason, "duration_seconds": duration_seconds,
+                "max_seconds": max_seconds,
                 "seed": args.seed, "device": str(device),
                 "learning_rate": base_learning_rate, "weight_decay": args.weight_decay,
                 "warmup_steps": args.warmup_steps, "resumed_from_step": start_step,
@@ -315,6 +325,7 @@ def train(args: argparse.Namespace) -> dict:
             },
         }, output_path)
 
+    started_at = monotonic()
     for step in range(start_step + 1, args.steps + 1):
         step_rng = random.Random(args.seed + step)
         optimizer.zero_grad(set_to_none=True)
@@ -361,24 +372,34 @@ def train(args: argparse.Namespace) -> dict:
         else:
             skipped_optimizer_steps += 1
         history.append(loss_value)
-        if step == 1 or step % args.log_every == 0 or step == args.steps:
+        duration_seconds = monotonic() - started_at
+        timed_out = max_seconds is not None and duration_seconds >= max_seconds
+        if timed_out and step < args.steps:
+            stopped_reason = "time_budget"
+        finishing = timed_out or step == args.steps
+        if step == 1 or step % args.log_every == 0 or finishing:
             print(f"step={step} loss={loss_value:.4f} device={device}")
-        if validation_encoded is not None and (
-            step % args.eval_every == 0 or step == args.steps
-        ):
-            validation = _validation_summary(
-                torch, model, validation_encoded, args.batch_size, device
-            )
-            validation["step"] = step
-            validation_history.append(validation)
-            print(
-                f"eval_step={step} val_loss={validation['loss']:.4f} "
-                f"task_accuracy={validation['task_accuracy']:.3f}"
-            )
-            model.train()
-
-        if step % save_every == 0 or step == args.steps:
-            save(step, loss_value)
+        try:
+            if validation_encoded is not None and (
+                step % args.eval_every == 0 or finishing
+            ):
+                validation = _validation_summary(
+                    torch, model, validation_encoded, args.batch_size, device
+                )
+                validation["step"] = step
+                validation_history.append(validation)
+                print(
+                    f"eval_step={step} val_loss={validation['loss']:.4f} "
+                    f"task_accuracy={validation['task_accuracy']:.3f}"
+                )
+                model.train()
+        finally:
+            # Preserve completed updates even if final validation fails.
+            if step % save_every == 0 or finishing:
+                duration_seconds = monotonic() - started_at
+                save(step, loss_value)
+        if timed_out:
+            break
 
     if successful_optimizer_steps == 0:
         raise RuntimeError(
@@ -388,7 +409,12 @@ def train(args: argparse.Namespace) -> dict:
     final_loss = history[-1]
     return {
         "records": len(examples),
-        "steps": args.steps,
+        "steps": step,
+        "requested_steps": args.steps,
+        "completed_steps": step - start_step,
+        "stopped_reason": stopped_reason,
+        "duration_seconds": duration_seconds,
+        "max_seconds": max_seconds,
         "final_loss": final_loss,
         "checkpoint": str(output_path),
         "device": str(device),
@@ -411,6 +437,10 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--data", required=True)
     parser.add_argument("--out", default="artifacts/demo.pt")
     parser.add_argument("--steps", type=int, default=100)
+    parser.add_argument(
+        "--max-seconds", type=float,
+        help="Stop at a completed training step after this many seconds; reserve extra time for validation and saving",
+    )
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--block-size", type=int)
     parser.add_argument("--architecture", choices=("modern", "legacy"))

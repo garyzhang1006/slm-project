@@ -172,6 +172,34 @@ This layer is an observable context controller, not a consciousness probe or hid
 
 ### English training on Kaggle
 
+The long continuation run starts from the latest QA pilot and budgets 5.5 hours for
+broader English with QA replay, followed by 3.5 hours of QA. It streams the pinned
+`sample-10BT` subset of [FineWeb-Edu](https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu)
+and collects up to roughly 60,000 complete short paragraphs. Paragraphs retain their
+source URLs; the database uses ODC-BY, while underlying text rights remain with their
+owners. Holdout passages are excluded, and source URLs determine English train/eval
+splits. This run learns paragraph continuations, not an entire 10-billion-token corpus.
+
+```bash
+python scripts/prepare_kaggle.py --out /tmp/slm-long-kaggle \
+  --owner garyzhang11111 --slug slm-500m-long-training \
+  --runner kaggle_long_run.py
+kaggle kernels push -p /tmp/slm-long-kaggle --accelerator NvidiaTeslaT4 --timeout 39600
+```
+
+All training and model evaluations happen on Kaggle. `--max-seconds` stops training
+after a completed step and saves optimizer, scheduler, and RNG state. The runner
+reserves time beyond its nine-hour training budget for data preparation, evaluation,
+and checkpoint writes; actual training time can be lower. A 100,000-step ceiling is
+an upper bound, not a claim that that many steps ran. Reports distinguish requested
+and completed steps. The final QA checkpoint retains optimizer state for continuation.
+
+`long_training_report.json` records actual steps, source hashes, development scores,
+and generated answers. Final passage scores use one stored answer per question and
+are not directly comparable to the earlier multi-reference SQuAD scores. The original
+12 general questions are also rerun. Longer training does not automatically establish
+conversational ability, and the runner does not install its output into Studio.
+
 For the next question-answering run, use `--runner kaggle_qa_run.py` and
 `--slug slm-500m-answer-training` with the packaging command below. This runner
 attaches the completed English corpus run and verifies the latest custom question

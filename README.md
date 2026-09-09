@@ -195,8 +195,11 @@ an upper bound, not a claim that that many steps ran. Reports distinguish reques
 and completed steps. The final QA checkpoint retains optimizer state for continuation.
 
 `long_training_report.json` records actual steps, source hashes, development scores,
-and generated answers. Final passage scores use one stored answer per question and
-are not directly comparable to the earlier multi-reference SQuAD scores. The original
+and generated answers. Generation checks use 16 development and 32 final-test passage
+questions, with one stored answer per question. These scores are not directly
+comparable to the earlier full multi-reference SQuAD scores. The smaller generation
+sample reserves GPU time for training; an hour is reserved after the last stage.
+The original
 12 general questions are also rerun. Longer training does not automatically establish
 conversational ability, and the runner does not install its output into Studio.
 

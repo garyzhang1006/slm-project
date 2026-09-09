@@ -162,11 +162,11 @@ def main() -> None:
               "gpu": torch.cuda.get_device_name(0), "torch": torch.__version__, "stages": []}
     write_json(root / "long_training_report.json", report)
     report["corpus"] = prepare_data(root, previous.parent.parent)
-    dev = [(row.to_dict(), [row.answer]) for row in load_jsonl(root / "artifacts/qa_dev.jsonl")]
+    dev = [(row.to_dict(), [row.answer]) for row in load_jsonl(root / "artifacts/qa_dev.jsonl")[:16]]
     report["baseline"] = evaluate(torch, previous, root, "long_baseline_dev", dev)
     report["baseline_english"] = english_samples(torch, previous, root, "baseline")
     for name, seconds in (("english", 5.5 * 3600), ("questions", 3.5 * 3600)):
-        budget = min(seconds, deadline - time.monotonic() - 1800)
+        budget = min(seconds, deadline - time.monotonic() - 3600)
         if budget < 60:
             report["stop_reason"] = "Session reserve reached before next stage"
             break
@@ -182,7 +182,7 @@ def main() -> None:
             compact_completed_stage(torch, previous)
         stage["checkpoint_sha256"] = digest(previous)
         write_json(root / "long_training_report.json", report)
-    test = [(row.to_dict(), [row.answer]) for row in load_jsonl(root / "artifacts/qa_test.jsonl")]
+    test = [(row.to_dict(), [row.answer]) for row in load_jsonl(root / "artifacts/qa_test.jsonl")[:32]]
     report["test"] = evaluate(torch, previous, root, "long_final_test", test)
     from cognition_slm.generate import load_checkpoint, generate_text
     from kaggle_studio_verify import QUESTION_PROBES
@@ -196,7 +196,7 @@ def main() -> None:
     ]
     report.update(status="complete_pending_answer_review", elapsed_seconds=time.monotonic() - started,
                   final_checkpoint=str(previous), final_sha256=digest(previous),
-                  metric_scope="Single stored reference per SQuAD question; not directly comparable to earlier multi-reference scores")
+                  metric_scope="16 development and 32 test questions, one stored reference each; not directly comparable to earlier full multi-reference scores")
     write_json(root / "long_training_report.json", report)
     print("LONG_TRAINING_COMPLETE", flush=True)
 

@@ -232,6 +232,9 @@ def train(args: argparse.Namespace) -> dict:
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(args.seed)
     device = _device(torch, args.device)
+    fused_adamw = getattr(args, "fused_adamw", False)
+    if fused_adamw and device.type != "cuda":
+        raise ValueError("--fused-adamw requires a CUDA device")
     if precision != "fp32" and device.type != "cuda":
         raise ValueError("fp16 and bf16 training require a CUDA device; use --precision fp32")
     if precision == "bf16" and not torch.cuda.is_bf16_supported():
@@ -245,6 +248,7 @@ def train(args: argparse.Namespace) -> dict:
     optimizer = torch.optim.AdamW(
         _optimizer_parameters(model, args.weight_decay, legacy_groups),
         lr=args.learning_rate, weight_decay=args.weight_decay,
+        **({"fused": True} if fused_adamw else {}),
     )
     start_step = 0
     base_learning_rate = args.learning_rate
@@ -258,6 +262,11 @@ def train(args: argparse.Namespace) -> dict:
             base_learning_rate = float(metadata["learning_rate"])
         if isinstance(optimizer_state, dict):
             optimizer.load_state_dict(optimizer_state)
+            if fused_adamw:
+                # Resume restores old execution flags as well as Adam moments.
+                for group in optimizer.param_groups:
+                    group["fused"] = True
+                    group["foreach"] = False
             _move_optimizer_state(torch, optimizer, device)
             start_step = int(metadata.get("step", 0))
     if start_step >= args.steps:
@@ -298,6 +307,9 @@ def train(args: argparse.Namespace) -> dict:
     max_seconds = getattr(args, "max_seconds", None)
     stopped_reason = "steps_completed"
     duration_seconds = 0.0
+    processed_input_tokens = 0
+    supervised_tokens = 0
+    updated_supervised_tokens = 0
 
     def save(step: int, final_loss: float) -> None:
         _atomic_save(torch, {
@@ -313,6 +325,11 @@ def train(args: argparse.Namespace) -> dict:
                 "requested_steps": args.steps, "completed_steps": step - start_step,
                 "stopped_reason": stopped_reason, "duration_seconds": duration_seconds,
                 "max_seconds": max_seconds,
+                "fused_adamw": fused_adamw,
+                "processed_input_tokens": processed_input_tokens,
+                "supervised_tokens": supervised_tokens,
+                "updated_supervised_tokens": updated_supervised_tokens,
+                "token_counter_scope": "current invocation; non-padding UTF-8 byte tokens including special tokens",
                 "seed": args.seed, "device": str(device),
                 "learning_rate": base_learning_rate, "weight_decay": args.weight_decay,
                 "warmup_steps": args.warmup_steps, "resumed_from_step": start_step,
@@ -329,7 +346,7 @@ def train(args: argparse.Namespace) -> dict:
     for step in range(start_step + 1, args.steps + 1):
         step_rng = random.Random(args.seed + step)
         optimizer.zero_grad(set_to_none=True)
-        loss_value = 0.0
+        accumulated_loss = torch.zeros((), device=device)
         microbatches = [
             [step_rng.randrange(len(encoded)) for _ in range(args.batch_size)]
             for _ in range(accumulation)
@@ -338,6 +355,9 @@ def train(args: argparse.Namespace) -> dict:
             len(encoded[index]["input_ids"]) - encoded[index]["answer_start"]
             for indices in microbatches for index in indices
         )
+        processed_input_tokens += sum(len(encoded[index]["input_ids"])
+                                      for indices in microbatches for index in indices)
+        supervised_tokens += total_targets
         for indices in microbatches:
             batch = _batch(torch, encoded, indices, device)
             with torch.autocast(device_type=device.type, dtype=dtype, enabled=precision != "fp32"):
@@ -359,16 +379,19 @@ def train(args: argparse.Namespace) -> dict:
                 for auxiliary in (output.task_loss, output.error_loss, output.confidence_loss):
                     if auxiliary is not None:
                         loss = loss + 0.25 * auxiliary / accumulation
-            if not torch.isfinite(loss):
-                raise RuntimeError(f"non-finite training loss at step {step}")
             scaler.scale(loss).backward()
-            loss_value += float(loss.detach().cpu())
+            accumulated_loss += loss.detach()
+        # Synchronize once per update instead of twice per microbatch.
+        loss_value = float(accumulated_loss.cpu())
+        if not math.isfinite(loss_value):
+            raise RuntimeError(f"non-finite training loss at step {step}")
         scaler.unscale_(optimizer)
         torch.nn.utils.clip_grad_norm_(
             model.parameters(), args.grad_clip, error_if_nonfinite=precision != "fp16"
         )
         if _scaled_optimizer_step(scaler, optimizer, scheduler):
             successful_optimizer_steps += 1
+            updated_supervised_tokens += total_targets
         else:
             skipped_optimizer_steps += 1
         history.append(loss_value)
@@ -414,6 +437,12 @@ def train(args: argparse.Namespace) -> dict:
         "completed_steps": step - start_step,
         "stopped_reason": stopped_reason,
         "duration_seconds": duration_seconds,
+        "fused_adamw": fused_adamw,
+        "processed_input_tokens": processed_input_tokens,
+        "supervised_tokens": supervised_tokens,
+        "updated_supervised_tokens": updated_supervised_tokens,
+        "supervised_tokens_per_second": supervised_tokens / max(duration_seconds, 1e-9),
+        "throughput_scope": "current invocation; includes validation and earlier saves, excludes final checkpoint write",
         "max_seconds": max_seconds,
         "final_loss": final_loss,
         "checkpoint": str(output_path),
@@ -463,6 +492,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--precision", choices=("fp32", "fp16", "bf16"), default="fp32")
     parser.add_argument("--gradient-accumulation-steps", type=int, default=1)
     parser.add_argument("--gradient-checkpointing", action="store_true")
+    parser.add_argument("--fused-adamw", action="store_true", help="Use fused CUDA AdamW while retaining checkpoint optimizer moments")
     parser.add_argument("--save-every", type=int, default=100)
     return parser
 

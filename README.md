@@ -46,6 +46,12 @@ The interface includes starter prompts, task selection, temperature and response
 
 ## 2048 context and Kaggle
 
+Generation now caches attention keys and values within each request and projects only the newest position to vocabulary logits. Training and checkpoint parameter keys stay unchanged. When the rolling context fills, generation rebuilds the cache so position resets match the original implementation. `generate_ids(..., use_cache=False)` retains the uncached path for comparison.
+
+The efficiency verification runner checks cached output against the original path on the actual 499.5M checkpoint and measures elapsed time before exercising fused AdamW resume on Kaggle. Package `scripts/prepare_kaggle.py --runner kaggle_efficiency_verify.py --owner YOUR_USERNAME --slug slm-efficiency-verification --out /tmp/slm-efficiency-verification`, then submit that directory with the explicit T4 accelerator. It attaches the completed long-training kernel; it requires no local weights or model execution.
+
+After verification, `--runner kaggle_efficient_run.py` prepares a continuation from the long run's final checkpoint. It retains optimizer moments, keeps English and QA mixed throughout, and uses a finite 3,600-additional-update horizon with a four-hour training cutoff. The horizon allows learning-rate decay during the run; the cutoff reserves time for final evaluation and saving. The runner records generated answers for review and never promotes weights to Studio automatically. Faster generation is not evidence of better answers.
+
 New training runs default to 2048 tokens. This tokenizer represents UTF-8 bytes, so 2048 includes prompt markup and special tokens and is much shorter in text than 2048 subword tokens. Existing checkpoints retain their saved context and architecture when resumed.
 
 The `slm-50m` preset uses 12 layers and 512 hidden dimensions. The `slm-500m` preset uses 24 layers, 1,140 hidden dimensions, 10 attention heads, RoPE, RMSNorm, SwiGLU, and tied embeddings, for exactly 499,524,075 parameters with the current six task types. Train `slm-500m` on a Kaggle GPU with activation checkpointing. Studio can load the resulting checkpoint for inference; the existing training checkpoint is about 6 GB because it includes optimizer state, so startup requires substantial free RAM. A larger model still requires a substantial licensed training corpus before its outputs become useful.

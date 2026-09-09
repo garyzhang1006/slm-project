@@ -26,6 +26,9 @@ class ModelOutput:
     confidence_loss: Tensor | None = None
 
 
+KVCache = tuple[tuple[Tensor, Tensor], ...]
+
+
 class RMSNorm(nn.Module):
     def __init__(self, n_embd: int, eps: float = 1e-5) -> None:
         super().__init__()
@@ -106,6 +109,36 @@ class CausalSelfAttention(nn.Module):
         return self.resid_dropout(self.proj(attended))
 
 
+    def forward_cached(
+        self, x: Tensor, past: tuple[Tensor, Tensor] | None,
+    ) -> tuple[Tensor, tuple[Tensor, Tensor]]:
+        batch, length, channels = x.shape
+        offset = 0 if past is None else past[0].size(2)
+        qkv = self.qkv(x).view(batch, length, 3, self.n_head, self.head_dim)
+        q, k, v = qkv.permute(2, 0, 3, 1, 4).unbind(0)
+        if self.use_rotary:
+            cos = self.rope_cos[:, :, offset:offset + length].to(dtype=q.dtype)
+            sin = self.rope_sin[:, :, offset:offset + length].to(dtype=q.dtype)
+            q = q * cos + _rotate_half(q) * sin
+            k = k * cos + _rotate_half(k) * sin
+        if past is not None:
+            if past[0].dtype != k.dtype:
+                raise ValueError("cache dtype must match projected keys; rebuild after changing precision")
+            k = torch.cat((past[0], k), dim=2)
+            v = torch.cat((past[1], v), dim=2)
+        # Non-square SDPA causal masks align at the upper left. Cached chunks
+        # instead need their query positions offset by the prefix length.
+        allowed = None
+        if offset and length > 1:
+            allowed = (~self.causal_mask[offset:offset + length, :offset + length])[None, None]
+        attended = F.scaled_dot_product_attention(
+            q, k, v, attn_mask=allowed, dropout_p=0.0,
+            is_causal=offset == 0,
+        )
+        attended = attended.transpose(1, 2).contiguous().view(batch, length, channels)
+        return self.resid_dropout(self.proj(attended)), (k, v)
+
+
 class TransformerBlock(nn.Module):
     def __init__(self, config: ModelConfig) -> None:
         super().__init__()
@@ -165,6 +198,60 @@ class CognitionSLM(nn.Module):
                 nn.init.zeros_(module.bias)
         elif isinstance(module, nn.Embedding):
             nn.init.normal_(module.weight, mean=0.0, std=0.02)
+
+    @torch.no_grad()
+    def forward_inference(
+        self, input_ids: Tensor, cache: KVCache | None = None, *, last_only: bool = False,
+    ) -> tuple[Tensor, KVCache]:
+        """Unpadded inference; cache contains this request's prefix, never model state.
+
+        Call in eval mode and discard the cache when weights, precision, or prefix
+        change. Overflow requires rebuilding from the rolling context at position 0.
+        """
+        if self.training:
+            raise ValueError("forward_inference requires model.eval()")
+        if input_ids.ndim != 2 or input_ids.size(0) == 0 or input_ids.size(1) == 0:
+            raise ValueError("input_ids must have non-empty shape (batch, sequence_length)")
+        batch, length = input_ids.shape
+        offset = 0
+        if cache is not None:
+            if not isinstance(cache, tuple) or len(cache) != len(self.blocks):
+                raise ValueError("cache must contain one key/value pair per transformer layer")
+            for index, pair in enumerate(cache):
+                if not isinstance(pair, tuple) or len(pair) != 2:
+                    raise ValueError("cache layers must be key/value tensor pairs")
+                key, value = pair
+                if not isinstance(key, Tensor) or not isinstance(value, Tensor):
+                    raise ValueError("cache keys and values must be tensors")
+                if key.ndim != 4 or key.shape != value.shape:
+                    raise ValueError("cache keys and values must share shape (batch, heads, length, head_dim)")
+                if index == 0:
+                    offset = key.size(2)
+                expected = (batch, self.config.n_head, offset, self.config.n_embd // self.config.n_head)
+                if tuple(key.shape) != expected or offset < 1:
+                    raise ValueError("cache layers must match batch, heads, prefix length, and head dimension")
+                if key.device != input_ids.device or value.device != input_ids.device:
+                    raise ValueError("cache device must match input_ids")
+                if key.dtype != value.dtype:
+                    raise ValueError("cache keys and values must have the same dtype")
+        if offset + length > self.config.block_size:
+            raise ValueError(f"cached sequence length {offset + length} exceeds block_size {self.config.block_size}; rebuild cache")
+        positions = torch.arange(offset, offset + length, device=input_ids.device)
+        hidden = self.token_embedding(input_ids)
+        if self.position_embedding is not None:
+            hidden = hidden + self.position_embedding(positions)[None, :, :]
+        hidden = self.dropout(hidden)
+        updated = []
+        for index, block in enumerate(self.blocks):
+            attended, layer_cache = block.attention.forward_cached(
+                block.ln_1(hidden), None if cache is None else cache[index],
+            )
+            hidden = hidden + attended
+            hidden = hidden + block.mlp(block.ln_2(hidden))
+            updated.append(layer_cache)
+        if last_only:
+            hidden = hidden[:, -1:, :]
+        return self.lm_head(self.final_norm(hidden)), tuple(updated)
 
     def _pool_last(
         self,

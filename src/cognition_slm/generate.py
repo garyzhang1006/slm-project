@@ -11,8 +11,22 @@ import torch
 from .checkpoint import load_checkpoint_payload
 from .code_eval import CODE_TASK_TYPES, python_syntax_valid
 from .data import format_prompt, validate_record
-from .model import CognitionSLM
+from .model import CognitionSLM, KVCache
 from .tokenizer import ByteTokenizer
+
+
+def _next_logits(
+    model: CognitionSLM, context: torch.Tensor, cache: KVCache | None, *, use_cache: bool,
+) -> tuple[torch.Tensor, KVCache | None]:
+    if use_cache and isinstance(model, CognitionSLM):
+        if cache is not None and cache[0][0].size(2) < model.config.block_size:
+            logits, cache = model.forward_inference(context[:, -1:], cache, last_only=True)
+        else:
+            # Dropping old keys alone changes hidden states and position indices.
+            logits, cache = model.forward_inference(context, last_only=True)
+        return logits[:, -1, :], cache
+    output = model(context, attention_mask=torch.ones_like(context))
+    return output.logits[:, -1, :], None
 
 
 @torch.no_grad()
@@ -24,6 +38,7 @@ def generate_ids(
     max_new_tokens: int = 96,
     temperature: float = 0.8,
     top_k: int = 40,
+    use_cache: bool = True,
 ) -> torch.Tensor:
     if max_new_tokens < 1:
         raise ValueError("max_new_tokens must be positive")
@@ -42,11 +57,10 @@ def generate_ids(
     model.eval()
     generated = input_ids
     finished = torch.zeros((input_ids.size(0), 1), dtype=torch.bool, device=input_ids.device)
+    cache = None
     for _ in range(max_new_tokens):
         context = generated[:, -model.config.block_size :]
-        attention_mask = torch.ones_like(context)
-        output = model(context, attention_mask=attention_mask)
-        next_logits = output.logits[:, -1, :]
+        next_logits, cache = _next_logits(model, context, cache, use_cache=use_cache)
         next_logits[:, tokenizer.pad_id] = float("-inf")
         next_logits[:, tokenizer.bos_id] = float("-inf")
         if temperature == 0:
@@ -77,12 +91,14 @@ def score_generated_ids(
         raise ValueError("generated_ids must have shape (1, sequence_length)")
     if not 0 < prompt_length < generated_ids.size(1):
         raise ValueError("prompt_length must leave at least one generated token")
+    model.eval()
+    cache = None
     log_probability = torch.zeros((), device=generated_ids.device)
     generated_count = generated_ids.size(1) - prompt_length
     for position in range(prompt_length, generated_ids.size(1)):
         context = generated_ids[:, max(0, position - model.config.block_size) : position]
-        output = model(context, attention_mask=torch.ones_like(context))
-        next_log_probabilities = torch.log_softmax(output.logits[:, -1, :], dim=-1)
+        next_logits, cache = _next_logits(model, context, cache, use_cache=True)
+        next_log_probabilities = torch.log_softmax(next_logits, dim=-1)
         log_probability = log_probability + next_log_probabilities.gather(
             1, generated_ids[:, position : position + 1]
         ).squeeze()

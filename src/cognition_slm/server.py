@@ -13,6 +13,7 @@ from urllib.parse import urlsplit
 
 from .config import TASK_TYPES
 from .data import format_prompt, validate_record
+from .grounding import source_excerpts
 
 DEFAULT_CHECKPOINT = Path("artifacts/slm-500m-language-quality.pt")
 DEFAULT_PARAMETERS = 499_524_075
@@ -224,7 +225,7 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:
         if not self._local_request():
             return
-        if self.path != "/api/generate":
+        if self.path not in {"/api/generate", "/api/grounded"}:
             self._json(404, {"error": "Not found."})
             return
         if self.headers.get_content_type() != "application/json":
@@ -241,6 +242,9 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
             if len(body) != length:
                 raise ValueError("Incomplete request body.")
             request = json.loads(body)
+            if self.path == "/api/grounded":
+                self._json(200, source_excerpts(request))
+                return
             validate_request(request)
         except (ValueError, UnicodeError, TimeoutError) as exc:
             self._json(400, {"error": str(exc)})
@@ -269,18 +273,23 @@ def main() -> None:
     parser.add_argument("--checkpoint", type=Path, default=None)
     parser.add_argument("--device", choices=("cpu", "mps", "cuda", "auto"), default="cpu")
     parser.add_argument("--port", type=int, default=8766)
+    parser.add_argument("--sources-only", action="store_true", help="Serve reference excerpts without loading or running model weights.")
     args = parser.parse_args()
     if not 1 <= args.port <= 65535:
         parser.error("--port must be between 1 and 65535")
     checkpoint = args.checkpoint or default_checkpoint()
-    if not checkpoint.is_file():
+    if not args.sources_only and not checkpoint.is_file():
         parser.error(f"Checkpoint not found: {checkpoint}. Download the Kaggle weights to this path or use --checkpoint PATH.")
     runtime = ModelRuntime(checkpoint, args.device, expected_parameters=DEFAULT_PARAMETERS if args.checkpoint is None else None)
     try:
         server = WorkbenchServer(("127.0.0.1", args.port), runtime)
     except OSError as exc:
         parser.exit(1, f"Cannot start workbench: {exc}. Try a different --port.\n")
-    threading.Thread(target=runtime.load, daemon=True).start()
+    if args.sources_only:
+        runtime.state = "disabled"
+        runtime.error = "Model disabled in --sources-only mode. Source excerpts remain available."
+    else:
+        threading.Thread(target=runtime.load, daemon=True).start()
     print(f"Cognition workbench: http://127.0.0.1:{args.port}", flush=True)
     try:
         server.serve_forever()

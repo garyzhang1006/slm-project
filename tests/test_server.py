@@ -23,6 +23,16 @@ class RequestValidationTests(unittest.TestCase):
             main()
             runtime.assert_called_once_with(default_checkpoint(), "cpu", expected_parameters=DEFAULT_PARAMETERS)
 
+    def test_sources_only_never_loads_weights(self):
+        with patch("sys.argv", ["studio", "--sources-only"]), patch.object(Path, "is_file", return_value=False), \
+             patch("cognition_slm.server.ModelRuntime") as runtime, \
+             patch("cognition_slm.server.WorkbenchServer") as server, \
+             patch("cognition_slm.server.threading.Thread") as thread:
+            server.return_value.serve_forever.side_effect = KeyboardInterrupt
+            main()
+            runtime.return_value.load.assert_not_called()
+            thread.assert_not_called()
+
     def test_wrong_size_checkpoint_rejected(self):
         import torch
         import tempfile
@@ -140,6 +150,21 @@ class ServerTests(unittest.TestCase):
     def test_loading_returns_unavailable(self):
         self.runtime.state = "loading"
         self.assertEqual(self.generate()[0], 503)
+
+    def test_grounded_works_without_ready_model(self):
+        self.runtime.state = "disabled"
+        with self.runtime.lock:
+            status, result = self.request(path="/api/grounded", body=json.dumps({
+                "prompt": "What is the launch date?", "source_text": "The launch date is Friday."
+            }), headers={"Content-Type": "application/json"})
+        self.assertEqual(status, 200)
+        self.assertEqual(result["text"], "[S1] The launch date is Friday.")
+        self.runtime.generate.assert_not_called()
+
+    def test_grounded_invalid_input(self):
+        status, _ = self.request(path="/api/grounded", body='{"prompt":"hi"}',
+                                 headers={"Content-Type": "application/json"})
+        self.assertEqual(status, 400)
 
     def test_generation_error_releases_lock(self):
         self.runtime.generate.side_effect = RuntimeError("inference failure")

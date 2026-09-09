@@ -22,6 +22,16 @@ This is a mini project. The demo corpus is intentionally too small to produce a 
 
 ## Local Studio
 
+Studio opens in **Source excerpts** mode: paste reference text and ask a question to retrieve up to three verbatim excerpts with `[S1]` citations. Missing references or insufficient keyword overlap produce an explicit fallback. This mode uses no model inference. Citations identify excerpts from your pasted text, not independently verified publications; relevance, source truth, and conflicting claims still need judgment. It does not improve the model's learned English or establish a lower measured hallucination rate.
+
+To serve only this mode without loading any checkpoint, use an installed Python environment:
+
+```bash
+PYTHONPATH=src python -m cognition_slm.server --sources-only
+```
+
+Reference text is limited to 12,000 UTF-8 bytes and questions to 2,000 bytes. Nothing is fetched from external URLs. Sources remain in page memory until refresh and are sent only to the Studio server for that request. **Model response** mode retains experimental, ungrounded generation and requires loaded weights. Starting Studio normally still loads weights; use `--sources-only` to prevent that.
+
 Open `launch-studio.command` in Finder, or run it from this project:
 
 ```bash

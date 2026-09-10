@@ -30,5 +30,6 @@ Current snapshot:
 - `data/demo.jsonl`: 57 training records across coding, language generation, algorithm reasoning, and metacognitive review.
 - `data/eval.jsonl`: 22 held-out records covering the same task families with different prompts and IDs.
 - `data/MANIFEST.json`: record counts, provenance, licenses, and SHA-256 hashes for both files.
+- `data/simple_questions_holdout.json`: 24 evaluation-only questions with review rubrics. Never add them to training. They test fresh prompt wording, not facts guaranteed absent from the corpus. `kaggle_simple_questions_audit.py` records raw answers from the completed efficient-continuation checkpoint and rejects exact prompt overlap with that run's training file.
 
 Do not pipe private prompts, API keys, repository secrets, or unlicensed scraped code into the dataset.

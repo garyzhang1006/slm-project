@@ -67,7 +67,8 @@ def prepare(output: Path, owner: str, slug: str, runner: str) -> None:
         "machine_shape": "NvidiaTeslaT4",
         "enable_internet": runner in {"kaggle_english_run.py", "kaggle_qa_run.py", "kaggle_long_run.py"},
         "dataset_sources": [], "competition_sources": [],
-        "kernel_sources": (["garyzhang11111/slm-500m-long-training"]
+        "kernel_sources": (["garyzhang11111/slm-500m-efficient-continuation"]
+                           if runner == "kaggle_simple_questions_audit.py" else ["garyzhang11111/slm-500m-long-training"]
                            if efficient else ["garyzhang11111/slm-500m-answer-training"]
                            if runner == "kaggle_long_run.py" else
                            ["garyzhang11111/slm-500m-english-corpus"]
@@ -85,7 +86,7 @@ if __name__ == "__main__":
     parser.add_argument("--slug", default="slm-2048-verification")
     parser.add_argument(
         "--runner",
-        choices=("kaggle_run.py", "kaggle_quality_run.py", "kaggle_500m_quality_run.py", "kaggle_studio_verify.py", "kaggle_english_run.py", "kaggle_qa_run.py", "kaggle_long_run.py", "kaggle_efficient_run.py", "kaggle_efficiency_verify.py"),
+        choices=("kaggle_run.py", "kaggle_quality_run.py", "kaggle_500m_quality_run.py", "kaggle_studio_verify.py", "kaggle_english_run.py", "kaggle_qa_run.py", "kaggle_long_run.py", "kaggle_efficient_run.py", "kaggle_efficiency_verify.py", "kaggle_simple_questions_audit.py"),
         default="kaggle_run.py",
         help="Kaggle entrypoint; quality runner trains a Studio checkpoint.",
     )

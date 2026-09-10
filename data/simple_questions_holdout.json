@@ -1,0 +1,176 @@
+{
+  "purpose": "evaluation_only",
+  "license": "CC0-1.0",
+  "source": "project-authored, created before inspecting this continuation outputs",
+  "scope": "New prompt wording, not a claim that underlying facts are absent from training. Manual correctness review required. Never use these rows as training examples.",
+  "rows": [
+    {
+      "id": "simple-v1-01",
+      "category": "fact",
+      "prompt": "How many days are in one week? Reply with the number.",
+      "expected_rubric": "7",
+      "task_type": "language_generation"
+    },
+    {
+      "id": "simple-v1-02",
+      "category": "fact",
+      "prompt": "How many months are in one year? Reply with the number.",
+      "expected_rubric": "12",
+      "task_type": "language_generation"
+    },
+    {
+      "id": "simple-v1-03",
+      "category": "fact",
+      "prompt": "Which animal says meow? Reply with one word.",
+      "expected_rubric": "cat",
+      "task_type": "language_generation"
+    },
+    {
+      "id": "simple-v1-04",
+      "category": "fact",
+      "prompt": "What do people use to hear: eyes or ears?",
+      "expected_rubric": "ears",
+      "task_type": "language_generation"
+    },
+    {
+      "id": "simple-v1-05",
+      "category": "math",
+      "prompt": "What is 4 plus 9? Reply with the number.",
+      "expected_rubric": "13",
+      "task_type": "language_generation"
+    },
+    {
+      "id": "simple-v1-06",
+      "category": "math",
+      "prompt": "What is 15 minus 6? Reply with the number.",
+      "expected_rubric": "9",
+      "task_type": "language_generation"
+    },
+    {
+      "id": "simple-v1-07",
+      "category": "math",
+      "prompt": "What is 3 times 4? Reply with the number.",
+      "expected_rubric": "12",
+      "task_type": "language_generation"
+    },
+    {
+      "id": "simple-v1-08",
+      "category": "math",
+      "prompt": "What is 18 divided by 3? Reply with the number.",
+      "expected_rubric": "6",
+      "task_type": "language_generation"
+    },
+    {
+      "id": "simple-v1-09",
+      "category": "reading",
+      "prompt": "Nora has a red hat and a green coat. What color is her coat?",
+      "expected_rubric": "green",
+      "task_type": "language_generation"
+    },
+    {
+      "id": "simple-v1-10",
+      "category": "reading",
+      "prompt": "Leo lent a pencil to Eva. Who received the pencil?",
+      "expected_rubric": "Eva",
+      "task_type": "language_generation"
+    },
+    {
+      "id": "simple-v1-11",
+      "category": "reading",
+      "prompt": "The cup is empty. Ben fills it with water. What is in the cup now?",
+      "expected_rubric": "water",
+      "task_type": "language_generation"
+    },
+    {
+      "id": "simple-v1-12",
+      "category": "reading",
+      "prompt": "A bag contains four oranges. Jo removes one orange. How many oranges remain?",
+      "expected_rubric": "3",
+      "task_type": "language_generation"
+    },
+    {
+      "id": "simple-v1-13",
+      "category": "english",
+      "prompt": "Give the opposite of tall. Reply with one word.",
+      "expected_rubric": "short",
+      "task_type": "language_generation"
+    },
+    {
+      "id": "simple-v1-14",
+      "category": "english",
+      "prompt": "Give the plural of book. Reply with one word.",
+      "expected_rubric": "books",
+      "task_type": "language_generation"
+    },
+    {
+      "id": "simple-v1-15",
+      "category": "english",
+      "prompt": "Complete the sentence with is or are: The children ___ hungry.",
+      "expected_rubric": "are",
+      "task_type": "language_generation"
+    },
+    {
+      "id": "simple-v1-16",
+      "category": "english",
+      "prompt": "Correct this sentence: She have a bicycle.",
+      "expected_rubric": "She has a bicycle.",
+      "task_type": "language_generation"
+    },
+    {
+      "id": "simple-v1-17",
+      "category": "instruction",
+      "prompt": "Write only the word window.",
+      "expected_rubric": "window",
+      "task_type": "language_generation"
+    },
+    {
+      "id": "simple-v1-18",
+      "category": "instruction",
+      "prompt": "Copy these three words exactly: soft yellow scarf",
+      "expected_rubric": "soft yellow scarf",
+      "task_type": "language_generation"
+    },
+    {
+      "id": "simple-v1-19",
+      "category": "instruction",
+      "prompt": "Put these words in alphabetical order: pear, apple, banana.",
+      "expected_rubric": "apple, banana, pear",
+      "task_type": "language_generation"
+    },
+    {
+      "id": "simple-v1-20",
+      "category": "instruction",
+      "prompt": "Answer yes or no: Is eight greater than three?",
+      "expected_rubric": "yes",
+      "task_type": "language_generation"
+    },
+    {
+      "id": "simple-v1-21",
+      "category": "unknown",
+      "prompt": "What is my home address? I have not provided it.",
+      "expected_rubric": "Acknowledge that the address is unknown; do not invent one.",
+      "task_type": "language_generation"
+    },
+    {
+      "id": "simple-v1-22",
+      "category": "unknown",
+      "prompt": "I am thinking of a number. I have given no clues. What is it?",
+      "expected_rubric": "Acknowledge insufficient information; do not invent a number.",
+      "task_type": "language_generation"
+    },
+    {
+      "id": "simple-v1-23",
+      "category": "code",
+      "prompt": "In Python, what does 2 * 6 evaluate to?",
+      "expected_rubric": "12",
+      "task_type": "code_explanation"
+    },
+    {
+      "id": "simple-v1-24",
+      "category": "code",
+      "prompt": "In Python, what does len(\"sun\") return?",
+      "expected_rubric": "3",
+      "task_type": "code_explanation"
+    }
+  ]
+}

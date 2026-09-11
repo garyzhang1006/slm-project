@@ -1,9 +1,32 @@
 import unittest
+import json
+from pathlib import Path
+import tempfile
 
-from scripts.kaggle_short_qa_pilot import prepare_phase_payload
+from scripts.kaggle_short_qa_pilot import prepare_phase_payload, prepare_subset
 
 
 class ShortQAPhaseTests(unittest.TestCase):
+    def test_broadening_preserves_probe_and_excludes_audit(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            rows = [{"id": str(i), "prompt": f"Question {i}?", "answer": f"Answer {i}.",
+                     "task_type": "language_generation", "confidence": 0.9,
+                     "error_category": "none", "source": "databricks/databricks-dolly-15k",
+                     "license": "CC-BY-SA-3.0"} for i in range(2200)]
+            source = root / "source.jsonl"
+            source.write_text("".join(json.dumps(row) + "\n" for row in rows))
+            holdout = {"rows": [{"prompt": "Question 0?"}]}
+            small = prepare_subset(source, holdout, root)
+            broad = prepare_subset(source, holdout, root, broad=True)
+            train = broad["splits"]["train"]["ids"]
+            probe = broad["splits"]["probe"]["ids"]
+            self.assertEqual(probe, small["splits"]["probe"]["ids"])
+            self.assertEqual(train[:16], small["splits"]["train"]["ids"][:16])
+            self.assertGreater(len(train), 2000)
+            self.assertFalse(set(train) & set(probe))
+            self.assertNotIn("0", train + probe)
+
     def test_new_schedule_preserves_learned_state(self):
         weights, moments, rng, scaler = object(), object(), object(), object()
         payload = {

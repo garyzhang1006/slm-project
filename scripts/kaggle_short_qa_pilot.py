@@ -30,9 +30,8 @@ def prepare_phase_payload(payload: dict) -> dict:
     return payload
 
 
-def prepare_subset(source: Path, holdout: dict, artifacts: Path) -> dict:
+def prepare_subset(source: Path, holdout: dict, artifacts: Path, *, broad: bool = False) -> dict:
     from cognition_slm.data import load_jsonl
-    from kaggle_english_run import digest
 
     normalize = lambda text: " ".join(text.casefold().split())
     reserved = {normalize(row["prompt"]) for row in holdout["rows"]}
@@ -63,18 +62,29 @@ def prepare_subset(source: Path, holdout: dict, artifacts: Path) -> dict:
         splits = {"train": candidates[:256], "probe": candidates[256:320]}
     else:
         splits = {"train": candidates[:-16][:256], "probe": candidates[-16:]}
+    if broad:
+        # Keep the original probe fixed while broadening the training distribution.
+        excluded = {normalize(row["prompt"]) for row in splits["probe"]}
+        existing = {normalize(row["prompt"]) for row in splits["train"]}
+        splits["train"] += [row for row in ordered
+                            if normalize(row["prompt"]) not in excluded | existing]
+        if len(splits["train"]) < 2000:
+            raise RuntimeError("Broad QA phase requires at least 2000 distinct training prompts")
+        prompt_limit = max(len(row["prompt"].encode("utf-8")) for row in splits["train"])
+        answer_limit = max(len(row["answer"].encode("utf-8")) for row in splits["train"])
     result = {
         "source_sha256": CORPUS_SHA256, "eligible_count": len(candidates),
         "prompt_limit_utf8_bytes": prompt_limit, "answer_limit_utf8_bytes": answer_limit,
         "ordering": "SHA256 of canonical JSON row; normalized prompt deduplication",
         "probe_scope": "Excluded from this pilot only; historical training exposure. Not heldout generalization.",
         "splits": {},
+        "training_scope": "All eligible Dolly rows" if broad else "Short-answer subset",
     }
     for name, rows in splits.items():
         path = artifacts / f"short_qa_{name}.jsonl"
         path.write_text("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows), encoding="utf-8")
         result["splits"][name] = {
-            "path": str(path), "count": len(rows), "sha256": digest(path),
+            "path": str(path), "count": len(rows), "sha256": hashlib.sha256(path.read_bytes()).hexdigest(),
             "ids": [row["id"] for row in rows],
             "prompt_bytes": [len(row["prompt"].encode("utf-8")) for row in rows],
             "answer_bytes": [len(row["answer"].encode("utf-8")) for row in rows],
@@ -84,7 +94,7 @@ def prepare_subset(source: Path, holdout: dict, artifacts: Path) -> dict:
     return result
 
 
-def main() -> None:
+def main(*, broad: bool = False) -> None:
     if not Path("/kaggle/working").is_dir():
         raise RuntimeError("Run this pilot on Kaggle; local model execution is prohibited")
     root = Path(__file__).resolve().parents[1]
@@ -134,7 +144,7 @@ def main() -> None:
     artifacts.mkdir(exist_ok=True)
     holdout_path = root / "data/simple_questions_holdout.json"
     holdout = json.loads(holdout_path.read_text())
-    selection = prepare_subset(corpus, holdout, artifacts)
+    selection = prepare_subset(corpus, holdout, artifacts, broad=broad)
     output = artifacts / "slm-500m-short-qa-pilot.pt"
     initialization = artifacts / "short-qa-phase-init.pt"
     torch.save(prepare_phase_payload(payload), initialization)
@@ -143,7 +153,7 @@ def main() -> None:
     command = [sys.executable, "-m", "cognition_slm.train", "--resume", str(initialization),
                "--data", str(artifacts / "short_qa_train.jsonl"),
                "--eval-data", str(artifacts / "short_qa_probe.jsonl"),
-               "--out", str(output), "--steps", "1000", "--max-seconds", "1800",
+               "--out", str(output), "--steps", "1000", "--max-seconds", "5400" if broad else "1800",
                "--learning-rate", "0.00005", "--warmup-steps", "50",
                "--batch-size", "1", "--gradient-accumulation-steps", "8",
                "--gradient-checkpointing", "--fused-adamw", "--precision", "fp16",

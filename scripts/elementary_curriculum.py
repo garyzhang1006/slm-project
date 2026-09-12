@@ -33,6 +33,7 @@ def _cases():
                 "add": ("+", a + b), "subtract": ("-", a - b),
                 "multiply": ("*", a * b), "divide": ("/", a),
             }[operation]
+            wording = {"add": "plus", "subtract": "minus", "multiply": "times", "divide": "divided by"}[operation]
             operands = sorted((left, right)) if operation in {"add", "multiply"} else (left, right)
             group = f"arithmetic:{operation}:{operands[0]}:{operands[1]}"
             # Commutative reversals share a split but keep distinct prompt identities.
@@ -40,6 +41,7 @@ def _cases():
                 (f"Calculate {left} {symbol} {right}. Give only the number.", str(result)),
                 (f"What is {left} {symbol} {right}? Answer in one sentence.", f"The answer is {result}."),
                 (f"Find the result of {left} {symbol} {right}. Keep your answer short.", str(result)),
+                (f"Work out {left} {wording} {right}. Give the result.", str(result)),
             )
             yield "arithmetic", group, variants
     for name, item, color in itertools.product(NAMES, OBJECTS, COLORS):

@@ -47,7 +47,8 @@ class ElementaryCurriculumTests(unittest.TestCase):
         for row in self.train + self.dev:
             if "-arithmetic-" not in row["id"]:
                 continue
-            a, operation, b = re.search(r"(\d+) ([+*/-]) (\d+)", row["prompt"]).groups()
+            a, operation, b = re.search(r"(\d+) ([+*/-]|plus|minus|times|divided by) (\d+)", row["prompt"]).groups()
+            operation = {"plus": "+", "minus": "-", "times": "*", "divided by": "/"}.get(operation, operation)
             a, b = int(a), int(b)
             expected = {"+": a + b, "-": a - b, "*": a * b, "/": a // b}[operation]
             if operation == "/":

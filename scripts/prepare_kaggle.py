@@ -23,13 +23,14 @@ def prepare(output: Path, owner: str, slug: str, runner: str) -> None:
     files.append(ROOT / "scripts" / runner)
     # The regression suite imports the curriculum generator for every runner.
     files.append(ROOT / "scripts" / "build_curriculum_data.py")
+    files.append(ROOT / "scripts" / "elementary_curriculum.py")
     # Phase-state regression tests import this runner without executing its main.
     if runner != "kaggle_short_qa_pilot.py":
         files.append(ROOT / "scripts" / "kaggle_short_qa_pilot.py")
     files.append(ROOT / "scripts" / "english_corpus.py")
     files.append(ROOT / "scripts" / "qa_corpus.py")
     files.append(ROOT / "scripts" / "broad_english_corpus.py")
-    efficient = runner in {"kaggle_efficient_run.py", "kaggle_efficiency_verify.py", "kaggle_short_qa_pilot.py", "kaggle_broad_qa_pilot.py"}
+    efficient = runner in {"kaggle_efficient_run.py", "kaggle_efficiency_verify.py", "kaggle_short_qa_pilot.py", "kaggle_broad_qa_pilot.py", "kaggle_elementary_run.py"}
     if runner in {"kaggle_english_run.py", "kaggle_qa_run.py", "kaggle_long_run.py"} or efficient:
         files.append(ROOT / "scripts" / "kaggle_studio_verify.py")
     if runner in {"kaggle_qa_run.py", "kaggle_long_run.py"} or efficient:
@@ -70,7 +71,8 @@ def prepare(output: Path, owner: str, slug: str, runner: str) -> None:
         "machine_shape": "NvidiaTeslaT4",
         "enable_internet": runner in {"kaggle_english_run.py", "kaggle_qa_run.py", "kaggle_long_run.py"},
         "dataset_sources": [], "competition_sources": [],
-        "kernel_sources": (["garyzhang11111/slm-500m-efficient-continuation"]
+        "kernel_sources": (["garyzhang11111/slm-500m-broad-qa-pilot"]
+                           if runner == "kaggle_elementary_run.py" else ["garyzhang11111/slm-500m-efficient-continuation"]
                            if runner in {"kaggle_simple_questions_audit.py", "kaggle_short_qa_pilot.py", "kaggle_broad_qa_pilot.py"} else ["garyzhang11111/slm-500m-long-training"]
                            if efficient else ["garyzhang11111/slm-500m-answer-training"]
                            if runner == "kaggle_long_run.py" else
@@ -89,7 +91,7 @@ if __name__ == "__main__":
     parser.add_argument("--slug", default="slm-2048-verification")
     parser.add_argument(
         "--runner",
-        choices=("kaggle_run.py", "kaggle_quality_run.py", "kaggle_500m_quality_run.py", "kaggle_studio_verify.py", "kaggle_english_run.py", "kaggle_qa_run.py", "kaggle_long_run.py", "kaggle_efficient_run.py", "kaggle_efficiency_verify.py", "kaggle_simple_questions_audit.py", "kaggle_short_qa_pilot.py", "kaggle_broad_qa_pilot.py"),
+        choices=("kaggle_run.py", "kaggle_quality_run.py", "kaggle_500m_quality_run.py", "kaggle_studio_verify.py", "kaggle_english_run.py", "kaggle_qa_run.py", "kaggle_long_run.py", "kaggle_efficient_run.py", "kaggle_efficiency_verify.py", "kaggle_simple_questions_audit.py", "kaggle_short_qa_pilot.py", "kaggle_broad_qa_pilot.py", "kaggle_elementary_run.py"),
         default="kaggle_run.py",
         help="Kaggle entrypoint; quality runner trains a Studio checkpoint.",
     )

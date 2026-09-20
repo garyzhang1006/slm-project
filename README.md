@@ -30,6 +30,8 @@ To serve only this mode without loading any checkpoint, use an installed Python 
 PYTHONPATH=src python -m cognition_slm.server --sources-only
 ```
 
+The launcher also supports `./launch-studio.command --sources-only`; this skips PyTorch installation and import checks. A Python 3.13 environment is still required or created with `uv`.
+
 Reference text is limited to 12,000 UTF-8 bytes and questions to 2,000 bytes. Nothing is fetched from external URLs. Sources remain in page memory until refresh and are sent only to the Studio server for that request. **Model response** mode retains experimental, ungrounded generation and requires loaded weights. Starting Studio normally still loads weights; use `--sources-only` to prevent that.
 
 Open `launch-studio.command` in Finder, or run it from this project:
@@ -43,6 +45,8 @@ Visit [SLM Studio](http://127.0.0.1:8766). The first launch creates a separate P
 Studio defaults to `artifacts/slm-500m-language-quality.pt` and checks that it contains exactly 499,524,075 model parameters. Missing weights produce an error; Studio never silently falls back to a smaller checkpoint. Weights are not included in Git: download the completed Kaggle quality checkpoint into that path before launching. To deliberately use another checkpoint, supply `./launch-studio.command --checkpoint /path/to/model.pt`. An occupied port can be changed with `--port 8767`.
 
 The interface includes starter prompts, task selection, temperature and response-length controls, context budgeting, response copying, and session history. Language generation is the first-run task; code starter cards select code tasks explicitly. Each prompt is independent; history is kept in page memory and clears on refresh. Prompts stay on your machine. Model text is displayed without execution.
+
+Latest reviewed elementary checkpoint: **499,524,075 parameters**, 30/64 exact matches on held-out template combinations, but only 3/24 fully correct answers on the separate everyday-question audit. It is not a reliable general assistant. See [measured results and limitations](docs/elementary-results.md). This checkpoint has not replaced Studio's default weights.
 
 ## 2048 context and Kaggle
 

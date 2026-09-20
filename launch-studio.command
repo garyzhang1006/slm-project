@@ -9,6 +9,14 @@ if [ ! -x "$VENV_DIR/bin/python" ]; then
   fi
   uv venv --python 3.13 "$VENV_DIR"
 fi
+SOURCES_ONLY=false
+for arg in "$@"; do
+  if [ "$arg" = "--sources-only" ]; then
+    SOURCES_ONLY=true
+  fi
+done
+# Reference retrieval uses the standard library and must not depend on PyTorch.
+if [ "$SOURCES_ONLY" = false ]; then
 if ! "$VENV_DIR/bin/python" -c 'import importlib.util; raise SystemExit(any(importlib.util.find_spec(name) is None for name in ("torch", "numpy")))'; then
   if ! command -v uv >/dev/null 2>&1; then
     echo "Studio dependencies missing. Install uv and rerun this launcher."
@@ -26,6 +34,7 @@ except subprocess.TimeoutExpired:
 if result.returncode:
     sys.exit("PyTorch import failed. Repair the Studio environment before retrying.")
 '
+fi
 export PYTHONPATH="$PWD/src${PYTHONPATH:+:$PYTHONPATH}"
 echo "Starting SLM Studio"
 echo "Keep this terminal open. Press Control-C to stop."

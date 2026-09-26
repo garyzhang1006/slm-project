@@ -156,6 +156,37 @@ class RequestValidationTests(unittest.TestCase):
         self.assertEqual((result["text"], result["finish_reason"]), ("Paris", "length"))
 
 
+class StudioAssetTests(unittest.TestCase):
+    web = Path(__file__).resolve().parents[1] / "src" / "cognition_slm" / "web"
+
+    def test_decoding_controls_match_server_limits(self):
+        html = (self.web / "index.html").read_text()
+        for markup in ('id="top-p" type="range" min="0.05" max="1" step="0.05" value="0.9"',
+                       'id="repetition-penalty" type="range" min="1" max="2" step="0.05" value="1"',
+                       '<textarea id="stop-sequences" rows="2" spellcheck="false" aria-describedby="stop-hint">\\n</textarea>'):
+            self.assertIn(markup, html)
+        # Default Studio payload for language generation must pass server validation.
+        options, _ = validate_request({"prompt": "hello", "top_p": 0.9, "repetition_penalty": 1,
+                                       "stop_sequences": ["\n"]})
+        self.assertEqual(options["stop_sequences"], ["\n"])
+
+    def test_app_sends_validated_field_names(self):
+        script = (self.web / "app.js").read_text()
+        for snippet in ('top_p: Number($("top-p").value)',
+                        'repetition_penalty: Number($("repetition-penalty").value)',
+                        "stop_sequences: stops.length ? stops : undefined",
+                        "config.stop_sequences.length <= 4",
+                        "encoder.encode(item).length <= 64",
+                        "!validK || !validStops ||",
+                        '!validStops ? "Stop sequences: use at most 4 entries',
+                        'response.finish_reason === "stop" ? "A stop sequence ended the response',
+                        '"repetition-penalty", "stop-sequences"]) $(id).addEventListener("input", syncComposer)'):
+            self.assertIn(snippet, script)
+        # Source-excerpt requests carry only the prompt and reference text.
+        self.assertIn("grounded ? { prompt: run.prompt, source_text: run.source_text }", script)
+        self.assertIn('$("settings-open").disabled = grounded', script)
+
+
 class ServerTests(unittest.TestCase):
     def setUp(self):
         self.runtime = ModelRuntime(Path("unused"))

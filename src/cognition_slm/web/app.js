@@ -1,16 +1,27 @@
 "use strict";
 
 const $ = (id) => document.getElementById(id);
-const state = { status: null, busy: false, runs: [], selected: null };
+const state = { status: null, busy: false, runs: [], selected: null, stopEdited: false, stopTask: "language_generation" };
 const encoder = new TextEncoder();
 const labels = Object.fromEntries([...$("task-type").options].map((option) => [option.value, option.text]));
+
+// A newline stop keeps short answers to one line; multi-line tasks such as code start without one.
+const defaultStops = (task) => (task === "language_generation" ? "\\n" : "");
+
+function stopSequences() {
+  // Commas and line breaks separate entries, so a typed \n or \t stands for that character.
+  return $("stop-sequences").value.split(/[,\n]/).map((item) => item.trim().replace(/\\n/g, "\n").replace(/\\t/g, "\t")).filter(Boolean);
+}
 
 function settings() {
   // Number("") is 0 (unrestricted sampling), so a cleared field must stay invalid instead.
   const topK = $("top-k").value.trim();
+  const stops = stopSequences();
+  // The server rejects an empty list, so no entries means the field is omitted from the request.
   return { task_type: $("task-type").value, temperature: Number($("temperature").value),
     max_new_tokens: Number($("max-tokens").value), top_k: topK === "" ? NaN : Number(topK),
-    top_p: Number($("top-p").value) };
+    top_p: Number($("top-p").value), repetition_penalty: Number($("repetition-penalty").value),
+    stop_sequences: stops.length ? stops : undefined };
 }
 
 function promptTokens() {
@@ -24,6 +35,8 @@ function sourceMode() {
 }
 
 function syncComposer() {
+  if (!state.stopEdited && $("task-type").value !== state.stopTask) $("stop-sequences").value = defaultStops($("task-type").value);
+  state.stopTask = $("task-type").value;
   const grounded = sourceMode();
   const config = settings();
   const count = promptTokens();
@@ -32,6 +45,7 @@ function syncComposer() {
   const sourceOverflow = grounded && (sourceBytes > 12000 || encoder.encode($("prompt").value.trim()).length > 2000);
   const overflow = !grounded && context && count + config.max_new_tokens > context;
   const validK = Number.isInteger(config.top_k) && config.top_k >= 0 && config.top_k <= 259;
+  const validStops = !config.stop_sequences || (config.stop_sequences.length <= 4 && config.stop_sequences.every((item) => encoder.encode(item).length <= 64));
   $("token-count").textContent = grounded ? `${sourceBytes.toLocaleString()} / 12,000 source bytes` : `${count.toLocaleString()}${context ? ` / ${context.toLocaleString()}` : ""} tokens`;
   $("token-count").classList.toggle("over-budget", Boolean(overflow || sourceOverflow));
   $("task-label").textContent = grounded ? "Source excerpts" : labels[config.task_type];
@@ -46,11 +60,14 @@ function syncComposer() {
   $("temperature-value").value = config.temperature.toFixed(1);
   $("max-tokens-value").value = `${config.max_new_tokens} tokens`;
   $("top-p-value").value = config.top_p.toFixed(2);
-  $("generate").disabled = state.busy || !count || (grounded ? sourceOverflow : state.status?.state !== "ready" || overflow || !validK || Boolean(state.status?.busy));
+  $("repetition-penalty-value").value = config.repetition_penalty.toFixed(2);
+  $("stop-sequences").setAttribute("aria-invalid", String(!validStops));
+  $("generate").disabled = state.busy || !count || (grounded ? sourceOverflow : state.status?.state !== "ready" || overflow || !validK || !validStops || Boolean(state.status?.busy));
   $("budget-note").textContent = grounded ? (sourceOverflow ? "Use at most 2,000 UTF-8 bytes for your question and 12,000 for reference text." : "Excerpts come only from your reference text. Missing evidence returns no excerpts.") : overflow
     ? `Shorten your prompt: reserve ${config.max_new_tokens} tokens for the response.`
+    : !validStops ? "Stop sequences: use at most 4 entries in Settings, each at most 64 UTF-8 bytes."
     : "Each prompt starts fresh. History is for your reference.";
-  $("budget-note").classList.toggle("over-budget", Boolean(overflow || sourceOverflow));
+  $("budget-note").classList.toggle("over-budget", Boolean(overflow || sourceOverflow || (!grounded && !validStops)));
   $("new-session").disabled = state.busy;
   $("mobile-new").disabled = state.busy;
 }
@@ -88,7 +105,7 @@ function renderRun(run, loading = false) {
   const response = run.result;
   // Abstentions carry fallback text; show the empty state instead of copyable excerpts.
   const hasText = grounded ? !response.abstained && Boolean(response.sources?.length) : Boolean(response.text?.trim());
-  container.append(element("pre", `response-text${hasText ? "" : " empty-response"}`, hasText ? response.text : grounded ? "No relevant excerpts found in your reference text." : "The model returned no visible text. Try another prompt or a higher temperature; this checkpoint is still at an early training stage."));
+  container.append(element("pre", `response-text${hasText ? "" : " empty-response"}`, hasText ? response.text : grounded ? "No relevant excerpts found in your reference text." : response.finish_reason === "stop" ? "A stop sequence ended the response before any visible text. Clear Stop sequences in Settings and try again." : "The model returned no visible text. Try another prompt or a higher temperature; this checkpoint is still at an early training stage."));
   if (hasText) {
     const copy = element("button", "copy-button", grounded ? "Copy excerpts" : "Copy response");
     copy.type = "button";
@@ -198,7 +215,8 @@ $("prompt-form").addEventListener("submit", async (event) => {
 });
 
 $("prompt").addEventListener("input", syncComposer);
-for (const id of ["response-mode", "source-text", "task-type", "temperature", "max-tokens", "top-k", "top-p"]) $(id).addEventListener("input", syncComposer);
+for (const id of ["response-mode", "source-text", "task-type", "temperature", "max-tokens", "top-k", "top-p", "repetition-penalty", "stop-sequences"]) $(id).addEventListener("input", syncComposer);
+$("stop-sequences").addEventListener("input", () => { state.stopEdited = true; });
 $("response-mode").addEventListener("change", () => {
   if (!sourceMode() && state.status?.state === "disabled") {
     feedback(state.status.error || "Model generation is disabled. Choose Source excerpts, or restart the server without --sources-only to load a checkpoint.", true);

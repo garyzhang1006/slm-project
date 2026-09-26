@@ -131,11 +131,9 @@ Always pass the explicit T4 accelerator. Kaggle's default P100 gets detected fin
 
 Heads up: older quality reports tested on prompts that overlapped the training data, so don't read them as held-out scores.
 
-## Context therapist for long histories
+## Context therapist
 
-The repository also includes a deterministic context-care controller for another language model. It checks visible message history for token pressure, repeated turns, conflicting directives, instruction drift, unsupported success claims, and unresolved uncertainty. It returns a repair prompt plus a handoff packet that marks turns to retain or review.
-
-Run it against the included synthetic fixture:
+This is a side tool, and it doesn't need the model at all. You feed it a chat history from some other LLM, and it checks for trouble: running out of context, repeating itself, contradicting its own instructions, drifting off task, claiming "tests pass" without evidence, or leaving questions hanging. It hands back a repair prompt plus a list of which turns to keep.
 
 ```bash
 .venv/bin/cognition-slm-context-therapist \
@@ -144,30 +142,27 @@ Run it against the included synthetic fixture:
   --goal "Preserve the coding task and verified evidence"
 ```
 
-This layer is an observable context controller, not a consciousness probe or hidden-thought reader. `estimated_tokens` uses this project's byte tokenizer, so use a conservative budget when the downstream model uses a different tokenizer. See [`docs/context_therapy.md`](docs/context_therapy.md) for the integration contract.
+It counts tokens with this project's byte tokenizer, so give it a conservative budget if your real model uses a different tokenizer. More in [docs/context_therapy.md](docs/context_therapy.md).
 
-## Data boundary
+## Data (and whose it is)
 
-Text sources are pinned to dataset revisions in the runner:
+`data/demo.jsonl` and `data/eval.jsonl` are small synthetic sets I wrote (57 training and 22 held-out records, CC0). `data/simple_questions_holdout.json` holds the 24 everyday questions the model keeps failing, and `scripts/score_holdout.py` grades answers against it automatically.
 
-- [TinyStories](https://huggingface.co/datasets/roneneldan/TinyStories), by Ronen Eldan
-  and Yuanzhi Li, contains synthetic English stories and uses CDLA-Sharing-1.0.
-- [Dolly 15k](https://huggingface.co/datasets/databricks/databricks-dolly-15k),
-  copyright 2023 Databricks, Inc., contains human-written instructions and responses
-  under CC-BY-SA-3.0. Some contexts derive from Wikipedia contributors.
+Nothing downloaded gets committed. The Kaggle jobs pull these datasets at pinned revisions, and every converted record keeps its source and license fields:
 
-Converted records retain source and license fields. Filtering and prompt formatting
-are this project's modifications; dataset licenses continue to apply to redistributed
-records. No downloaded corpus is committed to this repository.
+- [FineWeb-Edu](https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu) (`sample-10BT`): ODC-BY for the database, and the original text keeps its owners' rights.
+- [TinyStories](https://huggingface.co/datasets/roneneldan/TinyStories) by Ronen Eldan and Yuanzhi Li: CDLA-Sharing-1.0.
+- [Dolly 15k](https://huggingface.co/datasets/databricks/databricks-dolly-15k), copyright 2023 Databricks, Inc.: CC-BY-SA-3.0, with some contexts from Wikipedia contributors.
+- [SQuAD](https://huggingface.co/datasets/rajpurkar/squad) by Pranav Rajpurkar and collaborators: CC-BY-SA-4.0, with Wikipedia passages.
+- [OpenAssistant oasst1](https://huggingface.co/datasets/OpenAssistant/oasst1): Apache-2.0, used by the `compute/` SFT data builder.
+- The LoRA baseline starts from [SmolLM2-360M-Instruct](https://huggingface.co/HuggingFaceTB/SmolLM2-360M-Instruct), which is Apache-2.0.
 
-`data/demo.jsonl` and `data/eval.jsonl` contain project-authored synthetic examples marked `CC0-1.0`. The current snapshot has 57 training records and 22 held-out records, including `language_generation` examples for greetings, summaries, rewriting, translation, and short-form writing. No external training corpus is bundled. `scripts/prepare_data.py` converts a local JSONL file into the canonical schema and requires an explicit source and license. Add only data you are allowed to use, and run the audit before training.
+Filtering and prompt formatting are my changes, and the original licenses still apply. To bring your own data, run `scripts/prepare_data.py`, which needs an explicit source and license, and then run the audit before training. The full contract is in [data/README.md](data/README.md).
 
-The project deliberately does not accept fields named `chain_of_thought`, `cot`, `hidden_reasoning`, or `private_thoughts`. A short inspectable explanation can be represented in the answer, but a verbal explanation is not evidence of a model's hidden internal process.
-
-## Architecture
+## How it fits together
 
 ```text
-JSONL records
+JSONL records or raw text
     |
     v
 schema validation + license/secret audit
@@ -179,34 +174,31 @@ byte tokenizer (259 tokens)
 legacy or modern causal transformer
     |                         \
     v                          v
-answer-token loss       prompt-boundary pooling
-                         task / error / confidence heads
+next-token loss          prompt pooling -> task / error / confidence heads
+(answer-only for SFT,    (skipped for raw text or --aux-loss-weight 0)
+ every token for raw text)
     |
-candidate generation -> static code checks -> selected output
+generation -> optional static code checks -> output
 ```
 
-The training CLI defaults to the `demo` preset: a modern model with two transformer blocks, four attention heads, 128 hidden dimensions, and a 2048-token context window. `ModelConfig` retains historical legacy/256 defaults for direct construction and checkpoints missing those fields. Select `--preset slm-50m` or `--preset slm-500m` for larger Kaggle runs; explicit dimension flags override a preset on new runs.
+The training CLI defaults to the tiny `demo` preset: 2 blocks, 4 heads, 128 dims, and a 2048-byte context. Pick `--preset slm-50m`, `slm-160m`, or `slm-500m` for bigger runs, and explicit dimension flags override the preset. Keep in mind that 2048 bytes is only about 400 English words, much shorter than 2048 subword tokens would be.
 
-Training reports the actual maximum encoded length and number of truncated records. Truncated answers retain their last real byte rather than receiving an artificial end-of-sequence token. An oversized prompt that leaves no answer tokens is rejected. Generation rejects oversized formatted prompts instead of silently removing the answer delimiter; decoding beyond the window uses rolling context.
+Training tells you how many records got truncated, and it rejects prompts too long to leave any room for an answer. Generation caps the answer so it fits in the window, instead of quietly sliding the prompt out of view.
 
-## Research questions
+## Stuff I'm curious about
 
-1. Does a model's confidence bucket track held-out coding correctness?
-2. Do error-category predictions separate syntax errors from logic errors?
-3. Does adding concise inspectable feedback improve code generation without encouraging hidden-reasoning collection?
-4. Do prompt-only cognition heads remain calibrated when answer tokens are withheld?
+1. Does the confidence head actually track whether held-out code is correct?
+2. Can the error head tell syntax errors apart from logic errors?
+3. Does short, readable feedback help code generation without turning into hidden-reasoning collection?
+4. Do the prompt-only heads stay calibrated when they never get to see the answer?
 
-Evaluation reports scalar accuracy, macro-F1, expected calibration error, and confusion matrices for each auxiliary head. Coding tasks also report static Python syntax validity, required-symbol recall, and a narrow static score. Accuracy remains in the top-level JSON fields for compatibility.
-
-See [`docs/cognition.md`](docs/cognition.md) for definitions and limits, [`docs/context_therapy.md`](docs/context_therapy.md) for context care, [`data/README.md`](data/README.md) for the data contract, [`reports/audit.md`](reports/audit.md) for the initial model audit, and [`reports/context_therapy_audit.md`](reports/context_therapy_audit.md) for current context-care verification.
+`evaluate` reports accuracy, macro-F1, calibration error, and confusion matrices for each head, plus syntax validity and required-symbol recall for code. Definitions are in [docs/cognition.md](docs/cognition.md), and older audits are in [reports/audit.md](reports/audit.md) and [reports/context_therapy_audit.md](reports/context_therapy_audit.md).
 
 ## Known limits
 
-- A tiny synthetic corpus cannot support claims about general coding or language ability.
-- Confidence is a label learned from annotations, not calibrated probability.
-- Auxiliary heads expose behavior-level predictions, not true internal states.
-- Prompt-only pooling prevents the auxiliary heads from reading answer tokens during training; it does not prove that their labels represent internal reasoning.
-- Static syntax validity does not establish runtime correctness. Candidate reranking can select a valid-looking answer that is still wrong.
-- Generated code is untrusted text. Execute it only in a sandbox with resource limits.
-- Normal training and Studio do not download internet data. The explicitly selected
-  English Kaggle runner downloads the two licensed text datasets described above.
+- It doesn't answer general questions well yet (see "Where it's at" above).
+- The confidence head predicts a label from the training data. It isn't a calibrated probability.
+- The side heads predict behavior. They don't reveal anything about the model's internal state.
+- Passing a syntax check doesn't mean code works, and reranking can pick a tidy-looking wrong answer.
+- Treat generated code as untrusted, and only run it in a sandbox.
+- Normal training and Studio never touch the internet. Only the Kaggle jobs download the datasets listed above.

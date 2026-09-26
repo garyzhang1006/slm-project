@@ -102,6 +102,11 @@ def main(*, broad: bool = False) -> None:
     sys.path[:0] = [str(root), str(root / "src"), str(root / "scripts")]
     os.environ.update(PYTHONPATH=str(root / "src"), OMP_NUM_THREADS="2", PYTHONUNBUFFERED="1")
     from kaggle_english_run import digest, write_json
+    try:
+        from score_holdout import score_predictions
+    except ImportError:  # prepare_kaggle.py bundles predating the scorer; manual review still covers the report.
+        print("score_holdout.py not packaged; skipping simple_questions_scores", flush=True)
+        score_predictions = None
 
     manifest = json.loads((root / "source-manifest.json").read_text())
     for name, expected in manifest.items():
@@ -209,6 +214,8 @@ def main(*, broad: bool = False) -> None:
                                max_new_tokens=160, temperature=0, top_k=0)
         report["simple_questions"].append({**row, "answer": answer})
         write_json(destination, report)
+    if score_predictions:
+        report["simple_questions_scores"] = score_predictions(holdout["rows"], report["simple_questions"])
     report["status"] = "complete_pending_manual_review"
     write_json(destination, report)
     print(report["status"], flush=True)

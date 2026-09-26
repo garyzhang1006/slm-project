@@ -62,5 +62,28 @@ class ElementaryCurriculumTests(unittest.TestCase):
         self.assertEqual(operators, {"+", "-", "*", "/"})
 
 
+class ElementaryReplayTests(unittest.TestCase):
+    class Row:
+        def __init__(self, prompt):
+            self.prompt = prompt
+
+        def to_dict(self):
+            return {"prompt": self.prompt}
+
+    def test_replay_skips_reserved_and_duplicates_then_stops_at_limit(self):
+        from scripts.kaggle_elementary_run import select_replay
+        rows = [self.Row(p) for p in ("Dev prompt", "Train prompt", "Q1", " q1 ", "Q2", "Q3")]
+        seen = {"train prompt"}
+        replay = select_replay(rows, {"dev prompt"}, seen, limit=2)
+        self.assertEqual([row["prompt"] for row in replay], ["Q1", "Q2"])
+        self.assertEqual(seen, {"train prompt"})
+
+    def test_short_replay_fails_loudly(self):
+        from scripts.kaggle_elementary_run import REPLAY_ROWS, select_replay
+        self.assertEqual(REPLAY_ROWS, 2000)
+        with self.assertRaisesRegex(RuntimeError, "Collected only 1 of 2000"):
+            select_replay([self.Row("Q1"), self.Row("q1")], set(), set())
+
+
 if __name__ == "__main__":
     unittest.main()

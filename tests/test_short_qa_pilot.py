@@ -50,3 +50,11 @@ class ShortQAPhaseTests(unittest.TestCase):
         for group in result["optimizer_state_dict"]["param_groups"]:
             self.assertEqual(group["lr"], 0.00005)
             self.assertEqual(group["initial_lr"], 0.00005)
+
+    def test_report_scores_holdout_answers(self):
+        # prepare_kaggle.py bundles may lack score_holdout.py, so both runners must tolerate its absence.
+        for runner in ("kaggle_short_qa_pilot.py", "kaggle_elementary_run.py"):
+            source = (Path(__file__).resolve().parents[1] / "scripts" / runner).read_text()
+            with self.subTest(runner=runner):
+                self.assertIn("    try:\n        from score_holdout import score_predictions\n    except ImportError:", source)
+                self.assertIn('    if score_predictions:\n        report["simple_questions_scores"] = score_predictions(', source)

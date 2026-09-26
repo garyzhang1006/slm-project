@@ -9,6 +9,24 @@ import subprocess
 import sys
 
 PARENT_SHA = "ae2a1db39c1cd4722950b844d85a6cfd4e03add4a6c234f2488dc51abbbcc983"
+REPLAY_ROWS = 2000
+
+
+def select_replay(examples, excluded: set, seen: set, limit: int = REPLAY_ROWS) -> list[dict]:
+    """Take the first distinct QA rows outside the curriculum, dev split and audit prompts."""
+    normalize = lambda text: " ".join(text.casefold().split())
+    seen = set(seen)
+    replay = []
+    for row in examples:
+        key = normalize(row.prompt)
+        if key not in excluded | seen:
+            replay.append(row.to_dict())
+            seen.add(key)
+        if len(replay) == limit:
+            return replay
+    # A short replay silently shifts the curriculum/QA mixture, so stop before any GPU work.
+    raise RuntimeError(f"Collected only {len(replay)} of {limit} Dolly replay rows; "
+                       "the parent QA corpus lacks enough prompts outside the curriculum and dev split")
 
 
 def main():
@@ -23,6 +41,11 @@ def main():
     from cognition_slm.data import load_jsonl
     from kaggle_qa_run import evaluate
     from kaggle_500m_quality_run import _final_training_report
+    try:
+        from score_holdout import score_predictions
+    except ImportError:  # prepare_kaggle.py bundles predating the scorer; manual review still covers the report.
+        print("score_holdout.py not packaged; skipping simple_questions_scores", flush=True)
+        score_predictions = None
     import torch
 
     if not torch.cuda.is_available():
@@ -51,14 +74,7 @@ def main():
     train, dev, curriculum = build_curriculum(reserved)
     excluded = reserved | {normalize(row["prompt"]) for row in dev}
     seen = {normalize(row["prompt"]) for row in train}
-    replay = []
-    for row in load_jsonl(replay_source):
-        key = normalize(row.prompt)
-        if key not in excluded | seen:
-            replay.append(row.to_dict())
-            seen.add(key)
-        if len(replay) == 2000:
-            break
+    replay = select_replay(load_jsonl(replay_source), excluded, seen)
     artifacts = root / "artifacts"
     artifacts.mkdir(exist_ok=True)
     for name, rows in (("train", train + replay), ("dev", dev)):
@@ -118,6 +134,8 @@ def main():
                                max_new_tokens=160, temperature=0, top_k=0)
         report["simple_questions"].append({**row, "answer": answer})
         write_json(destination, report)
+    if score_predictions:
+        report["simple_questions_scores"] = score_predictions(audit["rows"], report["simple_questions"])
     report["status"] = "complete_pending_manual_review"
     write_json(destination, report)
 

@@ -211,5 +211,36 @@ class ContextTherapyTests(unittest.TestCase):
             self.assertEqual(json.loads(output_path.read_text())["state"], "conflicted")
 
 
+    def test_negated_verification_does_not_count_as_evidence(self):
+        for content in ("Fixed it. I have not tested or run anything.", "Fixed it. I haven\u2019t run the tests.",
+                        "Done. Tests have not been run.", "Fixed it. No tests were run."):
+            with self.subTest(content=content):
+                assessment = ContextTherapist().assess([{"role": "assistant", "content": content}])
+                self.assertIn("unsupported_claim", [item.code for item in assessment.observations])
+                self.assertIn("verify_claims", [action.code for action in assessment.actions])
+        for content in ("Fixed it. I have not tested the UI, but CI passed.", "Fixed; ran the tests with no failures."):
+            with self.subTest(content=content):
+                assessment = ContextTherapist().assess([{"role": "assistant", "content": content}])
+                self.assertNotIn("unsupported_claim", [item.code for item in assessment.observations])
+
+    def test_must_never_conflicts_with_always(self):
+        for negative in ("You must never use tabs.", "You shouldn't use tabs."):
+            with self.subTest(negative=negative):
+                messages = [{"role": "user", "content": negative}, {"role": "user", "content": "Always use tabs."}]
+                self.assertEqual(ContextTherapist().assess(messages).state, "conflicted")
+
+    def test_curly_apostrophe_negation_is_not_a_conflict(self):
+        messages = [{"role": "user", "content": "Don\u2019t use tabs."}, {"role": "user", "content": "Never use tabs."}]
+        self.assertEqual(ContextTherapist().assess(messages).state, "stable")
+
+    def test_conflict_evidence_includes_both_polarities(self):
+        messages = [{"role": role, "content": "Always use tabs."} for role in ("system", "user", "assistant")]
+        messages.append({"role": "user", "content": "Never use tabs."})
+        conflict = next(
+            item for item in ContextTherapist().assess(messages).observations if item.code == "contradictory_directives"
+        )
+        self.assertEqual(len(conflict.evidence), 3)
+        self.assertIn("user: Never use tabs", conflict.evidence)
+
 if __name__ == "__main__":
     unittest.main()

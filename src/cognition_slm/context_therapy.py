@@ -24,7 +24,8 @@ _SECRET_PATTERNS = (
     re.compile(r"AKIA[0-9A-Z]{16}"),
 )
 _DIRECTIVE_PATTERN = re.compile(
-    r"(?ix)\b(?:(?P<negative>must\s+not|should\s+not|do\s+not|don't|never|avoid)|"
+    r"(?ix)\b(?:(?P<negative>(?:must|should)\s+(?:not|never)|(?:must|should)n't|do\s+not|don't|"
+    r"cannot|can't|never|avoid)|"
     r"(?P<positive>must|should|always|use|include|keep|preserve))\s+"
     r"(?P<topic>[^.!?\n]{2,100})"
 )
@@ -41,8 +42,14 @@ _CLAIM_PATTERN = re.compile(r"(?i)\b(?:works?|fixed|correct|verified|done|passes
 _EVIDENCE_PATTERN = re.compile(
     r"(?i)\b(?:test(?:ed|s)?|ran|run|output|traceback|benchmark|evidence|source|commit|ci)\b"
 )
+# "haven't run the tests" states the absence of evidence, so a negator within three words before an
+# evidence word, or a "have not"/"were never" right after it, disqualifies that hit.
+_EVIDENCE_NEGATOR = re.compile(r"(?i)not|never|no|without|cannot|\w+n['\u2019]t")
+_NEGATED_AFTER_EVIDENCE = re.compile(
+    r"(?i)\s+(?:(?:have|has|had|was|were|is|are)(?:n['\u2019]t|\s+not|\s+never)|not|never)\b"
+)
 _DIRECTIVE_STOPWORDS = frozenset(
-    {"must", "not", "should", "always", "use", "include", "keep", "preserve", "to", "the", "a", "an"}
+    {"must", "not", "never", "should", "always", "use", "include", "keep", "preserve", "to", "the", "a", "an"}
 )
 _HANDOFF_SIGNAL_PATTERN = re.compile(
     r"(?i)\b(?:constraint|requirement|must|should|decision|decided|acceptance|"
@@ -288,7 +295,8 @@ def _directive_key(topic: str) -> str:
 def _contradiction_observation(messages: tuple[ContextMessage, ...]) -> ContextObservation | None:
     directives: dict[str, list[tuple[bool, int, str]]] = {}
     for index, message in enumerate(messages):
-        for sentence in re.split(r"[.!?\n]+", message.content):
+        content = message.content.replace("\u2019", "'").replace("\u2018", "'")
+        for sentence in re.split(r"[.!?\n]+", content):
             for match in _DIRECTIVE_PATTERN.finditer(sentence):
                 key = _directive_key(match.group("topic"))
                 if key:
@@ -299,7 +307,10 @@ def _contradiction_observation(messages: tuple[ContextMessage, ...]) -> ContextO
     for entries in directives.values():
         polarities = {entry[0] for entry in entries}
         if len(polarities) > 1:
-            for _, index, directive in entries[:3]:
+            # Always show both sides of the conflict, then fill in message order.
+            positions = [next(i for i, entry in enumerate(entries) if entry[0] is polarity) for polarity in (True, False)]
+            positions += [i for i in range(len(entries)) if i not in positions][:1]
+            for _, index, directive in (entries[i] for i in sorted(positions)):
                 evidence.append(f"{messages[index].role}: {_safe_excerpt(directive)}")
     if not evidence:
         return None
@@ -327,12 +338,24 @@ def _instruction_drift_observation(messages: tuple[ContextMessage, ...]) -> Cont
     )
 
 
+def _has_evidence(text: str) -> bool:
+    for clause in re.split(r"[,;:.!?\n]+", text):
+        for match in _EVIDENCE_PATTERN.finditer(clause):
+            before = re.findall(r"[\w'\u2019]+", clause[: match.start()])[-3:]
+            if any(_EVIDENCE_NEGATOR.fullmatch(word) for word in before):
+                continue
+            if _NEGATED_AFTER_EVIDENCE.match(clause, match.end()):
+                continue
+            return True
+    return False
+
+
 def _evidence_observations(messages: tuple[ContextMessage, ...]) -> tuple[ContextObservation, ...]:
     observations: list[ContextObservation] = []
     for message in messages:
         if message.role != "assistant":
             continue
-        if _CLAIM_PATTERN.search(message.content) and not _EVIDENCE_PATTERN.search(message.content):
+        if _CLAIM_PATTERN.search(message.content) and not _has_evidence(message.content):
             observations.append(
                 ContextObservation(
                     "unsupported_claim",

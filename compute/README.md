@@ -48,6 +48,8 @@ Kaggle gives a weekly GPU quota (check the current number on your account page),
 
 ## Run order
 
+Once the corpus exists, `python3 compute/run_pipeline.py --owner YOUR_KAGGLE_USERNAME --watch` does the rest of the main chain for you: it checks every 30 minutes, pushes the next pretrain session when the last one finishes, then sft and eval, and waits instead of pushing when the weekly GPU quota cannot cover the next stage. Add `--dry-run` to see the decision without pushing anything. The manual commands below still work.
+
 Every stage uses the same two commands: package, then push. Replace the owner if you are not `garyzhang11111`. Commands run from the repository root.
 
 ```bash

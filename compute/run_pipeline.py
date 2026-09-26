@@ -1,0 +1,172 @@
+"""Drive the slm-160m chain on Kaggle: pretrain sessions until one pass is done, then sft, then eval.
+
+Each round reads kernel statuses and reports, decides one action, and (unless --dry-run) pushes the next
+kernel. It never runs a model locally; every push goes to a Kaggle GPU. It checks the weekly GPU quota before
+each push, so a session that would be killed half way for lack of quota waits for the reset instead.
+Run from the repo root, logged in with the Kaggle CLI, e.g.
+    python3 compute/run_pipeline.py --owner YOUR_KAGGLE_USERNAME --watch
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+from pathlib import Path
+import re
+import subprocess
+import sys
+import tempfile
+import time
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from compute.stages import PRETRAIN_SESSION_SECONDS, stage_slug  # noqa: E402
+
+# GPU hours a push must have left in the weekly quota: the stage's own time cap plus setup and save.
+STAGE_HOURS = {"pretrain": PRETRAIN_SESSION_SECONDS / 3600 + 1.0, "sft": 9.5, "eval": 1.0}
+# Kaggle numbers pretrain sessions from 1; a chain this long means something is looping.
+MAX_PRETRAIN_SESSIONS = 20
+WAITING = {"queued", "running", "new_script", "pending"}
+
+
+def parse_status(output: str) -> str:
+    """Map `kaggle kernels status` output to missing, queued, running, complete, error, ..."""
+    match = re.search(r'status "(?:KernelWorkerStatus\.)?([A-Za-z_]+)"', output)
+    if match:
+        return match.group(1).lower()
+    if "Cannot access kernel" in output or "404" in output:
+        return "missing"
+    raise RuntimeError(f"Unrecognized kaggle kernels status output: {output.strip()[:300]}")
+
+
+def parse_gpu_quota(output: str) -> float:
+    """Remaining GPU hours from the `kaggle quota` table."""
+    for line in output.splitlines():
+        fields = line.split()
+        if fields and fields[0] == "GPU" and len(fields) >= 3:
+            return float(fields[2].rstrip("h"))
+    raise RuntimeError(f"No GPU row in kaggle quota output: {output.strip()[:300]}")
+
+
+def action(kind: str, reason: str, **fields) -> dict:
+    return {"kind": kind, "reason": reason, **fields}
+
+
+def push_if_quota(stage: str, quota_hours: float, reason: str, **fields) -> dict:
+    needed = STAGE_HOURS[stage]
+    if quota_hours < needed:
+        return action("wait", f"{reason}, but only {quota_hours:.2f} GPU hours remain and {stage} needs "
+                              f"{needed:.1f}; waiting for the weekly quota reset", stage=stage, **fields)
+    return action("push", reason, stage=stage, **fields)
+
+
+def next_action(status, report, quota_hours: float) -> dict:
+    """One decision. status(slug) -> str and report(slug, filename) -> dict | None are injected."""
+    corpus = status(stage_slug("corpus"))
+    if corpus != "complete":
+        return action("wait" if corpus in WAITING else "stop", f"corpus kernel is {corpus}")
+
+    last = 0
+    while last < MAX_PRETRAIN_SESSIONS and status(stage_slug("pretrain", last + 1)) != "missing":
+        last += 1
+    if last == 0:
+        return push_if_quota("pretrain", quota_hours, "no pretrain session yet", session=1)
+    current = status(stage_slug("pretrain", last))
+    if current in WAITING:
+        return action("wait", f"pretrain session {last} is {current}")
+    if current != "complete":
+        return action("stop", f"pretrain session {last} ended as {current}; read its log before retrying")
+    session_report = report(stage_slug("pretrain", last), f"pretrain_session_{last}.json")
+    if not session_report:
+        return action("stop", f"pretrain session {last} finished without pretrain_session_{last}.json")
+    if session_report.get("status") == "session_complete_resume_next":
+        if last >= MAX_PRETRAIN_SESSIONS:
+            return action("stop", f"{last} pretrain sessions and still not done; check the step budget")
+        return push_if_quota("pretrain", quota_hours, f"pretrain session {last} reached step "
+                             f"{session_report.get('step_reached')}", session=last + 1)
+    if session_report.get("status") != "complete":
+        return action("stop", f"pretrain session {last} report status is {session_report.get('status')!r}")
+
+    sft = status(stage_slug("sft"))
+    if sft in WAITING:
+        return action("wait", f"sft is {sft}")
+    if sft == "missing":
+        return push_if_quota("sft", quota_hours, f"pretraining finished in session {last}", pretrain_session=last)
+    if sft != "complete":
+        return action("stop", f"sft ended as {sft}; read its log before retrying")
+    sft_report = report(stage_slug("sft"), "sft_report.json") or {}
+    if sft_report.get("pretrain_session") != last:
+        return push_if_quota("sft", quota_hours, f"sft was built on pretrain session "
+                             f"{sft_report.get('pretrain_session')}, not {last}", pretrain_session=last)
+
+    evaluation = status(stage_slug("eval"))
+    if evaluation in WAITING:
+        return action("wait", f"eval is {evaluation}")
+    if evaluation == "missing":
+        return push_if_quota("eval", quota_hours, "sft finished")
+    if evaluation != "complete":
+        return action("stop", f"eval ended as {evaluation}; read its log before retrying")
+    return action("done", "eval finished; read eval_report.json from the eval kernel output")
+
+
+class Kaggle:
+    """Thin wrapper over the kaggle CLI, so next_action stays testable without network access."""
+
+    def __init__(self, owner: str, command: str = "kaggle") -> None:
+        self.owner, self.command = owner, command
+
+    def run(self, *args: str, check: bool = True) -> str:
+        result = subprocess.run([self.command, *args], capture_output=True, text=True)
+        output = result.stdout + result.stderr
+        if check and result.returncode:
+            raise RuntimeError(f"kaggle {' '.join(args)} failed ({result.returncode}): {output.strip()[:500]}")
+        return output
+
+    def status(self, slug: str) -> str:
+        return parse_status(self.run("kernels", "status", f"{self.owner}/{slug}", check=False))
+
+    def quota_hours(self) -> float:
+        return parse_gpu_quota(self.run("quota"))
+
+    def report(self, slug: str, filename: str) -> dict | None:
+        with tempfile.TemporaryDirectory() as directory:
+            self.run("kernels", "output", f"{self.owner}/{slug}", "-p", directory,
+                     "--file-pattern", re.escape(filename) + "$", check=False)
+            matches = list(Path(directory).rglob(filename))
+            return json.loads(matches[0].read_text()) if len(matches) == 1 else None
+
+    def push(self, decision: dict) -> str:
+        from compute.package import prepare
+
+        with tempfile.TemporaryDirectory() as directory:
+            prepare(decision["stage"], Path(directory), self.owner, decision.get("session"),
+                    decision.get("pretrain_session"))
+            return self.run("kernels", "push", "-p", directory).strip()
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--owner", required=True, help="Kaggle username that owns the kernels")
+    parser.add_argument("--watch", action="store_true", help="Keep deciding every --interval seconds until done")
+    parser.add_argument("--interval", type=int, default=1800)
+    parser.add_argument("--dry-run", action="store_true", help="Print the decision without pushing anything")
+    args = parser.parse_args(argv)
+    if args.interval < 60:
+        parser.error("--interval must be at least 60 seconds; Kaggle status changes slowly")
+    kaggle = Kaggle(args.owner)
+    while True:
+        decision = next_action(kaggle.status, kaggle.report, kaggle.quota_hours())
+        print(time.strftime("%Y-%m-%d %H:%M"), json.dumps(decision), flush=True)
+        if decision["kind"] == "push" and not args.dry_run:
+            print(kaggle.push(decision), flush=True)
+        if decision["kind"] in {"done", "stop"}:
+            return 0 if decision["kind"] == "done" else 1
+        if not args.watch or args.dry_run:
+            return 0
+        time.sleep(args.interval)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

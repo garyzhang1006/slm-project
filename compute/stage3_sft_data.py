@@ -23,6 +23,8 @@ from compute import short_facts  # noqa: E402
 from compute.stage1_corpus import (HOLDOUT_PATH, contains_secret, digest, holdout_stems,  # noqa: E402
                                    normalize_overlap, overlaps_holdout, write_json)
 
+EVERYDAY_EVAL_PATH = Path("data/everyday_eval.json")
+
 # Revisions and licenses checked against https://huggingface.co/api/datasets/<id> on 2026-09-25.
 # The dolly revision matches scripts/kaggle_english_run.py SOURCES.
 SOURCES = {
@@ -230,7 +232,9 @@ def main(argv=None) -> None:
         for name, expected in json.loads(manifest_path.read_text()).items():
             if digest(root / name) != expected:
                 raise RuntimeError(f"Source hash mismatch: {name}")
-    holdout_prompts = [row["prompt"] for row in json.loads((root / HOLDOUT_PATH).read_text())["rows"]]
+    # Screen training rows against both eval sets so neither measures memorized items.
+    holdout_prompts = [row["prompt"] for path in (HOLDOUT_PATH, EVERYDAY_EVAL_PATH)
+                       for row in json.loads((root / path).read_text())["rows"]]
     dolly = _load_rows("databricks/databricks-dolly-15k", ("instruction", "context", "response"))
     oasst = None if args.no_oasst else _load_rows(
         "OpenAssistant/oasst1", ("message_id", "parent_id", "text", "role", "lang", "review_result",

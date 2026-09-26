@@ -8,9 +8,8 @@ from pathlib import Path
 
 import torch
 
-from .checkpoint import load_checkpoint_payload
 from .data import load_jsonl
-from .evaluate import evaluate
+from .evaluate import _device, evaluate
 from .generate import load_checkpoint
 
 
@@ -34,7 +33,8 @@ def parameter_count(model) -> int:
 
 
 def _scalar_metrics(result: dict) -> dict[str, float]:
-    metrics = {name: float(result[name]) for name in SCALAR_METRICS}
+    # task_accuracy is None when a legacy checkpoint lacks every eval task label.
+    metrics = {name: float(result[name]) for name in SCALAR_METRICS if result[name] is not None}
     code_metrics = result.get("code_metrics")
     if code_metrics is not None:
         for name in ("syntax_validity", "required_symbol_recall", "static_score"):
@@ -42,15 +42,22 @@ def _scalar_metrics(result: dict) -> dict[str, float]:
     return metrics
 
 
-def benchmark(checkpoints: list[tuple[str, Path]], data_path: str | Path, max_new_tokens: int) -> dict:
+def benchmark(
+    checkpoints: list[tuple[str, Path]],
+    data_path: str | Path,
+    max_new_tokens: int,
+    device: torch.device | None = None,
+) -> dict:
     if not checkpoints:
         raise ValueError("at least one checkpoint is required")
     if max_new_tokens < 1:
         raise ValueError("max_new_tokens must be positive")
     examples = load_jsonl(data_path)
+    if device is None:
+        device = torch.device("cpu")
     models = []
     for label, path in checkpoints:
-        model, tokenizer = load_checkpoint(path, torch.device("cpu"))
+        model, tokenizer = load_checkpoint(path, device)
         result = evaluate(model, tokenizer, examples, max_new_tokens=max_new_tokens)
         models.append(
             {
@@ -59,19 +66,24 @@ def benchmark(checkpoints: list[tuple[str, Path]], data_path: str | Path, max_ne
                 "architecture": model.config.architecture,
                 "parameters": parameter_count(model),
                 "metrics": _scalar_metrics(result),
+                "task_records": result["task_records"],
             }
         )
         del model, tokenizer
     reference = models[0]
     deltas = []
     for item in models[1:]:
+        # Only metrics both models scored on the same records form a meaningful delta.
+        names = set(reference["metrics"]).intersection(item["metrics"])
+        if item["task_records"] != reference["task_records"]:
+            names.discard("task_accuracy")
         deltas.append(
             {
                 "label": item["label"],
                 "reference": reference["label"],
                 "metrics": {
-                    name: item["metrics"].get(name, 0.0) - reference["metrics"].get(name, 0.0)
-                    for name in sorted(set(reference["metrics"]).union(item["metrics"]))
+                    name: item["metrics"][name] - reference["metrics"][name]
+                    for name in sorted(names)
                 },
             }
         )
@@ -85,23 +97,16 @@ def benchmark(checkpoints: list[tuple[str, Path]], data_path: str | Path, max_ne
     }
 
 
-def _device_checkpoint_check(path: Path) -> None:
-    checkpoint, _ = load_checkpoint_payload(torch, path)
-    if not isinstance(checkpoint.get("model_state_dict"), dict):
-        raise ValueError(f"checkpoint {path} has invalid model_state_dict")
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", action="append", required=True, help="LABEL=CHECKPOINT")
     parser.add_argument("--data", required=True)
     parser.add_argument("--max-new-tokens", type=int, default=96)
+    parser.add_argument("--device", default="auto")
     args = parser.parse_args()
     try:
         checkpoints = [parse_model_spec(value) for value in args.model]
-        for _, path in checkpoints:
-            _device_checkpoint_check(path)
-        result = benchmark(checkpoints, args.data, args.max_new_tokens)
+        result = benchmark(checkpoints, args.data, args.max_new_tokens, _device(args.device))
     except (FileNotFoundError, ValueError) as exc:
         parser.error(str(exc))
     print(json.dumps(result, indent=2))

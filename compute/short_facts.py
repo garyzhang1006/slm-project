@@ -3,7 +3,9 @@
 Each fact appears in several phrasings so the model learns the fact rather than one string.
 The items tested by data/simple_questions_holdout.json (4 plus 9, days in a week, the
 opposite of tall, a home address, and so on) are left out on purpose, so a holdout gain
-measures transfer to unseen questions instead of recall of trained ones.
+measures transfer to unseen questions instead of recall of trained ones. The same holds for
+data/everyday_eval.json: its entities (capitals, opposites, plurals, names in its stories) and its
+question wordings are kept out of these rows, and tests/test_everyday_eval.py checks both.
 """
 
 from __future__ import annotations
@@ -209,6 +211,74 @@ REFUSALS = (
 REFUSAL_WRAPPERS = ("{q}", "Quick question: {q}", "{q} Answer briefly.")
 WORD_WRAPPERS = ("Please answer: ", "Question: ")
 
+# Countries, languages, nouns, verbs and names below avoid the entities in data/everyday_eval.json.
+CAPITALS = (
+    ("Poland", "Warsaw"), ("Sweden", "Stockholm"), ("Finland", "Helsinki"), ("Denmark", "Copenhagen"),
+    ("Austria", "Vienna"), ("Hungary", "Budapest"), ("the Netherlands", "Amsterdam"),
+    ("Belgium", "Brussels"), ("the Czech Republic", "Prague"), ("Turkey", "Ankara"),
+    ("India", "New Delhi"), ("Thailand", "Bangkok"), ("South Korea", "Seoul"), ("Chile", "Santiago"),
+    ("Colombia", "Bogota"), ("Cuba", "Havana"), ("the Philippines", "Manila"), ("Vietnam", "Hanoi"),
+    ("Ghana", "Accra"), ("Nigeria", "Abuja"), ("Ethiopia", "Addis Ababa"), ("Morocco", "Rabat"),
+    ("New Zealand", "Wellington"), ("Argentina", "Buenos Aires"), ("Iceland", "Reykjavik"),
+    ("Scotland", "Edinburgh"), ("Wales", "Cardiff"), ("Jamaica", "Kingston"), ("Ukraine", "Kyiv"),
+)
+LANGUAGES = (
+    ("France", "French"), ("Italy", "Italian"), ("Japan", "Japanese"), ("Spain", "Spanish"),
+    ("Poland", "Polish"), ("Sweden", "Swedish"), ("the Netherlands", "Dutch"), ("Turkey", "Turkish"),
+)
+KINDS = {
+    "fruit": ("grape", "pear", "plum", "melon", "kiwi", "apricot", "pineapple", "mango"),
+    "vegetable": ("onion", "cabbage", "lettuce", "spinach", "broccoli", "celery", "pea", "potato"),
+    "animal": ("frog", "camel", "squirrel", "fox", "tiger", "wolf", "rabbit", "owl"),
+    "tool": ("hammer", "saw", "screwdriver", "wrench", "drill", "shovel", "rake"),
+    "clothing": ("scarf", "sock", "jacket", "sweater", "skirt", "hat", "belt"),
+    "vehicle": ("truck", "boat", "airplane", "tractor", "taxi", "van", "helicopter"),
+}
+# (base, past tense). Regular and irregular verbs, each past form standard in all English varieties.
+PAST_TENSES = (
+    ("go", "went"), ("eat", "ate"), ("run", "ran"), ("see", "saw"), ("swim", "swam"),
+    ("sing", "sang"), ("write", "wrote"), ("drink", "drank"), ("take", "took"), ("give", "gave"),
+    ("come", "came"), ("sit", "sat"), ("stand", "stood"), ("sleep", "slept"), ("find", "found"),
+    ("buy", "bought"), ("bring", "brought"), ("think", "thought"), ("teach", "taught"),
+    ("fly", "flew"), ("grow", "grew"), ("know", "knew"), ("draw", "drew"), ("speak", "spoke"),
+    ("break", "broke"), ("choose", "chose"), ("wear", "wore"), ("begin", "began"),
+    ("forget", "forgot"), ("make", "made"), ("tell", "told"), ("hold", "held"), ("keep", "kept"),
+    ("feel", "felt"), ("meet", "met"), ("win", "won"), ("ride", "rode"), ("cut", "cut"),
+    ("put", "put"), ("walk", "walked"), ("jump", "jumped"), ("play", "played"), ("cook", "cooked"),
+    ("open", "opened"), ("clean", "cleaned"), ("help", "helped"), ("dance", "danced"),
+    ("smile", "smiled"), ("stop", "stopped"), ("carry", "carried"), ("cry", "cried"),
+    ("try", "tried"), ("plan", "planned"), ("hop", "hopped"), ("laugh", "laughed"), ("wash", "washed"),
+)
+# (adjective, comparative, superlative).
+DEGREES = (
+    ("big", "bigger", "biggest"), ("small", "smaller", "smallest"), ("fast", "faster", "fastest"),
+    ("slow", "slower", "slowest"), ("old", "older", "oldest"), ("young", "younger", "youngest"),
+    ("happy", "happier", "happiest"), ("sad", "sadder", "saddest"), ("warm", "warmer", "warmest"),
+    ("cold", "colder", "coldest"), ("hot", "hotter", "hottest"), ("good", "better", "best"),
+    ("bad", "worse", "worst"), ("easy", "easier", "easiest"), ("funny", "funnier", "funniest"),
+    ("busy", "busier", "busiest"), ("early", "earlier", "earliest"), ("strong", "stronger", "strongest"),
+    ("weak", "weaker", "weakest"), ("loud", "louder", "loudest"), ("clean", "cleaner", "cleanest"),
+    ("dark", "darker", "darkest"), ("soft", "softer", "softest"), ("high", "higher", "highest"),
+    ("low", "lower", "lowest"), ("deep", "deeper", "deepest"), ("wide", "wider", "widest"),
+    ("thin", "thinner", "thinnest"), ("rich", "richer", "richest"), ("sweet", "sweeter", "sweetest"),
+    ("kind", "kinder", "kindest"), ("brave", "braver", "bravest"), ("nice", "nicer", "nicest"),
+)
+# The article follows the first sound, so "hour" takes "an" and "uniform" takes "a".
+ARTICLES = (
+    ("an", "ant"), ("an", "igloo"), ("an", "elbow"), ("an", "island"), ("an", "umbrella"),
+    ("an", "orange"), ("an", "hour"), ("an", "engine"), ("an", "arm"), ("an", "idea"),
+    ("an", "oven"), ("an", "uncle"), ("an", "actor"), ("an", "insect"), ("an", "eagle"),
+    ("an", "iceberg"), ("a", "cat"), ("a", "ball"), ("a", "house"), ("a", "lamp"), ("a", "river"),
+    ("a", "pencil"), ("a", "unicorn"), ("a", "uniform"), ("a", "university"), ("a", "garden"),
+    ("a", "door"), ("a", "cloud"), ("a", "table"), ("a", "drum"), ("a", "ship"), ("a", "flag"),
+    ("a", "nest"), ("a", "kettle"),
+)
+STORY_NAMES = ("Alice", "Ivan", "Chen", "Sofia", "Amir", "Beth", "Diego", "Kira")
+STORY_ITEMS = ("stickers", "crayons", "shells", "buttons", "cookies", "balloons")
+LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+_TEENS = ("ten eleven twelve thirteen fourteen fifteen sixteen seventeen eighteen nineteen").split()
+_TENS_WORDS = ("twenty thirty forty fifty sixty seventy eighty ninety").split()
+
 ARITHMETIC_TEMPLATES = {
     "plus": ("What is {a} plus {b}? Reply with the number.", "What is {a} + {b}?",
              "Add {a} and {b}.", "{a} plus {b} equals what?"),
@@ -348,14 +418,157 @@ def refusal_rows() -> list[dict]:
     return rows
 
 
+def number_in_words(number: int) -> str:
+    """English words for 0 to 100, hyphenating compound tens ("forty-two")."""
+    if number == 100:
+        return "one hundred"
+    if number < 20:
+        return (NUMBER_WORDS[:10] + _TEENS)[number]
+    tens, units = divmod(number, 10)
+    word = _TENS_WORDS[tens - 2]
+    return f"{word}-{NUMBER_WORDS[units]}" if units else word
+
+
+def number_rows() -> list[dict]:
+    rows = []
+    for number in range(101):
+        group, word = f"number:{number}", number_in_words(number)
+        rows += [
+            _row(f"Write the number {number} in words.", word, "math", group),
+            _row(f"Which number is written as {word}? Reply with digits.", str(number), "math", group),
+            _row(f"Is {number} odd or even?", "even" if number % 2 == 0 else "odd", "math", group),
+        ]
+        if number < 100:
+            rows.append(_row(f"What number comes right after {number}?", str(number + 1), "math", group))
+            rows.append(_row(f"Count up by one from {number}. What comes next?", str(number + 1), "math",
+                             group))
+        if number > 0:
+            rows.append(_row(f"What number comes just before {number}?", str(number - 1), "math", group))
+    # 16 is skipped because data/everyday_eval.json asks 16 + 16.
+    for number in (value for value in range(1, 51) if value != 16):
+        rows += [
+            _row(f"What is double {number}?", str(2 * number), "math", f"double:{number}"),
+            _row(f"What is half of {2 * number}?", str(number), "math", f"double:{number}"),
+        ]
+    return rows
+
+
+def clock_rows() -> list[dict]:
+    rows = []
+    for hour in range(1, 13):
+        for delta in range(1, 7):
+            # data/everyday_eval.json asks noon plus 2 hours and 9 until noon.
+            if (hour, delta) in ((12, 2), (9, 3)):
+                continue
+            later, earlier = (hour + delta - 1) % 12 + 1, (hour - delta - 1) % 12 + 1
+            group = f"clock:{hour}"
+            rows += [
+                _row(f"It is {hour} o'clock now. What time will it be in {delta} hours?",
+                     f"{later} o'clock", "math", group),
+                _row(f"It is {hour} o'clock now. What time was it {delta} hours ago?",
+                     f"{earlier} o'clock", "math", group),
+            ]
+    return rows
+
+
+def story_rows() -> list[dict]:
+    rows = []
+    for a in range(2, 13):
+        for b in range(1, 10):
+            name = STORY_NAMES[(a + b) % len(STORY_NAMES)]
+            items = STORY_ITEMS[(a * b) % len(STORY_ITEMS)]
+            rows.append(_row(f"{name} has {a} {items} and finds {b} more. "
+                             f"How many {items} does {name} have now?", str(a + b), "math",
+                             f"story:add:{a}:{b}"))
+            if b < a:
+                rows.append(_row(f"{name} had {a} {items} and lost {b} of them. How many {items} are left?",
+                                 str(a - b), "math", f"story:sub:{a}:{b}"))
+    return rows
+
+
+def letter_rows() -> list[dict]:
+    rows = []
+    for index, letter in enumerate(LETTERS):
+        group = f"letter:{letter}"
+        if index + 1 < len(LETTERS):
+            rows.append(_row(f"Which letter comes after {letter} in the alphabet?", LETTERS[index + 1],
+                             "english", group))
+        if index > 0:
+            rows.append(_row(f"Which letter comes before {letter} in the alphabet?", LETTERS[index - 1],
+                             "english", group))
+        if letter != "Y":  # Y can be either, so it gets no vowel question.
+            rows.append(_row(f"Is the letter {letter} a vowel or a consonant?",
+                             "vowel" if letter in "AEIOU" else "consonant", "english", group))
+    return rows
+
+
+def world_rows() -> list[dict]:
+    rows = []
+    for country, city in CAPITALS:
+        group, title = f"capital:{country}", country[0].upper() + country[1:]
+        rows += [
+            _row(f"What is the capital of {country}?", city, "fact", group),
+            _row(f"Which city is the capital of {country}?", f"{city} is the capital of {country}.", "fact",
+                 group),
+            _row(f"{city} is the capital of which country?", title, "fact", group),
+        ]
+    for country, language in LANGUAGES:
+        group = f"language:{country}"
+        rows += [
+            _row(f"What language do most people in {country} speak?", language, "fact", group),
+            _row(f"Which language is mainly spoken in {country}?", language, "fact", group),
+        ]
+    kinds = list(KINDS)
+    for position, (kind, items) in enumerate(KINDS.items()):
+        for item in items:
+            article = "an" if item[0] in "aeiou" else "a"
+            group = f"kind:{item}"
+            rows.append(_row(f"Which group does {article} {item} belong to: fruit, vegetable, animal, tool, "
+                             "clothing or vehicle?", kind, "fact", group))
+            for step in (1, 3):
+                other = kinds[(position + step) % len(kinds)]
+                rows.append(_row(f"Is {article} {item} a kind of {kind} or a kind of {other}?", kind, "fact",
+                                 group))
+                rows.append(_row(f"Is {article} {item} a kind of {other} or a kind of {kind}?", kind, "fact",
+                                 group))
+    return rows
+
+
+def grammar_rows() -> list[dict]:
+    rows = []
+    for base, past in PAST_TENSES:
+        group = f"past:{base}"
+        rows += [
+            _row(f"What is the past tense of {base}?", past, "english", group),
+            _row(f"Change {base} to the past tense.", past, "english", group),
+            _row(f"Today I {base}. Yesterday I ___. Fill in the blank.", past, "english", group),
+        ]
+    for adjective, comparative, superlative in DEGREES:
+        group = f"degree:{adjective}"
+        rows += [
+            _row(f"What is the comparative form of {adjective}?", comparative, "english", group),
+            _row(f"What is the superlative form of {adjective}?", superlative, "english", group),
+            _row(f"Complete the pattern: {adjective}, {comparative}, ___", superlative, "english", group),
+        ]
+    for article, noun in ARTICLES:
+        group = f"article:{noun}"
+        rows += [
+            _row(f"Fill in a or an: ___ {noun}", article, "english", group),
+            _row(f"Should you say a {noun} or an {noun}?", f"{article} {noun}", "english", group),
+        ]
+    return rows
+
+
 def short_fact_rows() -> list[dict]:
     """All rows in a fixed order, each {prompt, answer, category, group}, with unique prompts."""
-    worded = calendar_rows() + opposite_rows() + plural_rows() + fact_rows() + copy_rows()
+    worded = (calendar_rows() + opposite_rows() + plural_rows() + fact_rows() + copy_rows()
+              + world_rows() + grammar_rows())
     # Arithmetic already has four templates and refusals three wrappers; the word questions
     # get extra framings so they are not outnumbered by arithmetic.
     worded += [dict(row, prompt=wrapper + row["prompt"])
                for wrapper in WORD_WRAPPERS for row in list(worded)]
-    rows = arithmetic_rows() + comparison_rows() + worded + refusal_rows()
+    rows = (arithmetic_rows() + comparison_rows() + worded + refusal_rows() + number_rows()
+            + clock_rows() + story_rows() + letter_rows())
     unique, seen = [], set()
     for row in rows:
         key = " ".join(row["prompt"].casefold().split())

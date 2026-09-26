@@ -154,6 +154,19 @@ class ShortFactTests(unittest.TestCase):
                     checked += 1
         self.assertGreater(checked, 400)
 
+    def test_added_topics_are_correct(self):
+        self.assertGreater(len(short_facts.short_fact_rows()), 8000)
+        self.assertEqual([short_facts.number_in_words(n) for n in (0, 13, 40, 42, 100)],
+                         ["zero", "thirteen", "forty", "forty-two", "one hundred"])
+        answers = {row["prompt"]: row["answer"] for row in short_facts.short_fact_rows()}
+        self.assertEqual(answers["It is 11 o'clock now. What time will it be in 3 hours?"], "2 o'clock")
+        self.assertEqual(answers["It is 2 o'clock now. What time was it 4 hours ago?"], "10 o'clock")
+        self.assertEqual(answers["What is half of 34?"], "17")
+        self.assertEqual(answers["Is 57 odd or even?"], "odd")
+        self.assertEqual(answers["Kyiv is the capital of which country?"], "Ukraine")
+        self.assertEqual(answers["Should you say a hour or an hour?"], "an hour")
+        self.assertEqual(answers["Is a mango a kind of fruit or a kind of tool?"], "fruit")
+
 
 class SftDataTests(unittest.TestCase):
     def test_record_budget_and_schema(self):

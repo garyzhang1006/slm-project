@@ -14,6 +14,9 @@ DEFAULT_HOLDOUT = ROOT / "data" / "simple_questions_holdout.json"
 REPORT_KEYS = {"simple_questions_holdout.json": "simple_questions", "everyday_eval.json": "everyday_eval"}
 # These rubrics describe a behavior (abstaining) rather than an answer string, so a human judges them.
 MANUAL_CATEGORIES = frozenset({"unknown"})
+# Where the word form is what the question tests (plural of mouse, is or are), an inflected answer is wrong.
+INFLECTION_EXEMPT = frozenset({"plurals", "english"})
+_SUFFIXES = ("s", "es", "ed", "d", "ing")
 _UNITS = {word: index for index, word in enumerate(
     "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen "
     "fifteen sixteen seventeen eighteen nineteen".split())}
@@ -43,6 +46,16 @@ def accepted_answers(row: dict) -> list[str]:
     return [normalize_answer(answer) for answer in answers]
 
 
+def inflections(word: str) -> set[str]:
+    """Regular inflections of a one-word answer, so "A horse neighs" or "whinnies" still matches."""
+    forms = {word + suffix for suffix in _SUFFIXES}
+    if word.endswith("e"):
+        forms.add(word[:-1] + "ing")
+    if word.endswith("y"):
+        forms |= {word[:-1] + "ies", word[:-1] + "ied"}
+    return forms
+
+
 def score_answer(row: dict, answer: str) -> dict | None:
     """Return exact/contains flags, or None when the row needs manual review."""
     if row["category"] in MANUAL_CATEGORIES:
@@ -50,6 +63,10 @@ def score_answer(row: dict, answer: str) -> dict | None:
     predicted = normalize_answer(answer)
     padded = f" {predicted} "
     accepted = [expected for expected in accepted_answers(row) if expected]
+    if row["category"] not in INFLECTION_EXEMPT:
+        # Only alphabetic single words of 3+ letters: "no" -> "nos" or "7" -> "7s" would add noise, not recall.
+        accepted += sorted({form for expected in accepted if expected.isalpha() and len(expected) >= 3
+                            for form in inflections(expected)})
     # Whole-token containment, so "3" does not match inside "13".
     return {"exact": predicted in accepted,
             "contains": any(f" {expected} " in padded for expected in accepted)}

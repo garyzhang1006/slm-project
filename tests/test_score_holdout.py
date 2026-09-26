@@ -39,6 +39,19 @@ class ScoreHoldoutTests(unittest.TestCase):
         self.assertTrue(self.module.score_answer(row, "A kitten")["contains"])
         self.assertIsNone(self.module.score_answer({"category": "unknown", "expected_rubric": "x"}, "x"))
 
+    def test_inflected_answers_match_except_where_form_is_tested(self):
+        horse = {"id": "h", "category": "colors_animals", "expected_rubric": "neigh",
+                 "accepted_answers": ["neigh", "whinny"]}
+        self.assertTrue(self.module.score_answer(horse, "A horse neighs.")["contains"])
+        self.assertTrue(self.module.score_answer(horse, "whinnies")["exact"])
+        self.assertFalse(self.module.score_answer(horse, "moos")["contains"])
+        plural = {"id": "p", "category": "plurals", "expected_rubric": "mice"}
+        self.assertFalse(self.module.score_answer(plural, "mices")["contains"])
+        english = {"id": "e", "category": "english", "expected_rubric": "book"}
+        self.assertFalse(self.module.score_answer(english, "books")["exact"])
+        short = {"id": "s", "category": "yes_no", "expected_rubric": "no"}
+        self.assertFalse(self.module.score_answer(short, "nos")["exact"])
+
     def test_real_holdout_totals(self):
         expected = {row["id"]: row["expected_rubric"] for row in self.rows}
         predictions = [{"id": key, "answer": value.upper() + "."} for key, value in expected.items()]

@@ -38,12 +38,13 @@ def fake_root(directory: Path, runner: str) -> Path:
 class StageTableTests(unittest.TestCase):
     def test_stage_entries_follow_the_interface(self):
         stages = module("stages")
-        self.assertEqual(set(stages.STAGES), {"corpus", "pretrain", "sft_data", "sft", "eval", "lora"})
+        self.assertEqual(set(stages.STAGES), {"corpus", "pretrain", "sft_data", "sft", "eval", "lora", "lora_eval"})
         for name, spec in stages.STAGES.items():
             self.assertEqual(set(spec), {"runner", "slug", "internet", "gpu", "attaches"}, name)
             self.assertRegex(spec["runner"], r"^compute/\w+\.py$")
         self.assertFalse(stages.STAGES["sft_data"]["gpu"])
         self.assertTrue(stages.STAGES["lora"]["internet"])
+        self.assertEqual(stages.stage_attaches("lora_eval"), ["slm-lora-baseline"])
 
     def test_planned_steps(self):
         stages = module("stages")

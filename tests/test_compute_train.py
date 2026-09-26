@@ -127,6 +127,9 @@ class CommandTests(unittest.TestCase):
         resumed = self.parse(pretrain.pretrain_arguments(path, Path("e.jsonl"), Path("o.pt"), 100, Path("r.pt")))
         # A resumed run must not restate the rate, or train.py rejects a mismatch with the checkpoint.
         self.assertEqual((resumed.resume, resumed.learning_rate, resumed.steps), ("r.pt", None, fresh.steps))
+        # Each session trains on a new shard, which the resume data guard would otherwise reject.
+        self.assertTrue(resumed.allow_data_change)
+        self.assertFalse(fresh.allow_data_change)
 
     def test_sft_restarts_schedule_at_new_rate(self):
         args = self.parse(sft.sft_arguments(Path("i.pt"), Path("t.jsonl"), Path("v.jsonl"), Path("o.pt"), 200))

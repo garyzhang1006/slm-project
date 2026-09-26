@@ -146,7 +146,8 @@ def pretrain_arguments(shard: Path, eval_subset: Path, output: Path, budget: flo
                  "--precision", "fp16", "--device", "cuda", "--gradient-checkpointing", "--fused-adamw",
                  "--aux-loss-weight", "0", "--warmup-steps", str(WARMUP_STEPS),
                  "--save-every", "250", "--eval-every", "1000", "--log-every", "50", "--seed", str(SEED)]
-    return arguments + (["--resume", str(resume)] if resume
+    # Each session trains on a fresh shard, so the resume data fingerprint differs by design.
+    return arguments + (["--resume", str(resume), "--allow-data-change"] if resume
                         else ["--preset", "slm-160m", "--learning-rate", LEARNING_RATE])
 
 

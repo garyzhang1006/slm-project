@@ -28,6 +28,72 @@ class EvaluationTests(unittest.TestCase):
         self.assertGreater(metrics["ece"], 0.0)
         self.assertLess(metrics["ece"], 1.0)
 
+    def test_macro_f1_ignores_classes_absent_from_targets_and_predictions(self):
+        from cognition_slm.evaluate import classification_metrics
+
+        logits = torch.tensor([[4.0, 0.0, 0.0, 0.0, 0.0, 0.0]] * 4)
+        metrics = classification_metrics(logits, torch.zeros(4, dtype=torch.long))
+        self.assertEqual(metrics["macro_f1"], 1.0)
+
+    def _tiny_model(self, **overrides):
+        from cognition_slm.config import ModelConfig
+        from cognition_slm.model import CognitionSLM
+        from cognition_slm.tokenizer import ByteTokenizer
+
+        torch.manual_seed(0)
+        config = ModelConfig(block_size=256, n_layer=1, n_head=2, n_embd=16, **overrides)
+        return CognitionSLM(config), ByteTokenizer()
+
+    def _example(self, **overrides):
+        from cognition_slm.data import validate_record
+
+        return validate_record({
+            "id": "q", "prompt": "Say hi.", "answer": "hi", "task_type": "language_generation",
+            "confidence": 0.5, "error_category": "none", "source": "test", "license": "CC0-1.0",
+            **overrides,
+        })
+
+    def test_legacy_checkpoint_skips_task_head_for_unknown_task_label(self):
+        from cognition_slm.config import LEGACY_TASK_TYPES
+        from cognition_slm.evaluate import evaluate
+
+        model, tokenizer = self._tiny_model(task_types=LEGACY_TASK_TYPES)
+        examples = [self._example(), self._example(id="c", task_type="code_generation")]
+        result = evaluate(model, tokenizer, examples, max_new_tokens=1)
+        self.assertEqual(result["records"], 2)
+        self.assertEqual(result["task_records"], 1)
+        self.assertEqual(sum(map(sum, result["task_metrics"]["confusion_matrix"])), 1)
+
+        result = evaluate(model, tokenizer, examples[:1], max_new_tokens=1)
+        self.assertIsNone(result["task_accuracy"])
+        self.assertIsNone(result["task_metrics"])
+
+    def test_over_length_prompt_fails_before_generation(self):
+        from unittest.mock import patch
+        from cognition_slm.evaluate import evaluate
+
+        model, tokenizer = self._tiny_model()
+        examples = [self._example(id="short"), self._example(id="long", prompt="x" * 300)]
+        with patch("cognition_slm.evaluate.generate_text") as generate:
+            with self.assertRaisesRegex(ValueError, "block_size 256: long;"):
+                evaluate(model, tokenizer, examples, max_new_tokens=1)
+        generate.assert_not_called()
+
+    def test_prompt_filling_block_size_exactly_fails_before_generation(self):
+        from unittest.mock import patch
+        from cognition_slm.data import format_prompt
+        from cognition_slm.evaluate import evaluate
+
+        model, tokenizer = self._tiny_model()
+        base = len(tokenizer.encode(format_prompt(self._example(prompt="x")), add_eos=False))
+        exact = self._example(id="exact", prompt="x" * (256 - base + 1))
+        self.assertEqual(len(tokenizer.encode(format_prompt(exact), add_eos=False)), 256)
+        # generate_text rejects a prompt that fills the window, so the pre-check must too.
+        with patch("cognition_slm.evaluate.generate_text") as generate:
+            with self.assertRaisesRegex(ValueError, "block_size 256: exact;"):
+                evaluate(model, tokenizer, [self._example(id="short"), exact], max_new_tokens=1)
+        generate.assert_not_called()
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -9,7 +9,7 @@ import re
 import torch
 
 from .code_eval import assess_code
-from .data import encode_prompt, load_jsonl
+from .data import encode_prompt, format_prompt, load_jsonl
 from .generate import generate_text, load_checkpoint
 
 
@@ -49,7 +49,10 @@ def classification_metrics(
     true_positive = confusion.diag().float()
     precision = true_positive / confusion.sum(dim=0).clamp_min(1).float()
     recall = true_positive / confusion.sum(dim=1).clamp_min(1).float()
-    f1 = (2 * precision * recall / (precision + recall).clamp_min(1e-12)).mean()
+    f1 = 2 * precision * recall / (precision + recall).clamp_min(1e-12)
+    # Classes absent from both targets and predictions would each add a spurious 0.
+    present = (confusion.sum(dim=0) + confusion.sum(dim=1)) > 0
+    f1 = f1[present].mean()
 
     confidence = probabilities.max(dim=-1).values
     ece = torch.zeros((), device=logits.device)
@@ -75,7 +78,21 @@ def classification_metrics(
 @torch.no_grad()
 def evaluate(model, tokenizer, examples, *, max_new_tokens: int) -> dict:
     model.eval()
+    # generate_text rejects prompts that leave no room to generate; fail before any
+    # work is discarded.
+    too_long = [
+        example.id
+        for example in examples
+        if len(tokenizer.encode(format_prompt(example), add_eos=False)) >= model.config.block_size
+    ]
+    if too_long:
+        raise ValueError(
+            f"{len(too_long)} eval prompts leave no room to generate within block_size "
+            f"{model.config.block_size}: "
+            f"{', '.join(too_long)}; shorten or remove them"
+        )
     task_correct = 0
+    task_records = 0
     error_correct = 0
     confidence_correct = 0
     exact_correct = 0
@@ -112,15 +129,19 @@ def evaluate(model, tokenizer, examples, *, max_new_tokens: int) -> dict:
             temperature=0,
             top_k=0,
         )
-        task_expected = model.config.task_types.index(example.task_type)
+        # Checkpoints trained before a task label existed cannot be scored on it.
+        task_scored = example.task_type in model.config.task_types
         error_expected = model.config.error_categories.index(example.error_category)
-        task_logits.append(output.task_logits[0].detach().cpu())
-        task_targets.append(task_expected)
+        if task_scored:
+            task_expected = model.config.task_types.index(example.task_type)
+            task_logits.append(output.task_logits[0].detach().cpu())
+            task_targets.append(task_expected)
+            task_records += 1
+            task_correct += int(task_prediction == task_expected)
         error_logits.append(output.error_logits[0].detach().cpu())
         error_targets.append(error_expected)
         confidence_logits.append(output.confidence_logits[0].detach().cpu())
         confidence_targets.append(example.confidence_bucket)
-        task_correct += int(task_prediction == task_expected)
         error_correct += int(error_prediction == error_expected)
         confidence_correct += int(confidence_prediction == example.confidence_bucket)
         exact_correct += int(_normalize(generated) == _normalize(example.answer))
@@ -139,7 +160,10 @@ def evaluate(model, tokenizer, examples, *, max_new_tokens: int) -> dict:
             }
         )
     total = len(examples)
-    task_metrics = classification_metrics(torch.stack(task_logits), torch.tensor(task_targets))
+    task_metrics = (
+        classification_metrics(torch.stack(task_logits), torch.tensor(task_targets))
+        if task_logits else None
+    )
     error_metrics = classification_metrics(torch.stack(error_logits), torch.tensor(error_targets))
     confidence_metrics = classification_metrics(
         torch.stack(confidence_logits), torch.tensor(confidence_targets)
@@ -156,7 +180,8 @@ def evaluate(model, tokenizer, examples, *, max_new_tokens: int) -> dict:
         }
     return {
         "records": total,
-        "task_accuracy": task_correct / total,
+        "task_records": task_records,
+        "task_accuracy": task_correct / task_records if task_records else None,
         "error_accuracy": error_correct / total,
         "confidence_bucket_accuracy": confidence_correct / total,
         "exact_match_accuracy": exact_correct / total,

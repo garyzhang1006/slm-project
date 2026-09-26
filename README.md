@@ -46,72 +46,9 @@ Want just the source-excerpt mode, with no weights and no PyTorch?
 
 A few other things to know: pasted text is capped at 12,000 bytes and questions at 2,000, and nothing gets fetched from the internet. History lives in the page until you refresh, and model output is shown as text and never executed.
 
-## 2048 context and Kaggle
-
-Generation now caches attention keys and values within each request and projects only the newest position to vocabulary logits. Training and checkpoint parameter keys stay unchanged. When the rolling context fills, generation rebuilds the cache so position resets match the original implementation. `generate_ids(..., use_cache=False)` retains the uncached path for comparison.
-
-The efficiency verification runner checks cached output against the original path on the actual 499.5M checkpoint and measures elapsed time before exercising fused AdamW resume on Kaggle. Package `python scripts/prepare_kaggle.py --runner kaggle_efficiency_verify.py --owner YOUR_USERNAME --slug slm-efficiency-verification --out /tmp/slm-efficiency-verification`, then submit that directory with the explicit T4 accelerator. It attaches the completed long-training kernel; it requires no local weights or model execution.
-
-After verification, `--runner kaggle_efficient_run.py` prepares a continuation from the long run's final checkpoint. It retains optimizer moments, keeps English and QA mixed throughout, and uses a finite 3,600-additional-update horizon with a four-hour training cutoff. The horizon allows learning-rate decay during the run; the cutoff reserves time for final evaluation and saving. The runner records generated answers for review and never promotes weights to Studio automatically. Faster generation is not evidence of better answers.
-
-New training runs default to 2048 tokens. This tokenizer represents UTF-8 bytes, so 2048 includes prompt markup and special tokens and is much shorter in text than 2048 subword tokens. Existing checkpoints retain their saved context and architecture when resumed.
-
-The `slm-50m` preset uses 12 layers and 512 hidden dimensions. The `slm-500m` preset uses 24 layers, 1,140 hidden dimensions, 10 attention heads, RoPE, RMSNorm, SwiGLU, and tied embeddings, for exactly 499,524,075 parameters with the current six task types. Train `slm-500m` on a Kaggle GPU with activation checkpointing. Studio can load the resulting checkpoint for inference; the existing training checkpoint is about 6 GB because it includes optimizer state, so startup requires substantial free RAM. A larger model still requires a substantial licensed training corpus before its outputs become useful.
-
-Run this inside a Kaggle GPU session with your prepared data:
-
-```bash
-PYTHONPATH=src python -m cognition_slm.train \
-  --data /kaggle/input/your-data/train.jsonl \
-  --eval-data /kaggle/input/your-data/eval.jsonl \
-  --out /kaggle/working/slm-2048.pt \
-  --preset slm-500m --device cuda --precision fp16 \
-  --batch-size 1 --gradient-accumulation-steps 8 \
-  --gradient-checkpointing --save-every 100 --steps 1000
-```
-
-`--steps` counts training iterations; the effective batch is microbatch size times accumulation steps. AMP may skip an optimizer update when gradients overflow. Biases and normalization vectors are excluded from weight decay in new runs. Accumulation weights language loss by supervised tokens, and auxiliary losses by examples, so variable answer lengths do not change the objective when splitting a batch.
-
-For a reproducible private verification run, `scripts/prepare_kaggle.py` packages an explicit source allowlist, tests, and synthetic data into one script with SHA-256 checks. It excludes credentials and existing checkpoints. The runner requires Kaggle and a working CUDA device, runs the regression suite, and exercises full-length training, checkpoint resume, and generation with the larger preset:
-
-```bash
-python scripts/prepare_kaggle.py --owner YOUR_KAGGLE_USERNAME --out /tmp/slm-kaggle
-kaggle kernels push -p /tmp/slm-kaggle --accelerator NvidiaTeslaT4
-kaggle kernels status YOUR_KAGGLE_USERNAME/slm-2048-verification
-```
-
-The generated kernel is private and runs without internet. Its synthetic length fixture covers both coding and language task labels; it is a smoke test, not a capability benchmark. `verification.json` records hardware, source hashes, parameter count, and completion evidence. See [Kaggle verification details](docs/kaggle.md).
-
-To build a Studio checkpoint after changing training data, select the quality runner. It combines the base conversational examples with a deterministic project-authored English/Python curriculum, trains the 50M preset on Kaggle for 1,200 steps, and probes greetings, grammar, explanations, code generation, debugging, and algorithm reasoning:
-
-```bash
-python scripts/prepare_kaggle.py \
-  --owner YOUR_KAGGLE_USERNAME \
-  --slug slm-50m-studio-quality \
-  --runner kaggle_quality_run.py \
-  --out /tmp/slm-kaggle-quality
-kaggle kernels push -p /tmp/slm-kaggle-quality --accelerator NvidiaTeslaT4
-```
-
-Download `artifacts/slm-50m-language-quality.pt` from the completed kernel and start Studio with `--checkpoint` pointing to it. The quality runner remains a synthetic smoke experiment; it is intended to teach narrow English and Python patterns, not establish broad language ability. Downloaded weights stay out of Git.
-
-For a remote 500M quality run, use the dedicated Kaggle runner. It keeps the 2,048-token context, uses activation checkpointing with an effective batch size of eight, and writes `artifacts/slm-500m-language-quality.pt` plus `quality_verification_500m.json`:
-
-```bash
-./scripts/launch_500m_kaggle.sh YOUR_KAGGLE_USERNAME
-```
-
-The launcher accepts optional kernel slug and output directory arguments. It only packages source and submits Kaggle work; it never trains locally. The equivalent underlying commands are `scripts/prepare_kaggle.py` followed by `kaggle kernels push`.
-
-This training run is remote-only. Its report records probe outputs; it does not automatically grade their correctness. Download the checkpoint to `artifacts/slm-500m-language-quality.pt`, then run `./launch-studio.command` to load it with the default parameter-count check.
-
-`scripts/kaggle_studio_verify.py` verifies the default server on Kaggle using an attached completed quality kernel. Package it with `--runner kaggle_studio_verify.py`, add the completed kernel's owner/slug to `kernel_sources` in the generated metadata, and submit. It runs the regression suite, launches Studio, checks its actual parameter count and context, and sends an HTTP generation request without retraining.
-
-Historical quality reports used overlapping training/evaluation prompts and must not be interpreted as held-out performance. The curriculum generator now holds out prompt wording, but shares concepts and answers across splits; this measures narrow wording transfer. Existing weights and reports are unchanged. In the previous 500M probes, the loop explanation was incorrect and the binary-search answer was truncated.
-
 ## Quick start
 
-The [500M code and capability audit](reports/slm-500m-code-and-capability-audit.md) verified the model size and passed 89 regression tests, but found zero correct answers on twelve unseen question probes. The current checkpoint is unsuitable for reliable English question answering. Software fixes in this revision do not retrain its weights.
+The demo model is tiny and trains fine on a laptop CPU, but don't expect it to be smart. It's there to prove the pipeline works end to end.
 
 ```bash
 python3 -m venv .venv
@@ -119,57 +56,80 @@ python3 -m venv .venv
 .venv/bin/python -m pytest -q
 .venv/bin/python -m cognition_slm.audit --train data/demo.jsonl --eval data/eval.jsonl
 .venv/bin/python -m cognition_slm.train \
-  --data data/demo.jsonl \
-  --eval-data data/eval.jsonl \
-  --out artifacts/demo.pt \
-  --steps 60 \
-  --batch-size 4 \
-  --eval-every 20 \
-  --warmup-steps 5
+  --data data/demo.jsonl --eval-data data/eval.jsonl \
+  --out artifacts/demo.pt --steps 60 --batch-size 4 --eval-every 20 --warmup-steps 5
 .venv/bin/python -m cognition_slm.generate \
   --checkpoint artifacts/demo.pt \
   --prompt "Write a Python function that returns the factorial of n." \
   --task-type code_generation
-.venv/bin/python -m cognition_slm.evaluate \
-  --checkpoint artifacts/demo.pt \
-  --data data/eval.jsonl
-.venv/bin/python -m cognition_slm.train \
-  --data data/demo.jsonl \
-  --out artifacts/legacy-demo.pt \
-  --architecture legacy \
-  --steps 60 \
-  --batch-size 4 \
-  --warmup-steps 5
-.venv/bin/python -m cognition_slm.benchmark \
-  --model modern=artifacts/demo.pt \
-  --model legacy=artifacts/legacy-demo.pt \
-  --data data/eval.jsonl
+.venv/bin/python -m cognition_slm.evaluate --checkpoint artifacts/demo.pt --data data/eval.jsonl
 ```
 
-For sampled code generation, request several candidates. The reranker uses model likelihood and a static Python syntax bonus; it never executes generated text:
+`generate` defaults to `--task-type language_generation`. It also takes `--top-p`, `--repetition-penalty`, and `--stop` for cutting answers off at a string. For code, you can ask for a few candidates and let a syntax check help pick one (the generated code is never run):
 
 ```bash
-.venv/bin/python -m cognition_slm.generate \
-  --checkpoint artifacts/demo.pt \
+.venv/bin/python -m cognition_slm.generate --checkpoint artifacts/demo.pt \
   --prompt "Write a Python function that returns the factorial of n." \
-  --task-type code_generation \
-  --temperature 0.8 \
-  --num-candidates 4 \
-  --syntax-bonus 0.5
+  --task-type code_generation --temperature 0.8 --num-candidates 4 --syntax-bonus 0.5
 ```
 
-Resume a checkpoint by setting `--steps` to the target total step count. New checkpoints retain optimizer and scheduler state, while older model-only checkpoints load with a fresh optimizer:
+To compare architectures, train one with `--architecture legacy` and run `cognition_slm.benchmark --model modern=artifacts/demo.pt --model legacy=artifacts/legacy-demo.pt --data data/eval.jsonl`. Add `--device cuda` if you have a GPU.
+
+### Resuming
+
+Point `--resume` at a checkpoint and set `--steps` to the total you want, not how many more. Optimizer state, scheduler, RNG, and the position in the shuffled data all come back, so a resumed run matches an uninterrupted one. The learning rate comes from the checkpoint; if you pass a different `--learning-rate` you also need `--override-learning-rate`, so you can't change it by accident.
 
 ```bash
-.venv/bin/python -m cognition_slm.train \
-  --data data/demo.jsonl \
-  --eval-data data/eval.jsonl \
-  --resume artifacts/demo.pt \
-  --out artifacts/demo-resumed.pt \
-  --steps 120
+.venv/bin/python -m cognition_slm.train --data data/demo.jsonl --eval-data data/eval.jsonl \
+  --resume artifacts/demo.pt --out artifacts/demo-resumed.pt --steps 120
 ```
 
-If PyTorch is unavailable, the audit and data tests still run. Training and model tests fail with an actionable installation message rather than silently using a fake model.
+## Training for real (on Kaggle)
+
+Anything bigger than the demo trains on Kaggle's free T4 GPUs, never locally. The easiest way in is the [`compute/`](compute/README.md) folder, which has the whole "make it actually speak English" pipeline as ready-to-push Kaggle jobs: build a corpus, pretrain `slm-160m`, build chat data, fine-tune, and score it. It also has a LoRA shortcut on SmolLM2-360M-Instruct if you just want something that answers questions tonight.
+
+A few training knobs worth knowing about:
+
+- `--pretrain-text file.jsonl` (one `{"text": ...}` per line) packs raw text into full 2048-byte rows and puts the loss on every token. Use it for web text instead of wrapping paragraphs as fake instructions.
+- `--aux-loss-weight 0` turns off the task, error, and confidence heads, which is what you want when the labels are just constants.
+- `--max-seconds` stops cleanly after a step and saves everything, so a Kaggle session never gets cut off mid-write.
+- fp16 overflow skips the step instead of crashing the run.
+
+Here's a plain SFT run for a Kaggle notebook:
+
+```bash
+PYTHONPATH=src python -m cognition_slm.train \
+  --data /kaggle/input/your-data/train.jsonl \
+  --eval-data /kaggle/input/your-data/eval.jsonl \
+  --out /kaggle/working/model.pt \
+  --preset slm-160m --device cuda --precision fp16 \
+  --batch-size 8 --gradient-accumulation-steps 4 \
+  --gradient-checkpointing --save-every 250 --steps 2000
+```
+
+### Older Kaggle runners
+
+`scripts/` still has the runners that produced the current 500M checkpoints. `scripts/prepare_kaggle.py` packs the source, tests, and data into one private notebook with SHA-256 checks and no credentials or weights, then you push it:
+
+```bash
+python scripts/prepare_kaggle.py --owner YOUR_KAGGLE_USERNAME --runner kaggle_run.py --out /tmp/slm-kaggle
+kaggle kernels push -p /tmp/slm-kaggle --accelerator NvidiaTeslaT4
+```
+
+Always pass the explicit T4 accelerator. Kaggle's default P100 gets detected fine but the installed PyTorch can't actually run on it.
+
+| Runner | What it did |
+|---|---|
+| `kaggle_run.py` | Smoke test: full-length training, resume, and generation on the big preset |
+| `kaggle_quality_run.py`, `kaggle_500m_quality_run.py` | The first Studio checkpoints, trained on a small synthetic curriculum (mostly memorized it) |
+| `kaggle_english_run.py` | TinyStories plus Dolly continuation of the 500M model |
+| `kaggle_qa_run.py`, `kaggle_long_run.py`, `kaggle_efficient_run.py` | FineWeb-Edu paragraphs plus SQuAD question answering |
+| `kaggle_short_qa_pilot.py`, `kaggle_elementary_run.py` | Short-answer and elementary-question training, now auto-scored on the 24-question holdout |
+| `kaggle_studio_verify.py` | Boots Studio on Kaggle against a finished checkpoint |
+
+`./scripts/launch_500m_kaggle.sh YOUR_KAGGLE_USERNAME` packages and submits the 500M quality run in one go. None of these runners ever swaps Studio's default checkpoint for you; read the answers in their reports first. More detail is in [docs/kaggle.md](docs/kaggle.md).
+
+Heads up: older quality reports tested on prompts that overlapped the training data, so don't read them as held-out scores.
 
 ## Context therapist for long histories
 
@@ -187,93 +147,6 @@ Run it against the included synthetic fixture:
 This layer is an observable context controller, not a consciousness probe or hidden-thought reader. `estimated_tokens` uses this project's byte tokenizer, so use a conservative budget when the downstream model uses a different tokenizer. See [`docs/context_therapy.md`](docs/context_therapy.md) for the integration contract.
 
 ## Data boundary
-
-### English training on Kaggle
-
-The long continuation run starts from the latest QA pilot and budgets 5.5 hours for
-broader English with QA replay, followed by 3.5 hours of QA. It streams the pinned
-`sample-10BT` subset of [FineWeb-Edu](https://huggingface.co/datasets/HuggingFaceFW/fineweb-edu)
-and collects up to roughly 60,000 complete short paragraphs. Paragraphs retain their
-source URLs; the database uses ODC-BY, while underlying text rights remain with their
-owners. Holdout passages are excluded, and source URLs determine English train/eval
-splits. This run learns paragraph continuations, not an entire 10-billion-token corpus.
-
-```bash
-python scripts/prepare_kaggle.py --out /tmp/slm-long-kaggle \
-  --owner garyzhang11111 --slug slm-500m-long-training \
-  --runner kaggle_long_run.py
-kaggle kernels push -p /tmp/slm-long-kaggle --accelerator NvidiaTeslaT4 --timeout 39600
-```
-
-All training and model evaluations happen on Kaggle. `--max-seconds` stops training
-after a completed step and saves optimizer, scheduler, and RNG state. The runner
-reserves time beyond its nine-hour training budget for data preparation, evaluation,
-and checkpoint writes; actual training time can be lower. A 100,000-step ceiling is
-an upper bound, not a claim that that many steps ran. Reports distinguish requested
-and completed steps. The final QA checkpoint retains optimizer state for continuation.
-
-`long_training_report.json` records actual steps, source hashes, development scores,
-and generated answers. Generation checks use 16 development and 32 final-test passage
-questions, with one stored answer per question. These scores are not directly
-comparable to the earlier full multi-reference SQuAD scores. The smaller generation
-sample reserves GPU time for training; an hour is reserved after the last stage.
-The original
-12 general questions are also rerun. Longer training does not automatically establish
-conversational ability, and the runner does not install its output into Studio.
-
-For the next question-answering run, use `--runner kaggle_qa_run.py` and
-`--slug slm-500m-answer-training` with the packaging command below. This runner
-attaches the completed English corpus run and verifies the latest custom question
-checkpoint's hash. It uses short Dolly answers from the existing training split and
-[SQuAD](https://huggingface.co/datasets/rajpurkar/squad) passage questions
-(Pranav Rajpurkar and collaborators; CC-BY-SA-4.0, with Wikipedia source passages).
-SQuAD passages are preserved in full; examples exceeding 1,024 byte tokens are rejected.
-This teaches passage-based answering and does not establish broad factual knowledge.
-
-The QA runner compares genuine versus shuffled prompts and records both greedy and
-sampled answers. A 500-step pilot must improve development exact match by at least
-two percentage points, or token F1 by five points without reducing exact match,
-before a further 4,000 training steps run. This gate measures early progress, not
-readiness for deployment. Each stage starts a fresh optimizer from the preceding
-model weights. Final evaluation uses 128 separate passage questions and the existing
-12 general-question probes. Development and final-test passages are kept separate.
-See `qa_training_report.json` for the gate decision, scores, and generated answers;
-no checkpoint is installed into Studio automatically.
-
-`scripts/kaggle_english_run.py` continues training the project's own 499,524,075-parameter
-model. It retains the custom architecture and existing weights; it does not load a
-pretrained third-party model. The runner downloads text only on Kaggle, prepares up to
-30,000 accepted short stories, then trains on instruction/answer examples with some
-story replay. Oversized examples are rejected intact, and each source has 128 held-out
-examples. The existing unseen question probes remain excluded from training.
-
-Package and submit from a machine with the Kaggle CLI configured:
-
-```bash
-python scripts/prepare_kaggle.py --out /tmp/slm-english-kaggle \
-  --owner garyzhang11111 --slug slm-500m-english-corpus \
-  --runner kaggle_english_run.py
-kaggle kernels push -p /tmp/slm-english-kaggle --accelerator NvidiaTeslaT4
-```
-
-Packaging does not execute the model. The generated private notebook selects T4 GPU and
-internet access and attaches the original checkpoint kernel. Its SHA-256 must match
-the recorded parent before any training starts. Training uses 4,000 English steps
-and 1,000 instruction-tuning steps, with eight examples per effective batch. Each stage
-resets optimizer state and preserves model weights. Checkpoints save every 250 steps;
-their step counts are local to that stage. The saved context remains 2,048 byte tokens.
-
-The runner checks actual GPU execution before running tests. Kaggle's default P100
-can be detected successfully even when the installed PyTorch build cannot execute
-on it; keep the explicit T4 selection when submitting. `gpu_preflight.json` records
-the device, PyTorch version, and compatibility result.
-
-The notebook runs the regression suite, records source/data hashes, and evaluates both
-the original and new checkpoints. `english_training_report.json` records progress;
-`baseline_evaluation.json`, `english_evaluation.json`, and `questions_evaluation.json`
-contain held-out losses and generated answers. Completed training is not an English
-or question-answering quality pass. Read the answers before changing Studio's checkpoint.
-The runner leaves the current Studio checkpoint unchanged.
 
 Text sources are pinned to dataset revisions in the runner:
 

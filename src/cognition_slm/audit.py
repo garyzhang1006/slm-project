@@ -83,6 +83,11 @@ def audit_dataset(path: str | Path) -> AuditReport:
     return report
 
 
+def _prompt_key(prompt: str) -> str:
+    # Tokenize punctuation instead of deleting it so "2+2" matches "2 + 2" but not "2-2".
+    return " ".join(re.findall(r"\w+|[^\w\s]", prompt.casefold()))
+
+
 def audit_split_overlap(train_path: str | Path, eval_path: str | Path) -> list[str]:
     try:
         train_examples = load_jsonl(train_path)
@@ -95,12 +100,12 @@ def audit_split_overlap(train_path: str | Path, eval_path: str | Path) -> list[s
     overlap = sorted(train_ids.intersection(eval_ids))
     if overlap:
         errors.append(f"train/eval id overlap: {', '.join(overlap)}")
-    train_prompts: dict[tuple[str, str], list[str]] = {}
+    # Key on prompt text alone: the same prompt under another task label still leaks.
+    train_prompts: dict[str, list[str]] = {}
     for item in train_examples:
-        key = (item.task_type, " ".join(item.prompt.split()).casefold())
-        train_prompts.setdefault(key, []).append(item.id)
+        train_prompts.setdefault(_prompt_key(item.prompt), []).append(item.id)
     for item in eval_examples:
-        key = (item.task_type, " ".join(item.prompt.split()).casefold())
+        key = _prompt_key(item.prompt)
         if key in train_prompts:
             errors.append(
                 f"train/eval prompt overlap for task {item.task_type!r}: "

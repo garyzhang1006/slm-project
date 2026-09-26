@@ -34,10 +34,21 @@ class DataAndAuditTests(unittest.TestCase):
             errors = audit_split_overlap("train.jsonl", "eval.jsonl")
         self.assertEqual(errors, [f"train/eval id overlap: {train.id}"])
 
-    def test_split_audit_keeps_task_types_distinct(self):
-        train = replace(load_jsonl(ROOT / "data" / "demo.jsonl")[0],
-                        id="train-question", task_type="code_generation")
-        evaluation = replace(train, id="eval-question", task_type="code_explanation")
+    def test_split_audit_catches_prompt_overlap_across_task_types(self):
+        train = replace(load_jsonl(ROOT / "data" / "demo.jsonl")[0], id="train-question",
+                        task_type="code_explanation", prompt="What is 2+2?")
+        evaluation = replace(train, id="eval-question", task_type="language_generation",
+                             prompt="what is 2 + 2 ?")
+        with patch("cognition_slm.audit.load_jsonl", side_effect=[[train], [evaluation]]):
+            errors = audit_split_overlap("train.jsonl", "eval.jsonl")
+        self.assertEqual(len(errors), 1)
+        self.assertIn("eval-question", errors[0])
+        self.assertIn("train-question", errors[0])
+
+    def test_split_audit_keeps_different_operators_distinct(self):
+        train = replace(load_jsonl(ROOT / "data" / "demo.jsonl")[0], id="train-question",
+                        prompt="What is 3+4?")
+        evaluation = replace(train, id="eval-question", prompt="What is 3-4?")
         with patch("cognition_slm.audit.load_jsonl", side_effect=[[train], [evaluation]]):
             self.assertEqual(audit_split_overlap("train.jsonl", "eval.jsonl"), [])
 

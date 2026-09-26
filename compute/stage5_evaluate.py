@@ -1,5 +1,8 @@
 """Score a trained checkpoint on the 24 simple questions, English probes and held-out bits per byte.
 
+It also answers every question in data/everyday_eval.json and scores them under everyday_eval_scores,
+per category, as a broader read than the 24-question gate. They do not change the pass gate.
+
 Pass gate: the old 500M elementary checkpoint answered 3 of the 24 holdout questions fully correctly
 on manual review (README.md). The new checkpoint passes when more than 3 automatically scored answers
 are exact normalized matches. The two "unknown" rows are manual-review only and earn no credit here,
@@ -108,6 +111,9 @@ def main(argv: list[str] | None = None) -> None:
     report["simple_questions"] = [{**row, "answer": answer(row["prompt"], row["task_type"])} for row in holdout]
     report["simple_questions_scores"] = score_predictions(holdout, report["simple_questions"])
     report["pass_gate"] = pass_gate(report["simple_questions_scores"])
+    everyday = json.loads((ROOT / "data/everyday_eval.json").read_text())["rows"]
+    report["everyday_eval"] = [{**row, "answer": answer(row["prompt"], row["task_type"])} for row in everyday]
+    report["everyday_eval_scores"] = score_predictions(everyday, report["everyday_eval"])
     report["english_probes"] = []
     for identifier, prompt, rubric in ENGLISH_PROBES:
         text = answer(prompt)
@@ -122,6 +128,7 @@ def main(argv: list[str] | None = None) -> None:
     write_json(report_path, report)
     print("EVAL_COMPLETE", json.dumps({"pass_gate": report["pass_gate"],
                                        "looks_english_rate": report["looks_english_rate"],
+                                       "everyday_exact": report["everyday_eval_scores"]["total"]["exact_accuracy"],
                                        "bits_per_byte": report["heldout_text"].get("bits_per_byte")}), flush=True)
 
 

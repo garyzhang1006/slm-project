@@ -300,13 +300,24 @@ def main() -> None:
     parser.add_argument("--device", choices=("cpu", "mps", "cuda", "auto"), default="cpu")
     parser.add_argument("--port", type=int, default=8766)
     parser.add_argument("--sources-only", action="store_true", help="Serve reference excerpts without loading or running model weights.")
+    parser.add_argument("--lora-adapter", type=Path, default=None,
+                        help="Serve SmolLM2-360M-Instruct with this LoRA adapter folder (needs transformers and peft).")
     args = parser.parse_args()
     if not 1 <= args.port <= 65535:
         parser.error("--port must be between 1 and 65535")
-    checkpoint = args.checkpoint or default_checkpoint()
-    if not args.sources_only and not checkpoint.is_file():
-        parser.error(f"Checkpoint not found: {checkpoint}. Download the Kaggle weights to this path or use --checkpoint PATH.")
-    runtime = ModelRuntime(checkpoint, args.device, expected_parameters=DEFAULT_PARAMETERS if args.checkpoint is None else None)
+    if args.lora_adapter is not None:
+        if args.checkpoint is not None:
+            parser.error("--lora-adapter and --checkpoint select different models; pass one of them")
+        if not args.sources_only and not (args.lora_adapter / "adapter_config.json").is_file():
+            parser.error(f"No adapter_config.json in {args.lora_adapter}. Pass the downloaded artifacts/lora-adapter folder.")
+        from .lora_runtime import LoraRuntime
+
+        runtime = LoraRuntime(args.lora_adapter, args.device)
+    else:
+        checkpoint = args.checkpoint or default_checkpoint()
+        if not args.sources_only and not checkpoint.is_file():
+            parser.error(f"Checkpoint not found: {checkpoint}. Download the Kaggle weights to this path or use --checkpoint PATH.")
+        runtime = ModelRuntime(checkpoint, args.device, expected_parameters=DEFAULT_PARAMETERS if args.checkpoint is None else None)
     try:
         server = WorkbenchServer(("127.0.0.1", args.port), runtime)
     except OSError as exc:

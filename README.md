@@ -38,6 +38,8 @@ Studio has two modes:
 
 Studio loads `artifacts/slm-500m-language-quality.pt` by default and checks it has exactly 499,524,075 parameters. Weights aren't in Git, so download them from Kaggle first. To use a different checkpoint, run `./launch-studio.command --checkpoint /path/to/model.pt`, and if the port is taken, add `--port 8767`.
 
+The model that actually answers questions right now is SmolLM2-360M-Instruct with the LoRA adapter from the `slm-lora-baseline` Kaggle run (18 of 22 exact on the holdout). Download its `artifacts/lora-adapter` folder, `pip install transformers peft`, and run `./launch-studio.command --lora-adapter /path/to/lora-adapter`. The first launch downloads the base model (about 700 MB) from Hugging Face.
+
 Want just the source-excerpt mode, with no weights and no PyTorch?
 
 ```bash
@@ -201,4 +203,4 @@ Training tells you how many records got truncated, and it rejects prompts too lo
 - The side heads predict behavior. They don't reveal anything about the model's internal state.
 - Passing a syntax check doesn't mean code works, and reranking can pick a tidy-looking wrong answer.
 - Treat generated code as untrusted, and only run it in a sandbox.
-- Normal training and Studio never touch the internet. Only the Kaggle jobs download the datasets listed above.
+- Normal training and Studio never touch the internet, except that `--lora-adapter` mode downloads the pinned SmolLM2 base model once. Only the Kaggle jobs download the datasets listed above.

@@ -109,7 +109,7 @@ class ModelRuntime:
     def generate(self, request: dict) -> dict:
         import torch
 
-        from .generate import generate_ids
+        from .generate import generate_ids, strip_stop_sequence
 
         options, record = validate_request(request)
         prompt_ids = self.tokenizer.encode(format_prompt(record), add_eos=False)
@@ -126,25 +126,38 @@ class ModelRuntime:
         started = time.perf_counter()
         output = generate_ids(self.model, input_ids, self.tokenizer, **options)
         new_ids = output[0, len(prompt_ids) :].tolist()
+        text = self.tokenizer.decode(new_ids)
+        finish_reason = "eos" if new_ids and new_ids[-1] == self.tokenizer.eos_id else "length"
+        if finish_reason == "length" and options["stop_sequences"]:
+            stripped = strip_stop_sequence(text, options["stop_sequences"])
+            if stripped != text:
+                text, finish_reason = stripped, "stop"
         return {
-            "text": self.tokenizer.decode(new_ids),
+            "text": text,
             "elapsed_seconds": round(time.perf_counter() - started, 3),
             "prompt_tokens": len(prompt_ids),
             "generated_tokens": len(new_ids),
-            "finish_reason": "eos" if new_ids and new_ids[-1] == self.tokenizer.eos_id else "length",
+            "finish_reason": finish_reason,
         }
 
 
 def validate_request(request: dict) -> tuple[dict, object]:
     if not isinstance(request, dict):
         raise ValueError("Expected a JSON object.")
-    allowed = {"prompt", "task_type", "max_new_tokens", "temperature", "top_k"}
+    allowed = {
+        "prompt", "task_type", "max_new_tokens", "temperature", "top_k",
+        "top_p", "repetition_penalty", "stop_sequences",
+    }
     if set(request) - allowed:
         raise ValueError("Unknown request fields: " + ", ".join(sorted(set(request) - allowed)))
+    # Defaults favor short factual answers; they match the Studio controls in index.html.
     options = {
-        "max_new_tokens": request.get("max_new_tokens", 128),
-        "temperature": request.get("temperature", 0.8),
+        "max_new_tokens": request.get("max_new_tokens", 64),
+        "temperature": request.get("temperature", 0.3),
         "top_k": request.get("top_k", 40),
+        "top_p": request.get("top_p", 0.9),
+        "repetition_penalty": request.get("repetition_penalty", 1.0),
+        "stop_sequences": request.get("stop_sequences"),
     }
     for key, lower, upper in (("max_new_tokens", 1, 512), ("top_k", 0, 259)):
         value = options[key]
@@ -157,6 +170,19 @@ def validate_request(request: dict) -> tuple[dict, object]:
         or not math.isfinite(temperature)
     ):
         raise ValueError("temperature must be a finite number between 0 and 2.")
+    top_p = options["top_p"]
+    if type(top_p) not in (int, float) or not 0 < top_p <= 1:
+        raise ValueError("top_p must be a number greater than 0 and at most 1.")
+    penalty = options["repetition_penalty"]
+    if type(penalty) not in (int, float) or not 1 <= penalty <= 2:
+        raise ValueError("repetition_penalty must be a number between 1 and 2.")
+    stop_sequences = options["stop_sequences"]
+    if stop_sequences is not None and (
+        type(stop_sequences) is not list
+        or not 1 <= len(stop_sequences) <= 4
+        or not all(type(item) is str and 1 <= len(item.encode("utf-8")) <= 64 for item in stop_sequences)
+    ):
+        raise ValueError("stop_sequences must be a list of 1 to 4 strings, each 1 to 64 UTF-8 bytes.")
     record = validate_record({
         "id": "workbench", "prompt": request.get("prompt"), "answer": "placeholder",
         "task_type": request.get("task_type", "language_generation"), "confidence": 0.5,

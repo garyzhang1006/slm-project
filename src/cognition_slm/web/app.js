@@ -9,7 +9,8 @@ function settings() {
   // Number("") is 0 (unrestricted sampling), so a cleared field must stay invalid instead.
   const topK = $("top-k").value.trim();
   return { task_type: $("task-type").value, temperature: Number($("temperature").value),
-    max_new_tokens: Number($("max-tokens").value), top_k: topK === "" ? NaN : Number(topK) };
+    max_new_tokens: Number($("max-tokens").value), top_k: topK === "" ? NaN : Number(topK),
+    top_p: Number($("top-p").value) };
 }
 
 function promptTokens() {
@@ -44,6 +45,7 @@ function syncComposer() {
   $("starters").hidden = grounded || !$("conversation").hidden;
   $("temperature-value").value = config.temperature.toFixed(1);
   $("max-tokens-value").value = `${config.max_new_tokens} tokens`;
+  $("top-p-value").value = config.top_p.toFixed(2);
   $("generate").disabled = state.busy || !count || (grounded ? sourceOverflow : state.status?.state !== "ready" || overflow || !validK || Boolean(state.status?.busy));
   $("budget-note").textContent = grounded ? (sourceOverflow ? "Use at most 2,000 UTF-8 bytes for your question and 12,000 for reference text." : "Excerpts come only from your reference text. Missing evidence returns no excerpts.") : overflow
     ? `Shorten your prompt: reserve ${config.max_new_tokens} tokens for the response.`
@@ -103,7 +105,7 @@ function renderRun(run, loading = false) {
     return;
   }
   const elapsed = Number(response.elapsed_seconds).toFixed(1);
-  container.append(element("p", "response-stats", `${response.generated_tokens} generated tokens · ${elapsed}s · ${labels[run.options.task_type]} · ${response.finish_reason === "eos" ? "End of response" : "Response limit reached"}`));
+  container.append(element("p", "response-stats", `${response.generated_tokens} generated tokens · ${elapsed}s · ${labels[run.options.task_type]} · ${["eos", "stop"].includes(response.finish_reason) ? "End of response" : "Response limit reached"}`));
 }
 
 function renderHistory() {
@@ -196,7 +198,7 @@ $("prompt-form").addEventListener("submit", async (event) => {
 });
 
 $("prompt").addEventListener("input", syncComposer);
-for (const id of ["response-mode", "source-text", "task-type", "temperature", "max-tokens", "top-k"]) $(id).addEventListener("input", syncComposer);
+for (const id of ["response-mode", "source-text", "task-type", "temperature", "max-tokens", "top-k", "top-p"]) $(id).addEventListener("input", syncComposer);
 $("response-mode").addEventListener("change", () => {
   if (!sourceMode() && state.status?.state === "disabled") {
     feedback(state.status.error || "Model generation is disabled. Choose Source excerpts, or restart the server without --sources-only to load a checkpoint.", true);

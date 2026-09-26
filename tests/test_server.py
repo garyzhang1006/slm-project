@@ -58,6 +58,28 @@ class RequestValidationTests(unittest.TestCase):
             with self.subTest(key=key, value=value), self.assertRaises(ValueError):
                 validate_request({"prompt": "hello", key: value})
 
+    def test_defaults_favor_short_factual_answers(self):
+        options, _ = validate_request({"prompt": "hello"})
+        self.assertEqual(options, {"max_new_tokens": 64, "temperature": 0.3, "top_k": 40, "top_p": 0.9,
+                                   "repetition_penalty": 1.0, "stop_sequences": None})
+
+    def test_decoding_fields_accepted(self):
+        request = {"prompt": "hello", "top_p": 1, "repetition_penalty": 1.2, "stop_sequences": ["\n", "###"]}
+        options, _ = validate_request(request)
+        self.assertEqual((options["top_p"], options["repetition_penalty"], options["stop_sequences"]),
+                         (1, 1.2, ["\n", "###"]))
+
+    def test_invalid_decoding_fields(self):
+        for key, value in (
+            ("top_p", 0), ("top_p", 1.01), ("top_p", float("nan")), ("top_p", True), ("top_p", "0.9"),
+            ("repetition_penalty", 0.9), ("repetition_penalty", 2.5),
+            ("repetition_penalty", float("inf")), ("repetition_penalty", False),
+            ("stop_sequences", "\n"), ("stop_sequences", []), ("stop_sequences", [""]),
+            ("stop_sequences", [1]), ("stop_sequences", ["a"] * 5), ("stop_sequences", ["x" * 65]),
+        ):
+            with self.subTest(key=key, value=value), self.assertRaises(ValueError):
+                validate_request({"prompt": "hello", key: value})
+
     def test_invalid_prompt_and_unknown_fields(self):
         for request in ([], {"prompt": " "}, {"prompt": "x", "task_type": "chat"},
                         {"prompt": "x", "checkpoint": "elsewhere"}):
@@ -99,6 +121,40 @@ class RequestValidationTests(unittest.TestCase):
         self.assertEqual(result["finish_reason"], "eos")
         self.assertGreater(result["prompt_tokens"], len("hello"))
 
+    def _runtime_emitting(self, text):
+        import torch
+        from cognition_slm.tokenizer import ByteTokenizer
+
+        runtime = ModelRuntime(Path("unused"))
+        runtime.tokenizer = ByteTokenizer()
+        runtime.model = SimpleNamespace(
+            config=SimpleNamespace(block_size=2048),
+            parameters=lambda: iter([torch.empty(0)]),
+        )
+        emitted = runtime.tokenizer.encode(text, add_bos=False, add_eos=False)
+
+        def output(model, ids, tokenizer, **options):
+            return torch.cat([ids, torch.tensor([emitted])], dim=1)
+
+        return runtime, output
+
+    def test_stop_sequence_is_stripped_and_reported(self):
+        runtime, output = self._runtime_emitting("Paris.\n")
+        with patch("cognition_slm.generate.generate_ids", side_effect=output) as generate:
+            result = runtime.generate({"prompt": "Capital of France?", "stop_sequences": ["\n"]})
+        self.assertEqual(result["text"], "Paris.")
+        self.assertEqual(result["finish_reason"], "stop")
+        self.assertEqual(result["generated_tokens"], 7)
+        self.assertEqual(generate.call_args.kwargs["stop_sequences"], ["\n"])
+        self.assertEqual(generate.call_args.kwargs["top_p"], 0.9)
+
+    def test_length_finish_keeps_text_without_stop_match(self):
+        runtime, output = self._runtime_emitting("Paris")
+        with patch("cognition_slm.generate.generate_ids", side_effect=output):
+            result = runtime.generate({"prompt": "Capital of France?", "max_new_tokens": 5,
+                                       "stop_sequences": ["\n"]})
+        self.assertEqual((result["text"], result["finish_reason"]), ("Paris", "length"))
+
 
 class ServerTests(unittest.TestCase):
     def setUp(self):
@@ -133,6 +189,17 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertEqual(payload["state"], "ready")
         self.assertFalse(payload["busy"])
+
+    def test_new_fields_accepted_over_http(self):
+        body = json.dumps({"prompt": "hello", "top_p": 0.5, "repetition_penalty": 1.1,
+                           "stop_sequences": ["\n"]})
+        status, _ = self.request(body=body, headers={"Content-Type": "application/json"})
+        self.assertEqual(status, 200)
+        self.runtime.generate.assert_called_once()
+        status, payload = self.request(body=json.dumps({"prompt": "hello", "top_p": 2}),
+                                       headers={"Content-Type": "application/json"})
+        self.assertEqual(status, 400)
+        self.assertIn("top_p", payload["error"])
 
     def test_hostile_origin_and_host(self):
         for header in ({"Origin": "https://evil.example"}, {"Host": "evil.example"}):

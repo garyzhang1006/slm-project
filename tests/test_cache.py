@@ -44,6 +44,22 @@ class CacheTests(unittest.TestCase):
             torch.testing.assert_close(actual, expected)
             self.assertGreater(actual.size(1), model.config.block_size)
 
+    def test_decoding_options_match_uncached_across_overflow(self):
+        tokenizer = ByteTokenizer()
+        model = self.model()
+        with torch.no_grad():
+            model.lm_head.weight[tokenizer.eos_id].zero_()
+        ids = torch.tensor([[1, 45, 77], [1, 31, 42]])
+        options = dict(max_new_tokens=12, temperature=0.9, top_k=20, top_p=0.8,
+                       repetition_penalty=1.3, stop_sequences=["zz"])
+        for seed in range(4):
+            with self.subTest(seed=seed):
+                torch.manual_seed(seed)
+                expected = generate_ids(model, ids, tokenizer, use_cache=False, **options)
+                torch.manual_seed(seed)
+                actual = generate_ids(model, ids, tokenizer, use_cache=True, **options)
+                torch.testing.assert_close(actual, expected)
+
     def test_inference_skips_losses_heads_and_does_not_change_checkpoint(self):
         model = self.model()
         keys = set(model.state_dict())

@@ -14,6 +14,9 @@ from .data import format_prompt, validate_record
 from .model import CognitionSLM, KVCache
 from .tokenizer import ByteTokenizer
 
+# Below this, logits / temperature can overflow float32 to inf and softmax returns NaN.
+GREEDY_TEMPERATURE_FLOOR = 1e-5
+
 
 def _next_logits(
     model: CognitionSLM, context: torch.Tensor, cache: KVCache | None, *, use_cache: bool,
@@ -63,7 +66,7 @@ def generate_ids(
         next_logits, cache = _next_logits(model, context, cache, use_cache=use_cache)
         next_logits[:, tokenizer.pad_id] = float("-inf")
         next_logits[:, tokenizer.bos_id] = float("-inf")
-        if temperature == 0:
+        if temperature < GREEDY_TEMPERATURE_FLOOR:
             next_token = next_logits.argmax(dim=-1, keepdim=True)
         else:
             next_logits = next_logits / temperature
@@ -154,11 +157,14 @@ def generate_text(
         }
     )
     prompt_ids = tokenizer.encode(format_prompt(record), add_eos=False)
-    if len(prompt_ids) > model.config.block_size:
+    if len(prompt_ids) >= model.config.block_size:
         raise ValueError(
-            f"formatted prompt has {len(prompt_ids)} byte tokens, exceeding "
-            f"block_size {model.config.block_size}; shorten the prompt"
+            f"formatted prompt has {len(prompt_ids)} byte tokens, leaving no room to generate "
+            f"within block_size {model.config.block_size}; shorten the prompt"
         )
+    # Past block_size the rolling window drops BOS and the task header, a context
+    # training never produced, so stop at the window like the server's budget check.
+    max_new_tokens = min(max_new_tokens, model.config.block_size - len(prompt_ids))
     input_ids = torch.tensor([prompt_ids], dtype=torch.long, device=next(model.parameters()).device)
     candidates = [
         generate_ids(
@@ -194,7 +200,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--checkpoint", required=True)
     parser.add_argument("--prompt", required=True)
-    parser.add_argument("--task-type", default="code_generation")
+    parser.add_argument("--task-type", default="language_generation")
     parser.add_argument("--max-new-tokens", type=int, default=96)
     parser.add_argument("--temperature", type=float, default=0.8)
     parser.add_argument("--top-k", type=int, default=40)

@@ -4,7 +4,9 @@ from unittest.mock import Mock
 
 import torch
 
+from cognition_slm.config import ModelConfig
 from cognition_slm.generate import generate_ids
+from cognition_slm.model import CognitionSLM
 from cognition_slm.tokenizer import ByteTokenizer
 
 
@@ -49,6 +51,20 @@ class BatchedGenerationTests(unittest.TestCase):
                     [tokenizer.bos_id, tokenizer.eos_id, tokenizer.eos_id],
                     [tokenizer.bos_id, 100, tokenizer.eos_id],
                 ])
+
+    def test_tiny_positive_temperature_decodes_greedily_instead_of_nan(self):
+        tokenizer = ByteTokenizer()
+        torch.manual_seed(19)
+        model = CognitionSLM(ModelConfig(block_size=16, n_layer=1, n_head=2, n_embd=16)).eval()
+        with torch.no_grad():
+            model.lm_head.weight.mul_(1000)
+        ids = torch.tensor([[tokenizer.bos_id, 45, 77]])
+        expected = generate_ids(model, ids, tokenizer, max_new_tokens=4, temperature=0)
+        for temperature in (1e-300, 1e-30, 1e-6):
+            with self.subTest(temperature=temperature):
+                actual = generate_ids(model, ids, tokenizer, max_new_tokens=4,
+                                      temperature=temperature, top_k=0)
+                self.assertEqual(actual.tolist(), expected.tolist())
 
 
 if __name__ == "__main__":

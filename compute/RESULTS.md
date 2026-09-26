@@ -1,6 +1,6 @@
 # Results
 
-Collected from Kaggle kernel reports on 2026-09-26 17:16 by `compute/collect_results.py`. Regenerate it rather than editing by hand.
+Collected from Kaggle kernel reports on 2026-09-26 19:41 by `compute/collect_results.py`. Regenerate it rather than editing by hand.
 
 ## slm-160m pretraining
 
@@ -17,23 +17,23 @@ Collected from Kaggle kernel reports on 2026-09-26 17:16 by `compute/collect_res
 
 ## LoRA vs base, re-scored with the current answer keys
 
-These predictions came from a different adapter than the LoRA report above.
+- everyday_eval: base 7/252 exact and 181/252 contains, LoRA 100/252 exact and 191/252 contains
+- simple_questions: base 5/22 exact and 19/22 contains, LoRA 16/22 exact and 20/22 contains
 
-- everyday_eval: base 7/252, LoRA 87/252 exact
-- simple_questions: base 5/22, LoRA 18/22 exact
+Exact means the whole reply is an accepted answer. Contains means an accepted answer appears as whole words in the reply, which credits full-sentence answers such as "Water freezes at 0 degrees Celsius." but can also credit a reply that names the answer and then contradicts it.
 
-| category | base | LoRA | scored |
-|---|---|---|---|
-| abstain | 0 | 0 | 20 |
-| arithmetic | 0 | 21 | 28 |
-| colors_animals | 0 | 2 | 26 |
-| counting_time | 0 | 7 | 26 |
-| geography | 1 | 14 | 26 |
-| opposites | 3 | 18 | 24 |
-| plurals | 0 | 10 | 22 |
-| reading | 0 | 5 | 30 |
-| science | 0 | 2 | 25 |
-| yes_no | 3 | 8 | 25 |
+| category | base exact | LoRA exact | base contains | LoRA contains | scored |
+|---|---|---|---|---|---|
+| abstain | 0 | 0 | 1 | 16 | 20 |
+| arithmetic | 0 | 23 | 20 | 24 | 28 |
+| colors_animals | 0 | 2 | 17 | 14 | 26 |
+| counting_time | 0 | 10 | 22 | 22 | 26 |
+| geography | 1 | 17 | 25 | 24 | 26 |
+| opposites | 3 | 18 | 20 | 18 | 24 |
+| plurals | 0 | 10 | 17 | 17 | 22 |
+| reading | 0 | 3 | 23 | 22 | 30 |
+| science | 0 | 3 | 22 | 20 | 25 |
+| yes_no | 3 | 14 | 14 | 14 | 25 |
 
 ## Distilled answers
 

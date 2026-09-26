@@ -65,6 +65,11 @@ def exact(scores: dict) -> str:
     return f"{total['exact']}/{total['scored']}"
 
 
+def contains(scores: dict) -> str:
+    total = scores["total"]
+    return f"{total['contains']}/{total['scored']}"
+
+
 def render(results: dict, rescored: dict, stamp: str) -> str:
     lines = ["# Results", "", f"Collected from Kaggle kernel reports on {stamp} by `compute/collect_results.py`. "
              "Regenerate it rather than editing by hand.", ""]
@@ -100,13 +105,19 @@ def render(results: dict, rescored: dict, stamp: str) -> str:
         if used and current and used != current:
             lines += ["These predictions came from a different adapter than the LoRA report above.", ""]
         for key, scores in rescored.items():
-            lines.append(f"- {key}: base {exact(scores['base'])}, LoRA {exact(scores['lora'])} exact")
-        lines += ["", "| category | base | LoRA | scored |", "|---|---|---|---|"]
+            lines.append(f"- {key}: base {exact(scores['base'])} exact and {contains(scores['base'])} contains, "
+                         f"LoRA {exact(scores['lora'])} exact and {contains(scores['lora'])} contains")
+        lines += ["", "Exact means the whole reply is an accepted answer. Contains means an accepted answer appears "
+                  "as whole words in the reply, which credits full-sentence answers such as \"Water freezes at 0 "
+                  "degrees Celsius.\" but can also credit a reply that names the answer and then contradicts it.",
+                  "", "| category | base exact | LoRA exact | base contains | LoRA contains | scored |",
+                  "|---|---|---|---|---|---|"]
         base, adapter = everyday["base"]["categories"], everyday["lora"]["categories"]
         for name in sorted(set(base) | set(adapter)):
-            empty = {"exact": 0, "scored": 0}
+            empty = {"exact": 0, "contains": 0, "scored": 0}
             left, right = base.get(name, empty), adapter.get(name, empty)
-            lines.append(f"| {name} | {left['exact']} | {right['exact']} | {right['scored']} |")
+            lines.append(f"| {name} | {left['exact']} | {right['exact']} | {left['contains']} | "
+                         f"{right['contains']} | {right['scored']} |")
         manual = everyday["lora"]["total"].get("manual_review", 0)
         if manual:
             lines += ["", f"{manual} abstain rows need a human to judge them and are not in the counts."]

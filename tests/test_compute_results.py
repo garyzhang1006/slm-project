@@ -81,6 +81,9 @@ class RenderTests(unittest.TestCase):
         self.assertIn("Holdout exact: base 5/22, adapter 18/22", text)
         self.assertIn("best 1.550 at step 750", text)
         self.assertIn("different adapter", text)  # lora_eval used ab..., the LoRA report says cd...
+        rows = len(EVERYDAY) - sum(row["category"] == "unknown" for row in EVERYDAY)
+        self.assertIn(f"base 0/{rows} exact and 0/{rows} contains, LoRA {rows}/{rows} exact", text)
+        self.assertIn("| base exact | LoRA exact | base contains | LoRA contains | scored |", text)
         self.assertIn("5000 rows kept from 6000 prompts (dropped: empty_or_invalid 1000).", text)
         self.assertIn("eval LM loss 1.200", text)
         self.assertIn("Held-out text bits/byte: 1.100", text)

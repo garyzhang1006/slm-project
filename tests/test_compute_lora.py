@@ -38,6 +38,13 @@ class LoraBaselineTests(unittest.TestCase):
         self.assertIn("uninstall", calls[0])
         self.assertEqual(calls[0][-2:], ["--yes", "torchao"])
 
+    def test_training_stays_in_fp32(self):
+        # fp16 autocast made the base SmolLM2 eval loss NaN on Kaggle and ruined the first adapter.
+        source = RUNNER.read_text()
+        self.assertNotIn("torch.float16", source)
+        self.assertNotIn("GradScaler", source)
+        self.assertIn("isfinite(loss)", source)
+
     def test_model_is_pinned(self):
         self.assertEqual(self.module.MODEL_ID, "HuggingFaceTB/SmolLM2-360M-Instruct")
         self.assertRegex(self.module.MODEL_REVISION, r"^[0-9a-f]{40}$")

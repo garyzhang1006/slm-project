@@ -228,8 +228,7 @@ def evaluation_loss(torch, model, examples: list, batch_size: int, pad_id: int) 
         for start in range(0, len(examples), batch_size):
             batch = {key: torch.tensor(value, device=model.device)
                      for key, value in collate(examples[start:start + batch_size], pad_id).items()}
-            with torch.autocast("cuda", dtype=torch.float16):
-                logits = model(input_ids=batch["input_ids"], attention_mask=batch["attention_mask"]).logits
+            logits = model(input_ids=batch["input_ids"], attention_mask=batch["attention_mask"]).logits
             labels = batch["labels"][:, 1:]
             losses = torch.nn.functional.cross_entropy(
                 logits[:, :-1].float().reshape(-1, logits.shape[-1]), labels.reshape(-1),
@@ -290,8 +289,9 @@ def main(argv: list[str] | None = None) -> None:
     tokenizer = AutoTokenizer.from_pretrained(MODEL_ID, revision=MODEL_REVISION)
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
-    # fp32 master weights under fp16 autocast: 360M parameters fit a 16 GB T4 with room to spare, and
-    # fp16 weights would round away small LoRA updates.
+    # Plain fp32 throughout. fp16 autocast overflowed SmolLM2 activations: the untouched base model's
+    # eval loss was already NaN on the first Kaggle run, and the adapter came out unusable.
+    # The T4 has no native bf16, and 360M fp32 parameters still fit its 16 GB.
     model = AutoModelForCausalLM.from_pretrained(MODEL_ID, revision=MODEL_REVISION, torch_dtype=torch.float32)
     model.to("cuda")
     report["baseline"] = evaluate_holdout(torch, model, tokenizer, holdout, args.max_new_tokens, score_predictions)
@@ -318,12 +318,15 @@ def main(argv: list[str] | None = None) -> None:
                                           args.epochs, args.max_steps)
     warmup = int(total_steps * args.warmup_ratio)
     optimizer = torch.optim.AdamW(trainable, lr=args.learning_rate, weight_decay=0.0)
-    scaler = torch.amp.GradScaler("cuda")
     report["training"] = {"planned_steps": total_steps, "warmup_steps": warmup, "encoded_train": len(examples),
                           "encoded_eval": len(eval_examples), "log": [],
                           "initial_eval_loss": evaluation_loss(torch, model, eval_examples, args.batch_size,
                                                                tokenizer.pad_token_id)}
     write_json(destination, report)
+    initial = report["training"]["initial_eval_loss"]
+    if initial is not None and not math.isfinite(initial):
+        raise RuntimeError(f"Base model eval loss is {initial} before any training; fix numerics before "
+                           "spending GPU time on the adapter")
     started, step, micro, order = time.monotonic(), 0, 0, []
     stopped_reason = "planned_steps"
     model.train()
@@ -334,18 +337,21 @@ def main(argv: list[str] | None = None) -> None:
         indices, order = order[:args.batch_size], order[args.batch_size:]
         batch = {key: torch.tensor(value, device="cuda")
                  for key, value in collate([examples[index] for index in indices], tokenizer.pad_token_id).items()}
-        with torch.autocast("cuda", dtype=torch.float16):
-            loss = model(**batch).loss / args.gradient_accumulation_steps
-        scaler.scale(loss).backward()
+        loss = model(**batch).loss / args.gradient_accumulation_steps
+        if not torch.isfinite(loss):
+            # Stop at once: a non-finite loss corrupts the adapter and would waste the rest of the GPU session.
+            report.update(status="failed_nonfinite_loss", failed_at_step=step)
+            write_json(destination, report)
+            raise RuntimeError(f"Non-finite training loss at optimizer step {step} (micro-batch {micro}); "
+                               f"see {destination}")
+        loss.backward()
         micro += 1
         if micro % args.gradient_accumulation_steps:
             continue
         for group in optimizer.param_groups:
             group["lr"] = learning_rate_at(step, total_steps, warmup, args.learning_rate)
-        scaler.unscale_(optimizer)
         torch.nn.utils.clip_grad_norm_(trainable, 1.0)
-        scaler.step(optimizer)
-        scaler.update()
+        optimizer.step()
         optimizer.zero_grad(set_to_none=True)
         step += 1
         if step % 50 == 0 or step == total_steps:

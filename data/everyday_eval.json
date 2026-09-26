@@ -1,0 +1,2826 @@
+{
+  "purpose": "evaluation_only",
+  "license": "CC0-1.0",
+  "source": "project-authored everyday English questions",
+  "scope": "Stable, uncontroversial facts in fresh wording. Automatic scoring is a normalized exact or whole-token contains match against accepted_answers, so a human should still read disagreements. Never use these rows as training examples.",
+  "rows": [
+    {
+      "id": "everyday-v1-001",
+      "category": "arithmetic",
+      "prompt": "Add fourteen and twenty-three. What do you get?",
+      "expected_rubric": "37",
+      "accepted_answers": [
+        "37",
+        "thirty-seven"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-002",
+      "category": "arithmetic",
+      "prompt": "Compute 25 + 17.",
+      "expected_rubric": "42",
+      "accepted_answers": [
+        "42",
+        "forty-two"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-003",
+      "category": "arithmetic",
+      "prompt": "Work out 40 - 15.",
+      "expected_rubric": "25",
+      "accepted_answers": [
+        "25",
+        "twenty-five"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-004",
+      "category": "arithmetic",
+      "prompt": "Calculate 11 x 3.",
+      "expected_rubric": "33",
+      "accepted_answers": [
+        "33",
+        "thirty-three"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-005",
+      "category": "arithmetic",
+      "prompt": "What do you get if you take 18 away from 50?",
+      "expected_rubric": "32",
+      "accepted_answers": [
+        "32",
+        "thirty-two"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-006",
+      "category": "arithmetic",
+      "prompt": "Find the sum of 13 and 19.",
+      "expected_rubric": "32",
+      "accepted_answers": [
+        "32",
+        "thirty-two"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-007",
+      "category": "arithmetic",
+      "prompt": "Please compute 100 / 4.",
+      "expected_rubric": "25",
+      "accepted_answers": [
+        "25",
+        "twenty-five"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-008",
+      "category": "arithmetic",
+      "prompt": "What is sixty minus twenty-four equal to?",
+      "expected_rubric": "36",
+      "accepted_answers": [
+        "36",
+        "thirty-six"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-009",
+      "category": "arithmetic",
+      "prompt": "Twelve multiplied by five gives what number?",
+      "expected_rubric": "60",
+      "accepted_answers": [
+        "60",
+        "sixty"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-010",
+      "category": "arithmetic",
+      "prompt": "Calculate 72 / 8.",
+      "expected_rubric": "9",
+      "accepted_answers": [
+        "9",
+        "nine"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-011",
+      "category": "arithmetic",
+      "prompt": "Work out 16 + 16.",
+      "expected_rubric": "32",
+      "accepted_answers": [
+        "32",
+        "thirty-two"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-012",
+      "category": "arithmetic",
+      "prompt": "If you add 45 and 30, what is the total?",
+      "expected_rubric": "75",
+      "accepted_answers": [
+        "75",
+        "seventy-five"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-013",
+      "category": "arithmetic",
+      "prompt": "Compute 12 x 12.",
+      "expected_rubric": "144",
+      "accepted_answers": [
+        "144"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-014",
+      "category": "arithmetic",
+      "prompt": "What is the result of 90 - 46?",
+      "expected_rubric": "44",
+      "accepted_answers": [
+        "44",
+        "forty-four"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-015",
+      "category": "arithmetic",
+      "prompt": "Share 20 sweets equally between 4 children. How many does each child get?",
+      "expected_rubric": "5",
+      "accepted_answers": [
+        "5",
+        "five"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-016",
+      "category": "arithmetic",
+      "prompt": "Calculate 7 x 11.",
+      "expected_rubric": "77",
+      "accepted_answers": [
+        "77",
+        "seventy-seven"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-017",
+      "category": "arithmetic",
+      "prompt": "Thirty-three plus seven makes how much?",
+      "expected_rubric": "40",
+      "accepted_answers": [
+        "40",
+        "forty"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-018",
+      "category": "arithmetic",
+      "prompt": "Work out 200 + 50.",
+      "expected_rubric": "250",
+      "accepted_answers": [
+        "250"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-019",
+      "category": "arithmetic",
+      "prompt": "Compute 64 - 8.",
+      "expected_rubric": "56",
+      "accepted_answers": [
+        "56",
+        "fifty-six"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-020",
+      "category": "arithmetic",
+      "prompt": "Eleven times eleven makes what number?",
+      "expected_rubric": "121",
+      "accepted_answers": [
+        "121"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-021",
+      "category": "arithmetic",
+      "prompt": "Split 42 into 7 equal groups. How many are in each group?",
+      "expected_rubric": "6",
+      "accepted_answers": [
+        "6",
+        "six"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-022",
+      "category": "arithmetic",
+      "prompt": "Please work out 15 + 15 + 15.",
+      "expected_rubric": "45",
+      "accepted_answers": [
+        "45",
+        "forty-five"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-023",
+      "category": "arithmetic",
+      "prompt": "What number do you get from 1000 - 1?",
+      "expected_rubric": "999",
+      "accepted_answers": [
+        "999"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-024",
+      "category": "arithmetic",
+      "prompt": "Calculate 30 x 3.",
+      "expected_rubric": "90",
+      "accepted_answers": [
+        "90",
+        "ninety"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-025",
+      "category": "arithmetic",
+      "prompt": "Subtracting 28 from 54 leaves what number?",
+      "expected_rubric": "26",
+      "accepted_answers": [
+        "26",
+        "twenty-six"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-026",
+      "category": "arithmetic",
+      "prompt": "Work out 48 / 12.",
+      "expected_rubric": "4",
+      "accepted_answers": [
+        "4",
+        "four"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-027",
+      "category": "arithmetic",
+      "prompt": "A pack holds 6 eggs. How many eggs are in 5 packs?",
+      "expected_rubric": "30",
+      "accepted_answers": [
+        "30",
+        "thirty"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-028",
+      "category": "arithmetic",
+      "prompt": "Find the total of 22, 8 and 10.",
+      "expected_rubric": "40",
+      "accepted_answers": [
+        "40",
+        "forty"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-029",
+      "category": "counting_time",
+      "prompt": "In a leap year, how many days are there in total?",
+      "expected_rubric": "366",
+      "accepted_answers": [
+        "366"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-030",
+      "category": "counting_time",
+      "prompt": "February has how many days in a leap year?",
+      "expected_rubric": "29",
+      "accepted_answers": [
+        "29",
+        "twenty-nine"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-031",
+      "category": "counting_time",
+      "prompt": "Roughly how many weeks make up one year?",
+      "expected_rubric": "52",
+      "accepted_answers": [
+        "52",
+        "fifty-two"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-032",
+      "category": "counting_time",
+      "prompt": "A normal year that is not a leap year has how many days?",
+      "expected_rubric": "365",
+      "accepted_answers": [
+        "365"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-033",
+      "category": "counting_time",
+      "prompt": "Half an hour is how many minutes long?",
+      "expected_rubric": "30",
+      "accepted_answers": [
+        "30",
+        "thirty"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-034",
+      "category": "counting_time",
+      "prompt": "Two whole days contain how many hours?",
+      "expected_rubric": "48",
+      "accepted_answers": [
+        "48",
+        "forty-eight"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-035",
+      "category": "counting_time",
+      "prompt": "Count the sides of a hexagon. What is the total?",
+      "expected_rubric": "6",
+      "accepted_answers": [
+        "6",
+        "six"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-036",
+      "category": "counting_time",
+      "prompt": "A pentagon has how many straight sides?",
+      "expected_rubric": "5",
+      "accepted_answers": [
+        "5",
+        "five"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-037",
+      "category": "counting_time",
+      "prompt": "Stop signs are octagons. How many sides does an octagon have?",
+      "expected_rubric": "8",
+      "accepted_answers": [
+        "8",
+        "eight"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-038",
+      "category": "counting_time",
+      "prompt": "One dollar is worth how many cents?",
+      "expected_rubric": "100",
+      "accepted_answers": [
+        "100",
+        "one hundred"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-039",
+      "category": "counting_time",
+      "prompt": "One meter equals how many centimeters?",
+      "expected_rubric": "100",
+      "accepted_answers": [
+        "100",
+        "one hundred"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-040",
+      "category": "counting_time",
+      "prompt": "How many grams make up one kilogram?",
+      "expected_rubric": "1000",
+      "accepted_answers": [
+        "1000",
+        "one thousand"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-041",
+      "category": "counting_time",
+      "prompt": "A century is how many years?",
+      "expected_rubric": "100",
+      "accepted_answers": [
+        "100",
+        "one hundred"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-042",
+      "category": "counting_time",
+      "prompt": "A decade lasts how many years?",
+      "expected_rubric": "10",
+      "accepted_answers": [
+        "10",
+        "ten"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-043",
+      "category": "counting_time",
+      "prompt": "A bicycle usually has how many wheels?",
+      "expected_rubric": "2",
+      "accepted_answers": [
+        "2",
+        "two"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-044",
+      "category": "counting_time",
+      "prompt": "Count the wheels on a tricycle. How many are there?",
+      "expected_rubric": "3",
+      "accepted_answers": [
+        "3",
+        "three"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-045",
+      "category": "counting_time",
+      "prompt": "The English alphabet has how many letters?",
+      "expected_rubric": "26",
+      "accepted_answers": [
+        "26",
+        "twenty-six"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-046",
+      "category": "counting_time",
+      "prompt": "Which month sits between March and May?",
+      "expected_rubric": "April",
+      "accepted_answers": [
+        "April"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-047",
+      "category": "counting_time",
+      "prompt": "If today is Friday, what day will tomorrow be?",
+      "expected_rubric": "Saturday",
+      "accepted_answers": [
+        "Saturday"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-048",
+      "category": "counting_time",
+      "prompt": "If today is Wednesday, what day was yesterday?",
+      "expected_rubric": "Tuesday",
+      "accepted_answers": [
+        "Tuesday"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-049",
+      "category": "counting_time",
+      "prompt": "Christmas Day falls in which month?",
+      "expected_rubric": "December",
+      "accepted_answers": [
+        "December"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-050",
+      "category": "counting_time",
+      "prompt": "How many hours pass from 9 in the morning until noon?",
+      "expected_rubric": "3",
+      "accepted_answers": [
+        "3",
+        "three"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-051",
+      "category": "counting_time",
+      "prompt": "A dozen eggs means how many eggs?",
+      "expected_rubric": "12",
+      "accepted_answers": [
+        "12",
+        "twelve"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-052",
+      "category": "counting_time",
+      "prompt": "A pair of shoes is how many shoes?",
+      "expected_rubric": "2",
+      "accepted_answers": [
+        "2",
+        "two"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-053",
+      "category": "counting_time",
+      "prompt": "Halloween is celebrated in which month?",
+      "expected_rubric": "October",
+      "accepted_answers": [
+        "October"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-054",
+      "category": "counting_time",
+      "prompt": "How many days are there in the month of April?",
+      "expected_rubric": "30",
+      "accepted_answers": [
+        "30",
+        "thirty"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-055",
+      "category": "opposites",
+      "prompt": "Which word is the opposite of cheap?",
+      "expected_rubric": "expensive",
+      "accepted_answers": [
+        "expensive",
+        "costly",
+        "dear"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-056",
+      "category": "opposites",
+      "prompt": "Tell me a word that means the reverse of smooth.",
+      "expected_rubric": "rough",
+      "accepted_answers": [
+        "rough",
+        "bumpy"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-057",
+      "category": "opposites",
+      "prompt": "Sharp is the opposite of which word?",
+      "expected_rubric": "dull",
+      "accepted_answers": [
+        "dull",
+        "blunt"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-058",
+      "category": "opposites",
+      "prompt": "Which word is the opposite of tight?",
+      "expected_rubric": "loose",
+      "accepted_answers": [
+        "loose"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-059",
+      "category": "opposites",
+      "prompt": "Tell me a word that means the reverse of safe.",
+      "expected_rubric": "dangerous",
+      "accepted_answers": [
+        "dangerous",
+        "unsafe"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-060",
+      "category": "opposites",
+      "prompt": "Heavy is the opposite of which word?",
+      "expected_rubric": "light",
+      "accepted_answers": [
+        "light"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-061",
+      "category": "opposites",
+      "prompt": "Which word is the opposite of north?",
+      "expected_rubric": "south",
+      "accepted_answers": [
+        "south"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-062",
+      "category": "opposites",
+      "prompt": "Tell me a word that means the reverse of king.",
+      "expected_rubric": "queen",
+      "accepted_answers": [
+        "queen"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-063",
+      "category": "opposites",
+      "prompt": "Question is the opposite of which word?",
+      "expected_rubric": "answer",
+      "accepted_answers": [
+        "answer"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-064",
+      "category": "opposites",
+      "prompt": "Which word is the opposite of entrance?",
+      "expected_rubric": "exit",
+      "accepted_answers": [
+        "exit"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-065",
+      "category": "opposites",
+      "prompt": "Tell me a word that means the reverse of love.",
+      "expected_rubric": "hate",
+      "accepted_answers": [
+        "hate"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-066",
+      "category": "opposites",
+      "prompt": "Ancient is the opposite of which word?",
+      "expected_rubric": "modern",
+      "accepted_answers": [
+        "modern",
+        "new"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-067",
+      "category": "opposites",
+      "prompt": "Which word is the opposite of odd?",
+      "expected_rubric": "even",
+      "accepted_answers": [
+        "even"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-068",
+      "category": "opposites",
+      "prompt": "Tell me a word that means the reverse of same.",
+      "expected_rubric": "different",
+      "accepted_answers": [
+        "different"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-069",
+      "category": "opposites",
+      "prompt": "Polite is the opposite of which word?",
+      "expected_rubric": "rude",
+      "accepted_answers": [
+        "rude",
+        "impolite"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-070",
+      "category": "opposites",
+      "prompt": "Which word is the opposite of tiny?",
+      "expected_rubric": "huge",
+      "accepted_answers": [
+        "huge",
+        "enormous",
+        "giant",
+        "big",
+        "large"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-071",
+      "category": "opposites",
+      "prompt": "Tell me a word that means the reverse of whisper.",
+      "expected_rubric": "shout",
+      "accepted_answers": [
+        "shout",
+        "yell"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-072",
+      "category": "opposites",
+      "prompt": "Add is the opposite of which word?",
+      "expected_rubric": "subtract",
+      "accepted_answers": [
+        "subtract",
+        "take away",
+        "remove"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-073",
+      "category": "opposites",
+      "prompt": "Which word is the opposite of borrow?",
+      "expected_rubric": "lend",
+      "accepted_answers": [
+        "lend"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-074",
+      "category": "opposites",
+      "prompt": "Tell me a word that means the reverse of floor.",
+      "expected_rubric": "ceiling",
+      "accepted_answers": [
+        "ceiling"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-075",
+      "category": "opposites",
+      "prompt": "Top is the opposite of which word?",
+      "expected_rubric": "bottom",
+      "accepted_answers": [
+        "bottom"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-076",
+      "category": "opposites",
+      "prompt": "Which word is the opposite of catch?",
+      "expected_rubric": "throw",
+      "accepted_answers": [
+        "throw",
+        "drop"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-077",
+      "category": "opposites",
+      "prompt": "Tell me a word that means the reverse of increase.",
+      "expected_rubric": "decrease",
+      "accepted_answers": [
+        "decrease",
+        "reduce"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-078",
+      "category": "opposites",
+      "prompt": "Boy is the opposite of which word?",
+      "expected_rubric": "girl",
+      "accepted_answers": [
+        "girl"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-079",
+      "category": "plurals",
+      "prompt": "Write the plural form of the noun wife.",
+      "expected_rubric": "wives",
+      "accepted_answers": [
+        "wives"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-080",
+      "category": "plurals",
+      "prompt": "How do you say more than one half?",
+      "expected_rubric": "halves",
+      "accepted_answers": [
+        "halves"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-081",
+      "category": "plurals",
+      "prompt": "Write the plural form of the noun church.",
+      "expected_rubric": "churches",
+      "accepted_answers": [
+        "churches"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-082",
+      "category": "plurals",
+      "prompt": "How do you say more than one berry?",
+      "expected_rubric": "berries",
+      "accepted_answers": [
+        "berries"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-083",
+      "category": "plurals",
+      "prompt": "Write the plural form of the noun puppy.",
+      "expected_rubric": "puppies",
+      "accepted_answers": [
+        "puppies"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-084",
+      "category": "plurals",
+      "prompt": "How do you say more than one ox?",
+      "expected_rubric": "oxen",
+      "accepted_answers": [
+        "oxen"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-085",
+      "category": "plurals",
+      "prompt": "Write the plural form of the noun calf.",
+      "expected_rubric": "calves",
+      "accepted_answers": [
+        "calves"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-086",
+      "category": "plurals",
+      "prompt": "How do you say more than one shelf?",
+      "expected_rubric": "shelves",
+      "accepted_answers": [
+        "shelves"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-087",
+      "category": "plurals",
+      "prompt": "Write the plural form of the noun loaf.",
+      "expected_rubric": "loaves",
+      "accepted_answers": [
+        "loaves"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-088",
+      "category": "plurals",
+      "prompt": "How do you say more than one bench?",
+      "expected_rubric": "benches",
+      "accepted_answers": [
+        "benches"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-089",
+      "category": "plurals",
+      "prompt": "Write the plural form of the noun peach.",
+      "expected_rubric": "peaches",
+      "accepted_answers": [
+        "peaches"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-090",
+      "category": "plurals",
+      "prompt": "How do you say more than one kiss?",
+      "expected_rubric": "kisses",
+      "accepted_answers": [
+        "kisses"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-091",
+      "category": "plurals",
+      "prompt": "Write the plural form of the noun class.",
+      "expected_rubric": "classes",
+      "accepted_answers": [
+        "classes"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-092",
+      "category": "plurals",
+      "prompt": "How do you say more than one monkey?",
+      "expected_rubric": "monkeys",
+      "accepted_answers": [
+        "monkeys"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-093",
+      "category": "plurals",
+      "prompt": "Write the plural form of the noun family.",
+      "expected_rubric": "families",
+      "accepted_answers": [
+        "families"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-094",
+      "category": "plurals",
+      "prompt": "How do you say more than one country?",
+      "expected_rubric": "countries",
+      "accepted_answers": [
+        "countries"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-095",
+      "category": "plurals",
+      "prompt": "Write the plural form of the noun cherry.",
+      "expected_rubric": "cherries",
+      "accepted_answers": [
+        "cherries"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-096",
+      "category": "plurals",
+      "prompt": "How do you say more than one cactus?",
+      "expected_rubric": "cacti",
+      "accepted_answers": [
+        "cacti",
+        "cactuses"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-097",
+      "category": "plurals",
+      "prompt": "Write the plural form of the noun echo.",
+      "expected_rubric": "echoes",
+      "accepted_answers": [
+        "echoes"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-098",
+      "category": "plurals",
+      "prompt": "How do you say more than one thief?",
+      "expected_rubric": "thieves",
+      "accepted_answers": [
+        "thieves"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-099",
+      "category": "plurals",
+      "prompt": "Write the plural form of the noun horse.",
+      "expected_rubric": "horses",
+      "accepted_answers": [
+        "horses"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-100",
+      "category": "plurals",
+      "prompt": "How do you say more than one lunch?",
+      "expected_rubric": "lunches",
+      "accepted_answers": [
+        "lunches"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-101",
+      "category": "colors_animals",
+      "prompt": "Mixing blue paint with yellow paint gives which color?",
+      "expected_rubric": "green",
+      "accepted_answers": [
+        "green"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-102",
+      "category": "colors_animals",
+      "prompt": "Mixing red paint with white paint gives which color?",
+      "expected_rubric": "pink",
+      "accepted_answers": [
+        "pink"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-103",
+      "category": "colors_animals",
+      "prompt": "What color do red and yellow paint make together?",
+      "expected_rubric": "orange",
+      "accepted_answers": [
+        "orange"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-104",
+      "category": "colors_animals",
+      "prompt": "Coal is usually which color?",
+      "expected_rubric": "black",
+      "accepted_answers": [
+        "black"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-105",
+      "category": "colors_animals",
+      "prompt": "A ripe tomato is usually which color?",
+      "expected_rubric": "red",
+      "accepted_answers": [
+        "red"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-106",
+      "category": "colors_animals",
+      "prompt": "Polar bears have fur of which color?",
+      "expected_rubric": "white",
+      "accepted_answers": [
+        "white"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-107",
+      "category": "colors_animals",
+      "prompt": "Most crows have feathers of which color?",
+      "expected_rubric": "black",
+      "accepted_answers": [
+        "black"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-108",
+      "category": "colors_animals",
+      "prompt": "Which color on a traffic light tells cars to stop?",
+      "expected_rubric": "red",
+      "accepted_answers": [
+        "red"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-109",
+      "category": "colors_animals",
+      "prompt": "Which color on a traffic light means go?",
+      "expected_rubric": "green",
+      "accepted_answers": [
+        "green"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-110",
+      "category": "colors_animals",
+      "prompt": "Milk chocolate is usually which color?",
+      "expected_rubric": "brown",
+      "accepted_answers": [
+        "brown"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-111",
+      "category": "colors_animals",
+      "prompt": "Most pumpkins are which color?",
+      "expected_rubric": "orange",
+      "accepted_answers": [
+        "orange"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-112",
+      "category": "colors_animals",
+      "prompt": "A young cat is called a what?",
+      "expected_rubric": "kitten",
+      "accepted_answers": [
+        "kitten",
+        "kitty"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-113",
+      "category": "colors_animals",
+      "prompt": "A young dog is called a what?",
+      "expected_rubric": "puppy",
+      "accepted_answers": [
+        "puppy",
+        "pup"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-114",
+      "category": "colors_animals",
+      "prompt": "A baby sheep is called a what?",
+      "expected_rubric": "lamb",
+      "accepted_answers": [
+        "lamb"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-115",
+      "category": "colors_animals",
+      "prompt": "A baby duck is called a what?",
+      "expected_rubric": "duckling",
+      "accepted_answers": [
+        "duckling"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-116",
+      "category": "colors_animals",
+      "prompt": "A baby horse is called a what?",
+      "expected_rubric": "foal",
+      "accepted_answers": [
+        "foal",
+        "colt",
+        "filly"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-117",
+      "category": "colors_animals",
+      "prompt": "Which large gray animal has a trunk?",
+      "expected_rubric": "elephant",
+      "accepted_answers": [
+        "elephant"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-118",
+      "category": "colors_animals",
+      "prompt": "Which tall animal has a very long neck?",
+      "expected_rubric": "giraffe",
+      "accepted_answers": [
+        "giraffe"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-119",
+      "category": "colors_animals",
+      "prompt": "Which Australian animal hops and carries its baby in a pouch?",
+      "expected_rubric": "kangaroo",
+      "accepted_answers": [
+        "kangaroo"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-120",
+      "category": "colors_animals",
+      "prompt": "What sound does a pig make?",
+      "expected_rubric": "oink",
+      "accepted_answers": [
+        "oink"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-121",
+      "category": "colors_animals",
+      "prompt": "What sound does a horse make?",
+      "expected_rubric": "neigh",
+      "accepted_answers": [
+        "neigh"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-122",
+      "category": "colors_animals",
+      "prompt": "What sound does a lion make?",
+      "expected_rubric": "roar",
+      "accepted_answers": [
+        "roar"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-123",
+      "category": "colors_animals",
+      "prompt": "Which animal has black and white stripes and looks like a horse?",
+      "expected_rubric": "zebra",
+      "accepted_answers": [
+        "zebra"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-124",
+      "category": "colors_animals",
+      "prompt": "Which black and white bird cannot fly and lives in Antarctica?",
+      "expected_rubric": "penguin",
+      "accepted_answers": [
+        "penguin"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-125",
+      "category": "colors_animals",
+      "prompt": "Count the legs on a snake. How many does it have?",
+      "expected_rubric": "0",
+      "accepted_answers": [
+        "0",
+        "none",
+        "no legs"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-126",
+      "category": "colors_animals",
+      "prompt": "An octopus has how many arms?",
+      "expected_rubric": "8",
+      "accepted_answers": [
+        "8",
+        "eight"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-127",
+      "category": "geography",
+      "prompt": "Name the capital city of Germany.",
+      "expected_rubric": "Berlin",
+      "accepted_answers": [
+        "Berlin"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-128",
+      "category": "geography",
+      "prompt": "Egypt's capital city is called what?",
+      "expected_rubric": "Cairo",
+      "accepted_answers": [
+        "Cairo"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-129",
+      "category": "geography",
+      "prompt": "Name the capital city of Russia.",
+      "expected_rubric": "Moscow",
+      "accepted_answers": [
+        "Moscow"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-130",
+      "category": "geography",
+      "prompt": "China's capital city is called what?",
+      "expected_rubric": "Beijing",
+      "accepted_answers": [
+        "Beijing",
+        "Peking"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-131",
+      "category": "geography",
+      "prompt": "Name the capital city of Greece.",
+      "expected_rubric": "Athens",
+      "accepted_answers": [
+        "Athens"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-132",
+      "category": "geography",
+      "prompt": "Ireland's capital city is called what?",
+      "expected_rubric": "Dublin",
+      "accepted_answers": [
+        "Dublin"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-133",
+      "category": "geography",
+      "prompt": "Name the capital city of Portugal.",
+      "expected_rubric": "Lisbon",
+      "accepted_answers": [
+        "Lisbon"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-134",
+      "category": "geography",
+      "prompt": "Norway's capital city is called what?",
+      "expected_rubric": "Oslo",
+      "accepted_answers": [
+        "Oslo"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-135",
+      "category": "geography",
+      "prompt": "Name the capital city of Kenya.",
+      "expected_rubric": "Nairobi",
+      "accepted_answers": [
+        "Nairobi"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-136",
+      "category": "geography",
+      "prompt": "Peru's capital city is called what?",
+      "expected_rubric": "Lima",
+      "accepted_answers": [
+        "Lima"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-137",
+      "category": "geography",
+      "prompt": "On which continent is Egypt?",
+      "expected_rubric": "Africa",
+      "accepted_answers": [
+        "Africa"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-138",
+      "category": "geography",
+      "prompt": "On which continent is Brazil?",
+      "expected_rubric": "South America",
+      "accepted_answers": [
+        "South America"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-139",
+      "category": "geography",
+      "prompt": "The city of Sydney is in which country?",
+      "expected_rubric": "Australia",
+      "accepted_answers": [
+        "Australia"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-140",
+      "category": "geography",
+      "prompt": "The pyramids of Giza are in which country?",
+      "expected_rubric": "Egypt",
+      "accepted_answers": [
+        "Egypt"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-141",
+      "category": "geography",
+      "prompt": "What is the longest river in Africa?",
+      "expected_rubric": "Nile",
+      "accepted_answers": [
+        "Nile",
+        "the Nile"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-142",
+      "category": "geography",
+      "prompt": "What is the largest hot desert in the world?",
+      "expected_rubric": "Sahara",
+      "accepted_answers": [
+        "Sahara",
+        "the Sahara"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-143",
+      "category": "geography",
+      "prompt": "Which ocean lies between Europe and North America?",
+      "expected_rubric": "Atlantic",
+      "accepted_answers": [
+        "Atlantic",
+        "the Atlantic Ocean"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-144",
+      "category": "geography",
+      "prompt": "What is the tallest mountain on Earth above sea level?",
+      "expected_rubric": "Everest",
+      "accepted_answers": [
+        "Everest",
+        "Mount Everest"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-145",
+      "category": "geography",
+      "prompt": "Which icy continent surrounds the South Pole?",
+      "expected_rubric": "Antarctica",
+      "accepted_answers": [
+        "Antarctica"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-146",
+      "category": "geography",
+      "prompt": "The city of Toronto is in which country?",
+      "expected_rubric": "Canada",
+      "accepted_answers": [
+        "Canada"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-147",
+      "category": "geography",
+      "prompt": "Most people in Brazil speak which language?",
+      "expected_rubric": "Portuguese",
+      "accepted_answers": [
+        "Portuguese"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-148",
+      "category": "geography",
+      "prompt": "Most people in Mexico speak which language?",
+      "expected_rubric": "Spanish",
+      "accepted_answers": [
+        "Spanish"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-149",
+      "category": "geography",
+      "prompt": "Most people in Germany speak which language?",
+      "expected_rubric": "German",
+      "accepted_answers": [
+        "German"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-150",
+      "category": "geography",
+      "prompt": "The Statue of Liberty stands in which city?",
+      "expected_rubric": "New York",
+      "accepted_answers": [
+        "New York",
+        "New York City"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-151",
+      "category": "geography",
+      "prompt": "Which European country is shaped like a boot?",
+      "expected_rubric": "Italy",
+      "accepted_answers": [
+        "Italy"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-152",
+      "category": "geography",
+      "prompt": "The United States has how many states?",
+      "expected_rubric": "50",
+      "accepted_answers": [
+        "50",
+        "fifty"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-153",
+      "category": "science",
+      "prompt": "Which gas do people need to breathe in to stay alive?",
+      "expected_rubric": "oxygen",
+      "accepted_answers": [
+        "oxygen"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-154",
+      "category": "science",
+      "prompt": "Which gas do plants take in from the air to make food?",
+      "expected_rubric": "carbon dioxide",
+      "accepted_answers": [
+        "carbon dioxide",
+        "CO2"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-155",
+      "category": "science",
+      "prompt": "At how many degrees Celsius does pure water freeze?",
+      "expected_rubric": "0",
+      "accepted_answers": [
+        "0",
+        "zero"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-156",
+      "category": "science",
+      "prompt": "At how many degrees Celsius does pure water boil at sea level?",
+      "expected_rubric": "100",
+      "accepted_answers": [
+        "100",
+        "one hundred"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-157",
+      "category": "science",
+      "prompt": "Which force pulls a dropped ball down to the ground?",
+      "expected_rubric": "gravity",
+      "accepted_answers": [
+        "gravity"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-158",
+      "category": "science",
+      "prompt": "Which planet is closest to the sun?",
+      "expected_rubric": "Mercury",
+      "accepted_answers": [
+        "Mercury"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-159",
+      "category": "science",
+      "prompt": "Which planet is the largest in our solar system?",
+      "expected_rubric": "Jupiter",
+      "accepted_answers": [
+        "Jupiter"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-160",
+      "category": "science",
+      "prompt": "Our solar system has how many planets?",
+      "expected_rubric": "8",
+      "accepted_answers": [
+        "8",
+        "eight"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-161",
+      "category": "science",
+      "prompt": "Which organ pumps blood around the body?",
+      "expected_rubric": "heart",
+      "accepted_answers": [
+        "heart",
+        "the heart"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-162",
+      "category": "science",
+      "prompt": "Which organ inside your head do you think with?",
+      "expected_rubric": "brain",
+      "accepted_answers": [
+        "brain",
+        "the brain"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-163",
+      "category": "science",
+      "prompt": "An adult human skeleton usually has how many bones?",
+      "expected_rubric": "206",
+      "accepted_answers": [
+        "206"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-164",
+      "category": "science",
+      "prompt": "Plants need energy from which star to grow?",
+      "expected_rubric": "sun",
+      "accepted_answers": [
+        "sun",
+        "the sun"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-165",
+      "category": "science",
+      "prompt": "H2O is the chemical formula for which substance?",
+      "expected_rubric": "water",
+      "accepted_answers": [
+        "water"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-166",
+      "category": "science",
+      "prompt": "Is a whale a fish or a mammal?",
+      "expected_rubric": "mammal",
+      "accepted_answers": [
+        "mammal",
+        "a mammal"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-167",
+      "category": "science",
+      "prompt": "A caterpillar grows up to become which insect?",
+      "expected_rubric": "butterfly",
+      "accepted_answers": [
+        "butterfly",
+        "moth"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-168",
+      "category": "science",
+      "prompt": "Which star is closest to Earth?",
+      "expected_rubric": "sun",
+      "accepted_answers": [
+        "sun",
+        "the sun"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-169",
+      "category": "science",
+      "prompt": "Animals that eat only plants are called what?",
+      "expected_rubric": "herbivores",
+      "accepted_answers": [
+        "herbivores",
+        "herbivore"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-170",
+      "category": "science",
+      "prompt": "Do magnets pull on iron or on wood?",
+      "expected_rubric": "iron",
+      "accepted_answers": [
+        "iron"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-171",
+      "category": "science",
+      "prompt": "Which is heavier: one kilogram of feathers or one kilogram of stones?",
+      "expected_rubric": "neither",
+      "accepted_answers": [
+        "neither",
+        "they weigh the same",
+        "the same",
+        "same",
+        "equal"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-172",
+      "category": "science",
+      "prompt": "The moon travels around which planet?",
+      "expected_rubric": "Earth",
+      "accepted_answers": [
+        "Earth",
+        "the Earth"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-173",
+      "category": "science",
+      "prompt": "Which part of a plant usually grows under the soil?",
+      "expected_rubric": "roots",
+      "accepted_answers": [
+        "roots",
+        "root",
+        "the roots"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-174",
+      "category": "science",
+      "prompt": "A rainbow has how many colors?",
+      "expected_rubric": "7",
+      "accepted_answers": [
+        "7",
+        "seven"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-175",
+      "category": "science",
+      "prompt": "Water that falls from clouds as drops is called what?",
+      "expected_rubric": "rain",
+      "accepted_answers": [
+        "rain"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-176",
+      "category": "science",
+      "prompt": "Which of the five senses do you use with your skin?",
+      "expected_rubric": "touch",
+      "accepted_answers": [
+        "touch",
+        "feel",
+        "feeling"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-177",
+      "category": "science",
+      "prompt": "What do lungs help people do?",
+      "expected_rubric": "breathe",
+      "accepted_answers": [
+        "breathe",
+        "breathing"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-178",
+      "category": "reading",
+      "prompt": "Read this: Maya planted six tulips and two roses in her garden. How many flowers did Maya plant?",
+      "expected_rubric": "8",
+      "accepted_answers": [
+        "8",
+        "eight"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-179",
+      "category": "reading",
+      "prompt": "Read this: Omar was born in Lisbon but moved to Oslo when he was ten. Which city did Omar move to?",
+      "expected_rubric": "Oslo",
+      "accepted_answers": [
+        "Oslo"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-180",
+      "category": "reading",
+      "prompt": "Passage: The train left at noon and arrived two hours later. At what time did the train arrive?",
+      "expected_rubric": "2 pm",
+      "accepted_answers": [
+        "2 pm",
+        "2",
+        "2 o'clock",
+        "two in the afternoon"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-181",
+      "category": "reading",
+      "prompt": "Passage: Priya's kite is purple and her brother's kite is orange. What color is Priya's kite?",
+      "expected_rubric": "purple",
+      "accepted_answers": [
+        "purple"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-182",
+      "category": "reading",
+      "prompt": "Story: Hugo put his keys in the drawer and his phone on the shelf. Where are Hugo's keys?",
+      "expected_rubric": "in the drawer",
+      "accepted_answers": [
+        "in the drawer",
+        "drawer"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-183",
+      "category": "reading",
+      "prompt": "Story: Anna is older than Tom, and Tom is older than Lily. Who is the youngest?",
+      "expected_rubric": "Lily",
+      "accepted_answers": [
+        "Lily"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-184",
+      "category": "reading",
+      "prompt": "Read this: Sam bought three pears and then ate one of them. How many pears does Sam have left?",
+      "expected_rubric": "2",
+      "accepted_answers": [
+        "2",
+        "two"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-185",
+      "category": "reading",
+      "prompt": "Passage: The library opens at nine and closes at five. When does the library close?",
+      "expected_rubric": "5",
+      "accepted_answers": [
+        "5",
+        "five",
+        "five o'clock"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-186",
+      "category": "reading",
+      "prompt": "Story: Kofi gave his old bike to his cousin Ama. Who owns the bike now?",
+      "expected_rubric": "Ama",
+      "accepted_answers": [
+        "Ama"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-187",
+      "category": "reading",
+      "prompt": "Read this: The red box is on top of the blue box. Which box is underneath?",
+      "expected_rubric": "blue",
+      "accepted_answers": [
+        "blue",
+        "the blue box"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-188",
+      "category": "reading",
+      "prompt": "Passage: Mia swims on Mondays and paints on Thursdays. On which day does Mia paint?",
+      "expected_rubric": "Thursday",
+      "accepted_answers": [
+        "Thursday",
+        "Thursdays"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-189",
+      "category": "reading",
+      "prompt": "Story: Raj has two cats named Pepper and Salt. Salt is the white one. What is the white cat called?",
+      "expected_rubric": "Salt",
+      "accepted_answers": [
+        "Salt"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-190",
+      "category": "reading",
+      "prompt": "Read this: It rained all morning, so Carla took her umbrella. Why did Carla take her umbrella?",
+      "expected_rubric": "it rained",
+      "accepted_answers": [
+        "it rained",
+        "because it rained",
+        "rain",
+        "raining"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-191",
+      "category": "reading",
+      "prompt": "Passage: Dev's sandwich has cheese and tomato but no ham. Does Dev's sandwich have ham?",
+      "expected_rubric": "no",
+      "accepted_answers": [
+        "no"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-192",
+      "category": "reading",
+      "prompt": "Story: Grace ran faster than Olivia in the race. Who won the race between the two girls?",
+      "expected_rubric": "Grace",
+      "accepted_answers": [
+        "Grace"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-193",
+      "category": "reading",
+      "prompt": "Read this: The shop sells apples for 2 dollars each. Luis buys four apples. How many dollars does he pay?",
+      "expected_rubric": "8",
+      "accepted_answers": [
+        "8",
+        "eight",
+        "8 dollars"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-194",
+      "category": "reading",
+      "prompt": "Passage: Yuki wakes at seven, eats breakfast at half past seven, and leaves at eight. What does Yuki do at half past seven?",
+      "expected_rubric": "eats breakfast",
+      "accepted_answers": [
+        "eats breakfast",
+        "breakfast",
+        "she eats breakfast"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-195",
+      "category": "reading",
+      "prompt": "Story: Felix lost his blue glove in the park. His sister found it under a bench. Where was the glove found?",
+      "expected_rubric": "under a bench",
+      "accepted_answers": [
+        "under a bench",
+        "under the bench",
+        "bench"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-196",
+      "category": "reading",
+      "prompt": "Read this: A farmer has five hens and three goats. How many goats does the farmer have?",
+      "expected_rubric": "3",
+      "accepted_answers": [
+        "3",
+        "three"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-197",
+      "category": "reading",
+      "prompt": "Passage: Ines speaks Spanish at home and English at school. Which language does Ines speak at school?",
+      "expected_rubric": "English",
+      "accepted_answers": [
+        "English"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-198",
+      "category": "reading",
+      "prompt": "Story: Max poured milk into his cereal, then added sliced banana. What did Max add after the milk?",
+      "expected_rubric": "banana",
+      "accepted_answers": [
+        "banana",
+        "sliced banana",
+        "a banana"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-199",
+      "category": "reading",
+      "prompt": "Read this: The bus was late, so Zara walked to work. How did Zara get to work?",
+      "expected_rubric": "she walked",
+      "accepted_answers": [
+        "she walked",
+        "walked",
+        "walking",
+        "on foot"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-200",
+      "category": "reading",
+      "prompt": "Passage: Tariq has ten marbles. He gives four to Lena. How many marbles does Tariq keep?",
+      "expected_rubric": "6",
+      "accepted_answers": [
+        "6",
+        "six"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-201",
+      "category": "reading",
+      "prompt": "Story: The baker made twelve muffins and sold all of them before lunch. How many muffins were left?",
+      "expected_rubric": "0",
+      "accepted_answers": [
+        "0",
+        "none",
+        "zero"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-202",
+      "category": "reading",
+      "prompt": "Read this: Ella's birthday is in June and Finn's is in March. Whose birthday comes first in the year?",
+      "expected_rubric": "Finn",
+      "accepted_answers": [
+        "Finn",
+        "Finn's"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-203",
+      "category": "reading",
+      "prompt": "Passage: The pond froze in the night, and the ducks stood on the ice. What did the ducks stand on?",
+      "expected_rubric": "ice",
+      "accepted_answers": [
+        "ice",
+        "the ice"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-204",
+      "category": "reading",
+      "prompt": "Story: Aiden forgot his lunch, so his friend Noor shared her rice with him. Who shared food?",
+      "expected_rubric": "Noor",
+      "accepted_answers": [
+        "Noor"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-205",
+      "category": "reading",
+      "prompt": "Read this: The green door leads to the garden and the gray door leads to the garage. Which door leads to the garden?",
+      "expected_rubric": "green",
+      "accepted_answers": [
+        "green",
+        "the green door"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-206",
+      "category": "reading",
+      "prompt": "Passage: Ruby read forty pages on Saturday and twenty pages on Sunday. How many pages did she read over the weekend?",
+      "expected_rubric": "60",
+      "accepted_answers": [
+        "60",
+        "sixty"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-207",
+      "category": "reading",
+      "prompt": "Story: Hana's dog is called Biscuit and her fish is called Bubbles. What is the name of Hana's dog?",
+      "expected_rubric": "Biscuit",
+      "accepted_answers": [
+        "Biscuit"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-208",
+      "category": "yes_no",
+      "prompt": "Yes or no: is an elephant bigger than a mouse?",
+      "expected_rubric": "yes",
+      "accepted_answers": [
+        "yes"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-209",
+      "category": "yes_no",
+      "prompt": "Yes or no: is the sun a star?",
+      "expected_rubric": "yes",
+      "accepted_answers": [
+        "yes"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-210",
+      "category": "yes_no",
+      "prompt": "Yes or no: is a year longer than a month?",
+      "expected_rubric": "yes",
+      "accepted_answers": [
+        "yes"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-211",
+      "category": "yes_no",
+      "prompt": "Yes or no: is a mile longer than a meter?",
+      "expected_rubric": "yes",
+      "accepted_answers": [
+        "yes"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-212",
+      "category": "yes_no",
+      "prompt": "Yes or no: is 100 more than 99?",
+      "expected_rubric": "yes",
+      "accepted_answers": [
+        "yes"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-213",
+      "category": "yes_no",
+      "prompt": "Yes or no: can birds usually fly?",
+      "expected_rubric": "yes",
+      "accepted_answers": [
+        "yes"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-214",
+      "category": "yes_no",
+      "prompt": "Yes or no: is fire hotter than snow?",
+      "expected_rubric": "yes",
+      "accepted_answers": [
+        "yes"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-215",
+      "category": "yes_no",
+      "prompt": "Yes or no: does a car have more wheels than a bicycle?",
+      "expected_rubric": "yes",
+      "accepted_answers": [
+        "yes"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-216",
+      "category": "yes_no",
+      "prompt": "Yes or no: is a kilogram heavier than a gram?",
+      "expected_rubric": "yes",
+      "accepted_answers": [
+        "yes"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-217",
+      "category": "yes_no",
+      "prompt": "Yes or no: is December the last month of the year?",
+      "expected_rubric": "yes",
+      "accepted_answers": [
+        "yes"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-218",
+      "category": "yes_no",
+      "prompt": "Yes or no: is a lemon sour?",
+      "expected_rubric": "yes",
+      "accepted_answers": [
+        "yes"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-219",
+      "category": "yes_no",
+      "prompt": "Yes or no: do plants need water to live?",
+      "expected_rubric": "yes",
+      "accepted_answers": [
+        "yes"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-220",
+      "category": "yes_no",
+      "prompt": "Yes or no: is a minute shorter than an hour?",
+      "expected_rubric": "yes",
+      "accepted_answers": [
+        "yes"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-221",
+      "category": "yes_no",
+      "prompt": "Yes or no: is a mouse bigger than a horse?",
+      "expected_rubric": "no",
+      "accepted_answers": [
+        "no"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-222",
+      "category": "yes_no",
+      "prompt": "Yes or no: do cats have feathers?",
+      "expected_rubric": "no",
+      "accepted_answers": [
+        "no"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-223",
+      "category": "yes_no",
+      "prompt": "Yes or no: is Monday part of the weekend?",
+      "expected_rubric": "no",
+      "accepted_answers": [
+        "no"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-224",
+      "category": "yes_no",
+      "prompt": "Yes or no: is 3 less than 2?",
+      "expected_rubric": "no",
+      "accepted_answers": [
+        "no"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-225",
+      "category": "yes_no",
+      "prompt": "Yes or no: can a rock swim?",
+      "expected_rubric": "no",
+      "accepted_answers": [
+        "no"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-226",
+      "category": "yes_no",
+      "prompt": "Yes or no: is ice warmer than hot soup?",
+      "expected_rubric": "no",
+      "accepted_answers": [
+        "no"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-227",
+      "category": "yes_no",
+      "prompt": "Yes or no: is a week longer than a year?",
+      "expected_rubric": "no",
+      "accepted_answers": [
+        "no"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-228",
+      "category": "yes_no",
+      "prompt": "Yes or no: do fish have legs for walking?",
+      "expected_rubric": "no",
+      "accepted_answers": [
+        "no"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-229",
+      "category": "yes_no",
+      "prompt": "Yes or no: is the moon made of cheese?",
+      "expected_rubric": "no",
+      "accepted_answers": [
+        "no"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-230",
+      "category": "yes_no",
+      "prompt": "Yes or no: is a triangle a round shape?",
+      "expected_rubric": "no",
+      "accepted_answers": [
+        "no"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-231",
+      "category": "yes_no",
+      "prompt": "Yes or no: does a spoon have a sharp blade like a knife?",
+      "expected_rubric": "no",
+      "accepted_answers": [
+        "no"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-232",
+      "category": "yes_no",
+      "prompt": "Yes or no: is 50 greater than 500?",
+      "expected_rubric": "no",
+      "accepted_answers": [
+        "no"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-233",
+      "category": "abstain",
+      "prompt": "Tell me the name of my cousin.",
+      "expected_rubric": "I don't know",
+      "accepted_answers": [
+        "I don't know",
+        "you haven't told me",
+        "you have not told me",
+        "I do not know",
+        "I can't know",
+        "I cannot know",
+        "no way to know",
+        "not sure"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-234",
+      "category": "abstain",
+      "prompt": "What car do I drive?",
+      "expected_rubric": "I don't know",
+      "accepted_answers": [
+        "I don't know",
+        "you haven't told me",
+        "you have not told me",
+        "I do not know",
+        "I can't know",
+        "I cannot know",
+        "no way to know",
+        "not sure"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-235",
+      "category": "abstain",
+      "prompt": "What did I have for lunch yesterday?",
+      "expected_rubric": "I don't know",
+      "accepted_answers": [
+        "I don't know",
+        "you haven't told me",
+        "you have not told me",
+        "I do not know",
+        "I can't know",
+        "I cannot know",
+        "no way to know",
+        "not sure"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-236",
+      "category": "abstain",
+      "prompt": "How many centimeters tall am I?",
+      "expected_rubric": "I don't know",
+      "accepted_answers": [
+        "I don't know",
+        "you haven't told me",
+        "you have not told me",
+        "I do not know",
+        "I can't know",
+        "I cannot know",
+        "no way to know",
+        "not sure"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-237",
+      "category": "abstain",
+      "prompt": "Which school did I go to?",
+      "expected_rubric": "I don't know",
+      "accepted_answers": [
+        "I don't know",
+        "you haven't told me",
+        "you have not told me",
+        "I do not know",
+        "I can't know",
+        "I cannot know",
+        "no way to know",
+        "not sure"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-238",
+      "category": "abstain",
+      "prompt": "What is the name of my street?",
+      "expected_rubric": "I don't know",
+      "accepted_answers": [
+        "I don't know",
+        "you haven't told me",
+        "you have not told me",
+        "I do not know",
+        "I can't know",
+        "I cannot know",
+        "no way to know",
+        "not sure"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-239",
+      "category": "abstain",
+      "prompt": "How much money is in my wallet?",
+      "expected_rubric": "I don't know",
+      "accepted_answers": [
+        "I don't know",
+        "you haven't told me",
+        "you have not told me",
+        "I do not know",
+        "I can't know",
+        "I cannot know",
+        "no way to know",
+        "not sure"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-240",
+      "category": "abstain",
+      "prompt": "What language does my grandmother speak?",
+      "expected_rubric": "I don't know",
+      "accepted_answers": [
+        "I don't know",
+        "you haven't told me",
+        "you have not told me",
+        "I do not know",
+        "I can't know",
+        "I cannot know",
+        "no way to know",
+        "not sure"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-241",
+      "category": "abstain",
+      "prompt": "What song am I humming right now?",
+      "expected_rubric": "I don't know",
+      "accepted_answers": [
+        "I don't know",
+        "you haven't told me",
+        "you have not told me",
+        "I do not know",
+        "I can't know",
+        "I cannot know",
+        "no way to know",
+        "not sure"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-242",
+      "category": "abstain",
+      "prompt": "What is my neighbor's job?",
+      "expected_rubric": "I don't know",
+      "accepted_answers": [
+        "I don't know",
+        "you haven't told me",
+        "you have not told me",
+        "I do not know",
+        "I can't know",
+        "I cannot know",
+        "no way to know",
+        "not sure"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-243",
+      "category": "abstain",
+      "prompt": "How many books do I own?",
+      "expected_rubric": "I don't know",
+      "accepted_answers": [
+        "I don't know",
+        "you haven't told me",
+        "you have not told me",
+        "I do not know",
+        "I can't know",
+        "I cannot know",
+        "no way to know",
+        "not sure"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-244",
+      "category": "abstain",
+      "prompt": "What is my cat's favorite toy?",
+      "expected_rubric": "I don't know",
+      "accepted_answers": [
+        "I don't know",
+        "you haven't told me",
+        "you have not told me",
+        "I do not know",
+        "I can't know",
+        "I cannot know",
+        "no way to know",
+        "not sure"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-245",
+      "category": "abstain",
+      "prompt": "What will the weather be in my town next Tuesday?",
+      "expected_rubric": "I don't know",
+      "accepted_answers": [
+        "I don't know",
+        "you haven't told me",
+        "you have not told me",
+        "I do not know",
+        "I can't know",
+        "I cannot know",
+        "no way to know",
+        "not sure"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-246",
+      "category": "abstain",
+      "prompt": "Which team will win the next match I watch?",
+      "expected_rubric": "I don't know",
+      "accepted_answers": [
+        "I don't know",
+        "you haven't told me",
+        "you have not told me",
+        "I do not know",
+        "I can't know",
+        "I cannot know",
+        "no way to know",
+        "not sure"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-247",
+      "category": "abstain",
+      "prompt": "Sam has a sister. What is his sister's name?",
+      "expected_rubric": "I don't know",
+      "accepted_answers": [
+        "I don't know",
+        "you haven't told me",
+        "you have not told me",
+        "I do not know",
+        "I can't know",
+        "I cannot know",
+        "no way to know",
+        "not sure",
+        "it does not say",
+        "it doesnt say",
+        "the story does not say",
+        "not stated",
+        "not mentioned"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-248",
+      "category": "abstain",
+      "prompt": "A box is sitting on the table. What is inside the box?",
+      "expected_rubric": "I don't know",
+      "accepted_answers": [
+        "I don't know",
+        "you haven't told me",
+        "you have not told me",
+        "I do not know",
+        "I can't know",
+        "I cannot know",
+        "no way to know",
+        "not sure",
+        "it does not say",
+        "it doesnt say",
+        "the story does not say",
+        "not stated",
+        "not mentioned"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-249",
+      "category": "abstain",
+      "prompt": "Lucy went to a shop. What did Lucy buy there?",
+      "expected_rubric": "I don't know",
+      "accepted_answers": [
+        "I don't know",
+        "you haven't told me",
+        "you have not told me",
+        "I do not know",
+        "I can't know",
+        "I cannot know",
+        "no way to know",
+        "not sure",
+        "it does not say",
+        "it doesnt say",
+        "the story does not say",
+        "not stated",
+        "not mentioned"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-250",
+      "category": "abstain",
+      "prompt": "A man walked into the room. How old is the man?",
+      "expected_rubric": "I don't know",
+      "accepted_answers": [
+        "I don't know",
+        "you haven't told me",
+        "you have not told me",
+        "I do not know",
+        "I can't know",
+        "I cannot know",
+        "no way to know",
+        "not sure",
+        "it does not say",
+        "it doesnt say",
+        "the story does not say",
+        "not stated",
+        "not mentioned"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-251",
+      "category": "abstain",
+      "prompt": "Pedro wrote a letter to a friend. What did the letter say?",
+      "expected_rubric": "I don't know",
+      "accepted_answers": [
+        "I don't know",
+        "you haven't told me",
+        "you have not told me",
+        "I do not know",
+        "I can't know",
+        "I cannot know",
+        "no way to know",
+        "not sure",
+        "it does not say",
+        "it doesnt say",
+        "the story does not say",
+        "not stated",
+        "not mentioned"
+      ],
+      "task_type": "language_generation"
+    },
+    {
+      "id": "everyday-v1-252",
+      "category": "abstain",
+      "prompt": "There is a jar of coins on the shelf. Exactly how many coins are in the jar?",
+      "expected_rubric": "I don't know",
+      "accepted_answers": [
+        "I don't know",
+        "you haven't told me",
+        "you have not told me",
+        "I do not know",
+        "I can't know",
+        "I cannot know",
+        "no way to know",
+        "not sure",
+        "it does not say",
+        "it doesnt say",
+        "the story does not say",
+        "not stated",
+        "not mentioned"
+      ],
+      "task_type": "language_generation"
+    }
+  ]
+}

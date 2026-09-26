@@ -19,6 +19,16 @@ DATA_HASHES = {
     "dev": "11c9eb1675128eb3d76ca735f58e208ee56f528c5f69db7703c4d265bbba3cd8",
     "test": "38f3de1c8a8cc959e7fde4788a96d86b4eff90663dacd8c54d6953ff775c2dc2",
 }
+# The questions stage stopped on its time budget (at most 3.5 h) at step 3142, the resume step
+# kaggle_efficient_run.py pins, so one optimizer step took at most about 4 s on a T4. Overestimating
+# the step time errs toward a horizon that finishes (and fully anneals) before the budget runs out.
+OBSERVED_SECONDS_PER_STEP = 3.5 * 3600 / 3142
+WARMUP_STEPS = 200
+
+
+def stage_steps(budget: float) -> int:
+    # A horizon the budget can reach lets the cosine schedule anneal instead of staying near peak.
+    return max(WARMUP_STEPS + 1, int(budget / OBSERVED_SECONDS_PER_STEP))
 
 
 def prepare_data(root: Path, parent: Path) -> dict:
@@ -91,10 +101,10 @@ def train_stage(torch, root: Path, source: Path, name: str, budget: float) -> tu
     train_name, eval_name = ("broad_train", "broad_eval") if name == "english" else ("qa_train", "qa_dev")
     command = [sys.executable, "-m", "cognition_slm.train", "--resume", str(initialization),
                "--data", f"artifacts/{train_name}.jsonl", "--eval-data", f"artifacts/{eval_name}.jsonl",
-               "--out", str(output), "--steps", "100000", "--max-seconds", str(budget),
+               "--out", str(output), "--steps", str(stage_steps(budget)), "--max-seconds", str(budget),
                "--learning-rate", "0.0001" if name == "english" else "0.00005",
                "--batch-size", "1", "--gradient-accumulation-steps", "8", "--gradient-checkpointing",
-               "--precision", "fp16", "--device", "cuda", "--warmup-steps", "200",
+               "--precision", "fp16", "--device", "cuda", "--warmup-steps", str(WARMUP_STEPS),
                "--save-every", "250", "--eval-every", "500", "--log-every", "50", "--seed", "97"]
     log_path = root / f"long_{name}_training.log"
     with log_path.open("w") as log:

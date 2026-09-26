@@ -25,6 +25,31 @@ def context_key(raw: dict) -> str:
     return hashlib.sha256(normalized(raw["context"]).encode()).hexdigest()
 
 
+def spread_holdout(validation: list, parity: int, count: int) -> list:
+    # Round-robin over contexts: every passage gives its first question before any gives a second,
+    # so a fixed-size prefix spans as many passages as possible.
+    rank, seen = [], {}
+    for key, raw, row in validation:
+        if int(key, 16) % 2 == parity:
+            rank.append((seen.get(key, 0), key, raw["id"], raw, row))
+            seen[key] = seen.get(key, 0) + 1
+    rank.sort(key=lambda item: item[:3])
+    return [(row, raw["answers"]["text"]) for _, _, _, raw, row in rank[:count]]
+
+
+def passage(prompt: str) -> str:
+    return prompt.split("\n\nPassage: ", 1)[-1].rsplit("\n\nQuestion:", 1)[0]
+
+
+def shuffled_prompts(prompts: list[str]) -> list[str]:
+    # The control must condition on a different passage; a neighbour usually shares this one.
+    keys = [passage(prompt) for prompt in prompts]
+    for shift in range(1, len(prompts)):
+        if all(keys[i] != keys[(i + shift) % len(keys)] for i in range(len(keys))):
+            return [prompts[(i + shift) % len(prompts)] for i in range(len(prompts))]
+    raise RuntimeError("Shuffled-prompt control needs items from more than one passage")
+
+
 def prepare_data(root: Path, parent: Path) -> tuple[list, list, dict]:
     from datasets import load_dataset
     from cognition_slm.data import load_jsonl
@@ -42,8 +67,8 @@ def prepare_data(root: Path, parent: Path) -> tuple[list, list, dict]:
             validation.append((context_key(raw), raw, row))
     validation.sort(key=lambda item: (item[0], item[1]["id"]))
     # Contexts, not individual questions, define the development/test partition.
-    dev = [(row, raw["answers"]["text"]) for key, raw, row in validation if int(key, 16) % 2 == 0][:64]
-    test = [(row, raw["answers"]["text"]) for key, raw, row in validation if int(key, 16) % 2 == 1][:128]
+    dev = spread_holdout(validation, 0, 64)
+    test = spread_holdout(validation, 1, 128)
     if len(dev) != 64 or len(test) != 128:
         raise RuntimeError("Insufficient complete SQuAD holdouts within the byte budget")
     excluded_contexts = {key for key, _, _ in validation}
@@ -94,7 +119,8 @@ def evaluate(torch, checkpoint: Path, root: Path, label: str, items: list) -> di
         raise RuntimeError(f"Expected 499524075 parameters, got {parameters}")
     model.eval()
     examples = [validate_record(row) for row, _ in items[:16]]
-    shuffled = [replace(row, prompt=examples[(i + 1) % len(examples)].prompt) for i, row in enumerate(examples)]
+    shuffled = [replace(row, prompt=prompt)
+                for row, prompt in zip(examples, shuffled_prompts([row.prompt for row in examples]))]
     result = {"parameters": parameters, "conditioning": {}, "rows": []}
     for name, rows in (("correct_prompt", examples), ("shuffled_prompt", shuffled)):
         encoded = encode_examples(rows, tokenizer, model.config.block_size)

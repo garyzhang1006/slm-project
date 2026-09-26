@@ -11,6 +11,20 @@ import sys
 import time
 
 
+# Unseen wordings of the original probe skills; main() rejects any that match a training prompt.
+QUALITY_PROBES = (
+    ("hi", "hello there", "language_generation", 64),
+    ("grammar", "Correct the grammar: He run to the store every morning.", "language_generation", 48),
+    ("concept", "Explain what a tuple is in plain English.", "language_generation", 96),
+    ("code_simple", "Write a Python function named halve that returns half of a number.", "code_generation", 96),
+    ("code_dedupe", "Write a Python function named unique_words that returns the distinct words of a sentence in first-seen order.", "code_generation", 96),
+    ("code_debugging", "Fix this Python function: def halve(value) return value / 2", "code_debugging", 96),
+    ("code_explanation", "Why use a dictionary for lookups by key?", "code_explanation", 96),
+    ("algorithm", "Describe the core idea behind merge sort.", "algorithm_reasoning", 96),
+    ("capabilities", "What kinds of tasks can you do for me?", "language_generation", 96),
+)
+
+
 def _combined_curriculum(root: Path):
     from build_curriculum_data import build_rows, write_jsonl
     from cognition_slm.data import load_jsonl
@@ -50,6 +64,25 @@ def _final_training_report(stdout: str) -> dict:
     return json.loads("\n".join(lines[start:]))
 
 
+def _probes_in_training(probes, train_path: Path) -> list[str]:
+    # Probes that repeat a training prompt measure recall, not quality.
+    train_prompts = {" ".join(json.loads(line)["prompt"].casefold().split())
+                     for line in train_path.read_text().splitlines() if line.strip()}
+    return [name for name, prompt, _, _ in probes if " ".join(prompt.casefold().split()) in train_prompts]
+
+
+def _run_logged(command: list[str], log_path: Path) -> None:
+    # Stream the child log so a crash or session kill still leaves its traceback on disk and stdout.
+    with log_path.open("w") as log:
+        with subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True) as process:
+            for line in process.stdout:
+                log.write(line)
+                log.flush()
+                print(line, end="", flush=True)
+            if process.wait() != 0:
+                raise RuntimeError(f"500M training failed; see {log_path.name}")
+
+
 def main() -> None:
     if not Path("/kaggle/working").is_dir():
         raise RuntimeError("This runner requires Kaggle; no local training is permitted")
@@ -74,6 +107,9 @@ def main() -> None:
 
     started = time.monotonic()
     train_path, eval_path, curriculum = _combined_curriculum(root)
+    leaked = _probes_in_training(QUALITY_PROBES, train_path)
+    if leaked:
+        raise RuntimeError(f"Quality probes duplicate training prompts: {leaked}")
     subprocess.run([sys.executable, "-m", "cognition_slm.audit", "--train", str(train_path), "--eval", str(eval_path)], check=True)
     checkpoint = root / "artifacts/slm-500m-language-quality.pt"
     command = [
@@ -85,51 +121,16 @@ def main() -> None:
         "--warmup-steps", "100", "--save-every", "200", "--eval-every", "300",
         "--log-every", "100", "--seed", "17",
     ]
-    training = subprocess.run(command, check=True, capture_output=True, text=True)
+    log_path = root / "quality_500m_training.log"
+    _run_logged(command, log_path)
     model, tokenizer = load_checkpoint(checkpoint, torch.device("cuda"))
     parameters = sum(parameter.numel() for parameter in model.parameters())
     if parameters != 499_524_075:
         raise RuntimeError(f"unexpected 500M parameter count: {parameters}")
     probes = {
-        "hi": generate_text(
-            model, tokenizer, "hi", task_type="language_generation",
-            max_new_tokens=64, temperature=0, top_k=0,
-        ),
-        "grammar": generate_text(
-            model, tokenizer, "Correct the grammar: She walk to school.",
-            task_type="language_generation", max_new_tokens=48, temperature=0, top_k=0,
-        ),
-        "concept": generate_text(
-            model, tokenizer, "Explain what a loop is in plain English.",
-            task_type="language_generation", max_new_tokens=96, temperature=0, top_k=0,
-        ),
-        "code_square": generate_text(
-            model, tokenizer,
-            "Write a Python function named square that returns the square of a number.",
-            task_type="code_generation", max_new_tokens=96, temperature=0, top_k=0,
-        ),
-        "code_dedupe": generate_text(
-            model, tokenizer,
-            "Write a Python function named dedupe that removes duplicates while preserving order.",
-            task_type="code_generation", max_new_tokens=96, temperature=0, top_k=0,
-        ),
-        "code_debugging": generate_text(
-            model, tokenizer,
-            "Fix this Python function: def add(left, right) return left + right",
-            task_type="code_debugging", max_new_tokens=96, temperature=0, top_k=0,
-        ),
-        "code_explanation": generate_text(
-            model, tokenizer, "Why use a set for membership checks?",
-            task_type="code_explanation", max_new_tokens=96, temperature=0, top_k=0,
-        ),
-        "algorithm": generate_text(
-            model, tokenizer, "Describe the core idea behind binary search.",
-            task_type="algorithm_reasoning", max_new_tokens=96, temperature=0, top_k=0,
-        ),
-        "capabilities": generate_text(
-            model, tokenizer, "What can you help me with?", task_type="language_generation",
-            max_new_tokens=96, temperature=0, top_k=0,
-        ),
+        name: generate_text(model, tokenizer, prompt, task_type=task,
+                            max_new_tokens=max_new_tokens, temperature=0, top_k=0)
+        for name, prompt, task, max_new_tokens in QUALITY_PROBES
     }
     report = {
         "kernel_purpose": "500M Studio quality checkpoint; project-authored synthetic English and Python curriculum",
@@ -140,7 +141,7 @@ def main() -> None:
         "gpu": torch.cuda.get_device_name(0),
         "checkpoint": str(checkpoint.relative_to(root)),
         "curriculum": curriculum,
-        "training": _final_training_report(training.stdout),
+        "training": _final_training_report(log_path.read_text()),
         "probes": probes,
         "elapsed_seconds": round(time.monotonic() - started, 2),
     }

@@ -192,6 +192,63 @@ class TrainingIntegrationTests(unittest.TestCase):
         saved = torch.load(resumed["checkpoint"], weights_only=True)
         self.assertEqual(saved["metadata"]["samples_seen"], 12)
 
+    def test_resume_rejects_changed_training_data_unless_allowed(self):
+        import json
+        import torch
+        from cognition_slm.train import train
+
+        parent = train(self.args("parent.pt", steps=1))
+        saved = torch.load(parent["checkpoint"], weights_only=True)["metadata"]
+        self.assertEqual(saved["training_source"], str(self.data.resolve()))
+        self.assertEqual(saved["block_size"], 256)
+        other = self.root / "other.jsonl"
+        other.write_text(json.dumps({
+            "id": "x", "prompt": "Explain.", "answer": "Because.", "task_type": "code_generation",
+            "confidence": 0.5, "error_category": "none", "source": "test", "license": "CC0-1.0",
+        }))
+        with self.assertRaisesRegex(ValueError, "records 2 -> 1.*training_source_sha256.*--allow-data-change"):
+            train(self.args("rejected.pt", data=str(other), resume=parent["checkpoint"], steps=2))
+        text = self.root / "web.txt"
+        text.write_text("raw pretraining text for the objective check")
+        with self.assertRaisesRegex(ValueError, "objective 'sft' -> 'pretrain'"):
+            train(self.args("objective.pt", data=None, pretrain_text=str(text),
+                            resume=parent["checkpoint"], steps=2))
+        allowed = train(self.args("allowed.pt", data=str(other), resume=parent["checkpoint"], steps=2,
+                                  allow_data_change=True))
+        self.assertEqual(allowed["resumed_from_step"], 1)
+        saved = torch.load(allowed["checkpoint"], weights_only=True)["metadata"]
+        # The sample stream restarted at 0 and drew one batch of 2 from the new data.
+        self.assertEqual(saved["samples_seen"], 2)
+        self.assertEqual(saved["training_source"], str(other.resolve()))
+
+    def test_resume_without_data_fingerprint_warns(self):
+        import torch
+        from cognition_slm.train import train
+
+        parent = train(self.args("parent.pt", steps=1))
+        payload = torch.load(parent["checkpoint"], weights_only=True)
+        for key in ("training_source", "training_source_sha256", "block_size", "records"):
+            del payload["metadata"][key]
+        legacy = self.root / "legacy.pt"
+        torch.save(payload, legacy)
+        with self.assertWarnsRegex(UserWarning, "predates training-source metadata"):
+            resumed = train(self.args("resumed.pt", resume=str(legacy), steps=2))
+        self.assertEqual(resumed["resumed_from_step"], 1)
+
+    def test_allow_data_change_requires_resume(self):
+        import contextlib
+        import io
+        import sys
+        from unittest.mock import patch
+        from cognition_slm.train import main
+
+        argv = ["train", "--data", str(self.data), "--allow-data-change"]
+        with contextlib.redirect_stderr(io.StringIO()) as stderr, patch.object(sys, "argv", argv):
+            with self.assertRaises(SystemExit) as raised:
+                main()
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("--allow-data-change requires --resume", stderr.getvalue())
+
     def test_accumulation_matches_combined_batch_with_unequal_lengths(self):
         import torch
         from cognition_slm.train import train
@@ -326,7 +383,8 @@ class TrainingIntegrationTests(unittest.TestCase):
             "model_config": config.to_dict(), "model_state_dict": model.state_dict(),
             "optimizer_state_dict": optimizer.state_dict(), "metadata": {"step": 0},
         }, checkpoint)
-        result = train(self.args("legacy-resumed.pt", resume=str(checkpoint), steps=1))
+        with self.assertWarnsRegex(UserWarning, "predates training-source metadata"):
+            result = train(self.args("legacy-resumed.pt", resume=str(checkpoint), steps=1))
         saved = torch.load(result["checkpoint"], weights_only=True)
         self.assertEqual(len(saved["optimizer_state_dict"]["param_groups"]), 1)
         self.assertEqual(saved["model_config"]["architecture"], "legacy")

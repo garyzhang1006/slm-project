@@ -13,10 +13,15 @@ class PretrainDataTests(unittest.TestCase):
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
 
-    def test_txt_is_one_document_and_jsonl_reads_text_fields(self):
+    def test_txt_splits_on_blank_lines_and_jsonl_reads_text_fields(self):
         text = self.root / "web.txt"
-        text.write_text("first line\n\nsecond paragraph\n", encoding="utf-8")
-        self.assertEqual(load_pretrain_text(text), ["first line\n\nsecond paragraph\n"])
+        text.write_text("first line\nstill first\n", encoding="utf-8")
+        self.assertEqual(load_pretrain_text(text), ["first line\nstill first\n"])
+        text.write_text("first\n\nsecond\r\n \t\r\n\n\nthird\ffourth\f\f\n\n", encoding="utf-8")
+        self.assertEqual(load_pretrain_text(text), ["first", "second", "third", "fourth"])
+        rows = pack_pretrain_text(load_pretrain_text(text), ByteTokenizer(), 128)
+        self.assertEqual(rows[0]["input_ids"].count(BOS_ID), 4)
+        self.assertEqual(rows[0]["input_ids"].count(EOS_ID), 4)
         records = self.root / "web.jsonl"
         records.write_text('{"text": "alpha"}\n\n{"text": "beta", "url": "x"}\n', encoding="utf-8")
         self.assertEqual(load_pretrain_text(records), ["alpha", "beta"])

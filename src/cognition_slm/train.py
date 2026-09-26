@@ -8,13 +8,14 @@ import math
 import os
 import random
 import tempfile
+import warnings
 from functools import lru_cache
 from pathlib import Path
 from time import monotonic
 
 from .checkpoint import load_checkpoint_payload
 from .config import MODEL_PRESETS, ModelConfig
-from .data import encode_examples, load_jsonl, load_pretrain_text, pack_pretrain_text
+from .data import encode_examples, file_sha256, load_jsonl, load_pretrain_text, pack_pretrain_text
 from .tokenizer import ByteTokenizer
 
 DEFAULT_LEARNING_RATE = 3e-4
@@ -221,6 +222,13 @@ def _scaled_optimizer_step(scaler, optimizer, scheduler) -> bool:
     return succeeded
 
 
+def _training_source_changes(metadata: dict, current: dict) -> list[str] | None:
+    """Recorded fields that differ from this run, or None for checkpoints without a data fingerprint."""
+    changes = [f"{key} {metadata[key]!r} -> {value!r}" for key, value in current.items()
+               if key in metadata and metadata[key] != value]
+    return changes if "training_source_sha256" in metadata else None
+
+
 def _runtime_options(args):
     precision = getattr(args, "precision", "fp32")
     accumulation = getattr(args, "gradient_accumulation_steps", 1)
@@ -303,6 +311,33 @@ def train(args: argparse.Namespace) -> dict:
             "status": "dry-run",
         }
 
+    source_path = Path(pretrain_text or args.data).resolve()
+    source_sha256 = file_sha256(source_path)
+    data_changed = False
+    if checkpoint is not None:
+        recorded = checkpoint.get("metadata")
+        recorded = recorded if isinstance(recorded, dict) else {}
+        # The path is reported but not compared: the same file mounts at new paths across sessions.
+        changes = _training_source_changes(recorded, {
+            "objective": objective, "block_size": config.block_size,
+            "records": len(examples), "training_source_sha256": source_sha256,
+        })
+        if changes is None:
+            warnings.warn(
+                f"{args.resume} predates training-source metadata, so its data cannot be compared "
+                f"with {source_path}; resuming without the check", stacklevel=2,
+            )
+        elif changes:
+            detail = (f"{'; '.join(changes)} (checkpoint trained on "
+                      f"{recorded.get('training_source')}, this run reads {source_path})")
+            if not getattr(args, "allow_data_change", False):
+                raise ValueError(
+                    f"--resume {args.resume} was trained on different data: {detail}. Pass "
+                    "--allow-data-change to continue from its weights on this data with samples_seen reset to 0"
+                )
+            data_changed = True
+            print(f"allow_data_change: {detail}; samples_seen reset to 0")
+
     if torch is None:
         torch = _import_torch()
     from .model import CognitionSLM
@@ -368,6 +403,9 @@ def train(args: argparse.Namespace) -> dict:
             sample_offset = int(samples_seen) if isinstance(samples_seen, int) else (
                 start_step * args.batch_size * accumulation
             )
+    if data_changed:
+        # The old sample position indexes a permutation of different rows.
+        sample_offset = 0
     if start_step >= args.steps:
         raise ValueError(f"--steps must exceed checkpoint step {start_step}")
     scheduler = torch.optim.lr_scheduler.LambdaLR(
@@ -426,6 +464,8 @@ def train(args: argparse.Namespace) -> dict:
             "metadata": {
                 "records": len(examples), "steps": step, "step": step,
                 "objective": objective, "packed_rows": len(encoded),
+                "training_source": str(source_path), "training_source_sha256": source_sha256,
+                "block_size": config.block_size,
                 "aux_loss_weight": aux_loss_weight,
                 "requested_steps": args.steps, "completed_steps": step - start_step,
                 "stopped_reason": stopped_reason, "duration_seconds": duration_seconds,
@@ -580,9 +620,11 @@ def build_parser() -> argparse.ArgumentParser:
     source.add_argument("--data", help="Supervised JSONL records (prompt-masked loss plus auxiliary heads)")
     source.add_argument(
         "--pretrain-text",
-        help="Raw pretraining text: a .txt file (one document) or .jsonl with a \"text\" field per line. "
-             "Documents are joined with EOS, packed into block_size rows, trained with next-token loss "
-             "on every position, and skip the task/error/confidence losses",
+        help="Raw pretraining text: a .jsonl file with a \"text\" field per line, or any other file read "
+             "as plain text and split into documents at form feeds and at blank lines (a newline followed "
+             "by one or more whitespace-only lines); a file with neither is one document. "
+             "Each document gets BOS/EOS, and documents are packed into block_size rows, trained with "
+             "next-token loss on every position, and skip the task/error/confidence losses",
     )
     parser.add_argument("--out", default="artifacts/demo.pt")
     parser.add_argument("--steps", type=int, default=100)
@@ -624,6 +666,11 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--eval-every", type=int, default=20)
     parser.add_argument("--resume")
+    parser.add_argument(
+        "--allow-data-change", action="store_true",
+        help="With --resume, accept a checkpoint recorded with a different training file, objective, or "
+             "block size (for example SFT from pretrained weights); the sample stream restarts at 0",
+    )
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--device", default="auto")
     parser.add_argument("--dry-run", action="store_true")
@@ -662,6 +709,8 @@ def main() -> None:
         parser.error("--override-learning-rate requires --resume and --learning-rate")
     if args.eval_data and args.pretrain_eval_text:
         parser.error("--eval-data cannot be combined with --pretrain-eval-text")
+    if args.allow_data_change and not args.resume:
+        parser.error("--allow-data-change requires --resume")
     train_path = Path(args.data or args.pretrain_text).resolve()
     for flag, path in (("--eval-data", args.eval_data), ("--pretrain-eval-text", args.pretrain_eval_text)):
         if path and Path(path).resolve() == train_path:

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable
@@ -33,6 +35,8 @@ ALLOWED_FIELDS = {
     "license",
 }
 MAX_TEXT_CHARS = 100_000
+# A form feed, or a newline followed by one or more whitespace-only lines, ends a .txt document.
+TEXT_DOCUMENT_BREAK = re.compile(r"\f|\r?\n(?:[ \t\r\v]*\n)+")
 
 
 @dataclass(frozen=True)
@@ -209,8 +213,17 @@ def encode_examples(
     return encoded
 
 
+def file_sha256(path: str | Path) -> str:
+    digest = hashlib.sha256()
+    with Path(path).open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
 def load_pretrain_text(path: str | Path) -> list[str]:
-    """Read raw documents: a .jsonl file with a "text" field per line, else one whole-file document."""
+    """Read raw documents: a .jsonl file with a "text" field per line, else a text file split on
+    TEXT_DOCUMENT_BREAK (blank lines or form feeds); a file without breaks stays one document."""
     path = Path(path)
     if not path.exists():
         raise FileNotFoundError(path)
@@ -218,7 +231,9 @@ def load_pretrain_text(path: str | Path) -> list[str]:
         text = path.read_text(encoding="utf-8")
         if not text.strip():
             raise DataValidationError(f"{path}: text file is empty")
-        return [text]
+        if not TEXT_DOCUMENT_BREAK.search(text):
+            return [text]
+        return [document for document in TEXT_DOCUMENT_BREAK.split(text) if document.strip()]
     documents: list[str] = []
     with path.open("r", encoding="utf-8") as handle:
         for record_number, line in enumerate(handle, start=1):

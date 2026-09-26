@@ -6,8 +6,10 @@ const encoder = new TextEncoder();
 const labels = Object.fromEntries([...$("task-type").options].map((option) => [option.value, option.text]));
 
 function settings() {
+  // Number("") is 0 (unrestricted sampling), so a cleared field must stay invalid instead.
+  const topK = $("top-k").value.trim();
   return { task_type: $("task-type").value, temperature: Number($("temperature").value),
-    max_new_tokens: Number($("max-tokens").value), top_k: Number($("top-k").value) };
+    max_new_tokens: Number($("max-tokens").value), top_k: topK === "" ? NaN : Number(topK) };
 }
 
 function promptTokens() {
@@ -82,7 +84,8 @@ function renderRun(run, loading = false) {
     return;
   }
   const response = run.result;
-  const hasText = Boolean(response.text?.trim());
+  // Abstentions carry fallback text; show the empty state instead of copyable excerpts.
+  const hasText = grounded ? !response.abstained && Boolean(response.sources?.length) : Boolean(response.text?.trim());
   container.append(element("pre", `response-text${hasText ? "" : " empty-response"}`, hasText ? response.text : grounded ? "No relevant excerpts found in your reference text." : "The model returned no visible text. Try another prompt or a higher temperature; this checkpoint is still at an early training stage."));
   if (hasText) {
     const copy = element("button", "copy-button", grounded ? "Copy excerpts" : "Copy response");

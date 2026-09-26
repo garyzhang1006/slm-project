@@ -1,52 +1,50 @@
 # slm project
 
-A decoder-only small language model for coding and language experiments, with a 2048-byte-token training context and 50M and 500M-class presets. It studies generation and observable model behavior.
+A small language model I'm building from scratch: decoder-only transformer, byte-level tokenizer, 2048-byte context, and presets from a tiny demo up to about 500M parameters. It's a learning project, so expect rough edges.
 
-The project studies behavior, not hidden chain-of-thought. Each training example carries a coding or language task, an answer, a task type, a confidence bucket, an error category, and a source/license record. The transformer learns next-token prediction while small auxiliary heads predict the task type, error category, and confidence bucket.
+Besides predicting the next token, the model has three little side heads that guess the task type, the kind of error, and how confident it should be. That's just behavior you can observe, not a peek into hidden thoughts, and the data schema flat out refuses fields like `chain_of_thought`.
 
-## What is included
+## Where it's at (honest version)
 
-- Byte-level tokenizer with no downloaded vocabulary.
-- Causal transformer implemented in PyTorch, with demo, `slm-50m`, and `slm-500m` presets.
-- Selectable legacy or modern transformer blocks with rotary positions, RMSNorm, SwiGLU, and tied embeddings.
-- JSONL data schema with validation and license metadata.
-- Project-authored synthetic data for coding and language-generation tasks.
-- Training, generation, evaluation, audit, and checkpoint-benchmark CLIs.
-- Tests for data and tokenizer paths, plus model tests when PyTorch is installed.
-- Prompt-only pooling for cognition heads, answer-focused language loss, resumable training, validation checkpoints, and calibrated evaluation metrics.
-- Static Python syntax and required-symbol checks, plus optional multi-candidate reranking without code execution.
-- Optimized scaled dot-product attention, CUDA mixed precision, gradient accumulation, and optional activation checkpointing.
-- Periodic atomic checkpoints with optimizer, scheduler, gradient scaler, and random state for interrupted training.
+The 500M model is real (exactly 499,524,075 parameters) but it can't hold a conversation yet. It scored 30/64 on held-out template questions, only 3/24 on everyday questions, and 0/12 on unseen question probes. The problem is data, not code: it has seen well under 1% of the text a model this size needs. See [measured results](docs/elementary-results.md) and the [500M audit](reports/slm-500m-code-and-capability-audit.md) for the gory details.
 
-This is a mini project. The demo corpus is intentionally too small to produce a useful coding assistant. It proves the pipeline shape, not model quality.
+The plan to fix that lives in [`compute/`](compute/README.md). Short version: either LoRA-tune a small open model (one Kaggle session) or pretrain the new `slm-160m` on real text and then fine-tune it (roughly 35 hours of Kaggle T4 time, by estimate).
 
-## Local Studio
+## What's in the box
 
-Studio opens in **Source excerpts** mode: paste reference text and ask a question to retrieve up to three verbatim excerpts with `[S1]` citations. Missing references or insufficient keyword overlap produce an explicit fallback. This mode uses no model inference. Citations identify excerpts from your pasted text, not independently verified publications; relevance, source truth, and conflicting claims still need judgment. It does not improve the model's learned English or establish a lower measured hallucination rate.
+- A byte tokenizer, so there's no vocab file to download.
+- A PyTorch transformer with a legacy block or a modern one (RoPE, RMSNorm, SwiGLU, tied embeddings).
+- Presets: `demo`, `slm-50m`, `slm-160m` (new models get a GPT-2 style scaled init), and `slm-500m`.
+- A JSONL data schema with validation, license tracking, and a secret scanner.
+- CLIs to train, generate, evaluate, audit data, and benchmark checkpoints.
+- Two training modes: instruction/answer SFT, and packed raw-text pretraining (`--pretrain-text`) that trains on every token.
+- Mixed precision, gradient accumulation, activation checkpointing, and checkpoints you can resume exactly, sample order included.
+- Studio, a little local web UI for poking at the model.
+- A "context therapist" that checks long chat histories for drift and contradictions.
+- Around 290 tests.
 
-To serve only this mode without loading any checkpoint, use an installed Python environment:
-
-```bash
-PYTHONPATH=src python -m cognition_slm.server --sources-only
-```
-
-The launcher also supports `./launch-studio.command --sources-only`; this skips PyTorch installation and import checks. A Python 3.13 environment is still required or created with `uv`.
-
-Reference text is limited to 12,000 UTF-8 bytes and questions to 2,000 bytes. Nothing is fetched from external URLs. Sources remain in page memory until refresh and are sent only to the Studio server for that request. **Model response** mode retains experimental, ungrounded generation and requires loaded weights. Starting Studio normally still loads weights; use `--sources-only` to prevent that.
-
-Open `launch-studio.command` in Finder, or run it from this project:
+## Studio
 
 ```bash
 ./launch-studio.command
 ```
 
-Visit [SLM Studio](http://127.0.0.1:8766). The first launch creates a separate Python 3.13 environment named `.venv-ui-py313` with `uv` if needed; subsequent launches reuse it. Keep the terminal open, and press Control-C to stop. If you prefer manual setup, create `.venv-ui-py313`, install `.[dev]`, and run `PYTHONPATH=src .venv-ui-py313/bin/python -m cognition_slm.server`. The launcher checks PyTorch with a 30-second deadline and reports import failures instead of waiting indefinitely. Inference memory-maps ZIP checkpoints and excludes optimizer state; training resume still loads its full state.
+Then open [http://127.0.0.1:8766](http://127.0.0.1:8766). The first launch builds a Python 3.13 environment called `.venv-ui-py313` with `uv`, and later launches reuse it. Keep the terminal open and hit Control-C when you're done.
 
-Studio defaults to `artifacts/slm-500m-language-quality.pt` and checks that it contains exactly 499,524,075 model parameters. Missing weights produce an error; Studio never silently falls back to a smaller checkpoint. Weights are not included in Git: download the completed Kaggle quality checkpoint into that path before launching. To deliberately use another checkpoint, supply `./launch-studio.command --checkpoint /path/to/model.pt`. An occupied port can be changed with `--port 8767`.
+Studio has two modes:
 
-The interface includes starter prompts, task selection, temperature and response-length controls, context budgeting, response copying, and session history. Language generation is the first-run task; code starter cards select code tasks explicitly. Each prompt is independent; history is kept in page memory and clears on refresh. Prompts stay on your machine. Model text is displayed without execution.
+- **Source excerpts** is the default. Paste some reference text, ask a question, and you get up to three quotes from your text with `[S1]`-style citations. No model is involved, and when nothing in your text matches, it says so instead of making something up.
+- **Model response** actually runs the model. Defaults are tuned for short answers (temperature 0.3, top-p 0.9, 64 tokens), and you can also send a repetition penalty and stop sequences through the API.
 
-Latest reviewed elementary checkpoint: **499,524,075 parameters**, 30/64 exact matches on held-out template combinations, but only 3/24 fully correct answers on the separate everyday-question audit. It is not a reliable general assistant. See [measured results and limitations](docs/elementary-results.md). This checkpoint has not replaced Studio's default weights.
+Studio loads `artifacts/slm-500m-language-quality.pt` by default and checks it has exactly 499,524,075 parameters. Weights aren't in Git, so download them from Kaggle first. To use a different checkpoint, run `./launch-studio.command --checkpoint /path/to/model.pt`, and if the port is taken, add `--port 8767`.
+
+Want just the source-excerpt mode, with no weights and no PyTorch?
+
+```bash
+./launch-studio.command --sources-only
+```
+
+A few other things to know: pasted text is capped at 12,000 bytes and questions at 2,000, and nothing gets fetched from the internet. History lives in the page until you refresh, and model output is shown as text and never executed.
 
 ## 2048 context and Kaggle
 

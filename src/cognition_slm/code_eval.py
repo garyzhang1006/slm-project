@@ -8,7 +8,8 @@ from dataclasses import dataclass
 
 
 CODE_TASK_TYPES = frozenset({"code_generation", "code_debugging"})
-_FENCED_BLOCK = re.compile(r"```([^\n`]*)\n(.*?)```", re.DOTALL)
+# A generation cut off at max_new_tokens can leave its last fence unclosed.
+_FENCED_BLOCK = re.compile(r"```([^\n`]*)\n(.*?)(?:```|\Z)", re.DOTALL)
 
 
 @dataclass(frozen=True)
@@ -34,13 +35,21 @@ def extract_python(text: str) -> str:
     return max(matches, key=len).strip() if matches else text.strip()
 
 
+def _is_trivial(tree: ast.Module) -> bool:
+    """Empty output or prose that parses as bare names or literals is not code."""
+    return all(
+        isinstance(node, ast.Expr) and isinstance(node.value, (ast.Constant, ast.Name))
+        for node in tree.body
+    )
+
+
 def python_syntax_valid(text: str) -> bool:
     try:
         tree = ast.parse(extract_python(text))
         compile(tree, "<generated-python>", "exec")
     except SyntaxError:
         return False
-    return True
+    return not _is_trivial(tree)
 
 
 def _function_names(tree: ast.AST) -> set[str]:
@@ -62,6 +71,8 @@ def assess_python(generated: str, expected: str) -> PythonQuality:
         compile(expected_tree, "<expected-python>", "exec")
     except SyntaxError as exc:
         return PythonQuality(False, 0.0, 0.0, f"SyntaxError: {exc.msg}")
+    if _is_trivial(generated_tree):
+        return PythonQuality(False, 0.0, 0.0, "no Python statements in generation")
 
     expected_names = _function_names(expected_tree)
     generated_names = _function_names(generated_tree)

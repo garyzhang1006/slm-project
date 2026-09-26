@@ -27,6 +27,23 @@ class CodeEvaluationTests(unittest.TestCase):
         self.assertEqual(result.static_score, 0.0)
         self.assertTrue(result.error.startswith("SyntaxError:"))
 
+    def test_empty_or_code_free_generation_is_not_valid_python(self):
+        for generated in ("", "   ", "hello", "'just a string'", "```python\n```"):
+            result = assess_python(generated, "x = 1")
+            self.assertFalse(result.syntax_valid, generated)
+            self.assertEqual(result.static_score, 0.0)
+            self.assertFalse(python_syntax_valid(generated), generated)
+        self.assertTrue(assess_python("add(1, 2)", "x = 1").syntax_valid)
+
+    def test_unclosed_fence_from_truncated_generation_is_extracted(self):
+        text = "Here:\n```python\ndef add(a, b):\n    return a + b\n"
+        self.assertEqual(extract_python(text), "def add(a, b):\n    return a + b")
+        result = assess_python(text, "def add(a, b): return a + b")
+        self.assertTrue(result.syntax_valid)
+        self.assertEqual(result.static_score, 1.0)
+        closed = "```python\nx = 1\n```\nprose after"
+        self.assertEqual(extract_python(closed), "x = 1")
+
     def test_prose_tasks_are_not_treated_as_code(self):
         self.assertIsNone(assess_code("explanation", "explanation", "code_explanation"))
 

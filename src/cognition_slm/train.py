@@ -14,10 +14,11 @@ from time import monotonic
 
 from .checkpoint import load_checkpoint_payload
 from .config import MODEL_PRESETS, ModelConfig
-from .data import encode_examples, load_jsonl
+from .data import encode_examples, load_jsonl, load_pretrain_text, pack_pretrain_text
 from .tokenizer import ByteTokenizer
 
 DEFAULT_LEARNING_RATE = 3e-4
+DEFAULT_AUX_LOSS_WEIGHT = 0.25
 
 
 def _import_torch():
@@ -117,18 +118,26 @@ def _batch(torch, encoded, indices, device):
             ]
             + [0] * max(0, max_length - len(item["input_ids"])),
         )
+    # Packed pretraining rows have no labels; None makes the model skip auxiliary losses.
+    def labels(values):
+        if any(value is None for value in values):
+            return None
+        return torch.tensor(values, dtype=torch.long, device=device)
+
     return (
         torch.tensor(input_ids, dtype=torch.long, device=device),
         torch.tensor(attention_mask, dtype=torch.long, device=device),
-        torch.tensor(task_labels, dtype=torch.long, device=device),
-        torch.tensor(error_labels, dtype=torch.long, device=device),
-        torch.tensor(confidence_labels, dtype=torch.long, device=device),
+        labels(task_labels),
+        labels(error_labels),
+        labels(confidence_labels),
         torch.tensor(pool_positions, dtype=torch.long, device=device),
         torch.tensor(lm_loss_masks, dtype=torch.bool, device=device),
     )
 
 
-def _validation_summary(torch, model, encoded, batch_size: int, device) -> dict[str, float | int]:
+def _validation_summary(
+    torch, model, encoded, batch_size: int, device, aux_loss_weight: float = DEFAULT_AUX_LOSS_WEIGHT,
+) -> dict[str, float | int | None]:
     model.eval()
     auxiliary_loss_total = 0.0
     lm_loss_total = 0.0
@@ -136,6 +145,7 @@ def _validation_summary(torch, model, encoded, batch_size: int, device) -> dict[
     task_correct = 0
     error_correct = 0
     confidence_correct = 0
+    labeled = True
     with torch.no_grad():
         for start in range(0, len(encoded), batch_size):
             indices = list(range(start, min(start + batch_size, len(encoded))))
@@ -158,7 +168,10 @@ def _validation_summary(torch, model, encoded, batch_size: int, device) -> dict[
                 lm_token_count += targets
             for auxiliary in (output.task_loss, output.error_loss, output.confidence_loss):
                 if auxiliary is not None:
-                    auxiliary_loss_total += 0.25 * float(auxiliary.detach().cpu()) * count
+                    auxiliary_loss_total += aux_loss_weight * float(auxiliary.detach().cpu()) * count
+            if batch[2] is None:
+                labeled = False
+                continue
             task_correct += int((output.task_logits.argmax(dim=-1) == batch[2]).sum().item())
             error_correct += int((output.error_logits.argmax(dim=-1) == batch[3]).sum().item())
             confidence_correct += int(
@@ -170,9 +183,9 @@ def _validation_summary(torch, model, encoded, batch_size: int, device) -> dict[
         "loss": lm_loss_total / max(1, lm_token_count) + auxiliary_loss_total / total,
         "lm_loss": lm_loss_total / max(1, lm_token_count),
         "supervised_tokens": lm_token_count,
-        "task_accuracy": task_correct / total,
-        "error_accuracy": error_correct / total,
-        "confidence_bucket_accuracy": confidence_correct / total,
+        "task_accuracy": task_correct / total if labeled else None,
+        "error_accuracy": error_correct / total if labeled else None,
+        "confidence_bucket_accuracy": confidence_correct / total if labeled else None,
     }
 
 
@@ -215,6 +228,9 @@ def _runtime_options(args):
     max_seconds = getattr(args, "max_seconds", None)
     if max_seconds is not None and (not math.isfinite(max_seconds) or max_seconds <= 0):
         raise ValueError("max_seconds must be positive and finite")
+    aux_loss_weight = getattr(args, "aux_loss_weight", None)
+    if aux_loss_weight is not None and (not math.isfinite(aux_loss_weight) or aux_loss_weight < 0):
+        raise ValueError("aux_loss_weight must be non-negative and finite")
     if precision not in ("fp32", "fp16", "bf16"):
         raise ValueError("precision must be fp32, fp16, or bf16")
     if accumulation < 1 or save_every < 1:
@@ -224,7 +240,15 @@ def _runtime_options(args):
 
 def train(args: argparse.Namespace) -> dict:
     precision, accumulation, save_every = _runtime_options(args)
-    examples = load_jsonl(args.data)
+    aux_loss_weight = getattr(args, "aux_loss_weight", None)
+    pretrain_text = getattr(args, "pretrain_text", None)
+    pretrain_eval_text = getattr(args, "pretrain_eval_text", None)
+    if (pretrain_text is None) == (getattr(args, "data", None) is None):
+        raise ValueError("pass exactly one of --data or --pretrain-text")
+    if pretrain_eval_text and args.eval_data:
+        raise ValueError("--eval-data cannot be combined with --pretrain-eval-text")
+    # For raw text, records counts documents; packed rows are reported separately.
+    examples = load_pretrain_text(pretrain_text) if pretrain_text else load_jsonl(args.data)
     torch = None
     checkpoint = None
     if args.dry_run and args.resume:
@@ -232,6 +256,11 @@ def train(args: argparse.Namespace) -> dict:
     if args.resume:
         torch = _import_torch()
         checkpoint, config = load_checkpoint_payload(torch, args.resume)
+        saved_metadata = checkpoint.get("metadata")
+        saved_weight = saved_metadata.get("aux_loss_weight") if isinstance(saved_metadata, dict) else None
+        # An omitted flag keeps the resumed run's weight; older checkpoints predate it and used 0.25.
+        if aux_loss_weight is None and isinstance(saved_weight, (int, float)):
+            aux_loss_weight = float(saved_weight)
     else:
         preset = MODEL_PRESETS[getattr(args, "preset", "demo")]
         for name, value in preset.items():
@@ -246,15 +275,27 @@ def train(args: argparse.Namespace) -> dict:
             architecture=args.architecture,
         )
     config.validate()
+    if aux_loss_weight is None:
+        aux_loss_weight = DEFAULT_AUX_LOSS_WEIGHT
     tokenizer = ByteTokenizer(vocab_size=config.vocab_size)
-    encoded = encode_examples(examples, tokenizer, config.block_size)
+    if pretrain_text:
+        encoded = pack_pretrain_text(examples, tokenizer, config.block_size)
+    else:
+        encoded = encode_examples(examples, tokenizer, config.block_size)
+    objective = "pretrain" if pretrain_text else "sft"
     validation_encoded = None
     if args.eval_data:
         validation_examples = load_jsonl(args.eval_data)
         validation_encoded = encode_examples(validation_examples, tokenizer, config.block_size)
+    elif pretrain_eval_text:
+        validation_encoded = pack_pretrain_text(
+            load_pretrain_text(pretrain_eval_text), tokenizer, config.block_size
+        )
     if args.dry_run:
         return {
             "records": len(examples),
+            "objective": objective,
+            "packed_rows": len(encoded),
             "max_tokens": max(len(item["input_ids"]) for item in encoded),
             "block_size": config.block_size,
             "architecture": config.architecture,
@@ -384,6 +425,8 @@ def train(args: argparse.Namespace) -> dict:
             "cuda_rng_state_all": [torch.cuda.get_rng_state(device)] if device.type == "cuda" else [],
             "metadata": {
                 "records": len(examples), "steps": step, "step": step,
+                "objective": objective, "packed_rows": len(encoded),
+                "aux_loss_weight": aux_loss_weight,
                 "requested_steps": args.steps, "completed_steps": step - start_step,
                 "stopped_reason": stopped_reason, "duration_seconds": duration_seconds,
                 "max_seconds": max_seconds,
@@ -442,7 +485,7 @@ def train(args: argparse.Namespace) -> dict:
                 loss = output.lm_loss * (targets / total_targets)
                 for auxiliary in (output.task_loss, output.error_loss, output.confidence_loss):
                     if auxiliary is not None:
-                        loss = loss + 0.25 * auxiliary / accumulation
+                        loss = loss + aux_loss_weight * auxiliary / accumulation
             scaler.scale(loss).backward()
             accumulated_loss += loss.detach()
         # Synchronize once per update instead of twice per microbatch.
@@ -473,13 +516,14 @@ def train(args: argparse.Namespace) -> dict:
                 step % args.eval_every == 0 or finishing
             ):
                 validation = _validation_summary(
-                    torch, model, validation_encoded, args.batch_size, device
+                    torch, model, validation_encoded, args.batch_size, device, aux_loss_weight
                 )
                 validation["step"] = step
                 validation_history.append(validation)
+                accuracy = validation["task_accuracy"]
                 print(
                     f"eval_step={step} val_loss={validation['loss']:.4f} "
-                    f"task_accuracy={validation['task_accuracy']:.3f}"
+                    f"task_accuracy={'n/a' if accuracy is None else format(accuracy, '.3f')}"
                 )
                 model.train()
         finally:
@@ -498,6 +542,9 @@ def train(args: argparse.Namespace) -> dict:
     final_loss = history[-1]
     return {
         "records": len(examples),
+        "objective": objective,
+        "packed_rows": len(encoded),
+        "aux_loss_weight": aux_loss_weight,
         "steps": step,
         "requested_steps": args.steps,
         "completed_steps": step - start_step,
@@ -529,7 +576,14 @@ def train(args: argparse.Namespace) -> dict:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--data", required=True)
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--data", help="Supervised JSONL records (prompt-masked loss plus auxiliary heads)")
+    source.add_argument(
+        "--pretrain-text",
+        help="Raw pretraining text: a .txt file (one document) or .jsonl with a \"text\" field per line. "
+             "Documents are joined with EOS, packed into block_size rows, trained with next-token loss "
+             "on every position, and skip the task/error/confidence losses",
+    )
     parser.add_argument("--out", default="artifacts/demo.pt")
     parser.add_argument("--steps", type=int, default=100)
     parser.add_argument(
@@ -557,7 +611,17 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--warmup-steps", type=int, default=5)
     parser.add_argument("--grad-clip", type=float, default=1.0)
     parser.add_argument("--log-every", type=int, default=10)
-    parser.add_argument("--eval-data")
+    parser.add_argument("--eval-data", help="Held-out supervised JSONL, usable with --data or --pretrain-text")
+    parser.add_argument(
+        "--pretrain-eval-text",
+        help="Held-out raw text in --pretrain-text format, packed the same way; excludes --eval-data",
+    )
+    parser.add_argument(
+        "--aux-loss-weight", type=float,
+        help=f"Weight of each task/error/confidence loss (default {DEFAULT_AUX_LOSS_WEIGHT:g}, or the "
+             "checkpoint's weight on --resume); "
+             "set 0 for SFT data whose labels are constant placeholders",
+    )
     parser.add_argument("--eval-every", type=int, default=20)
     parser.add_argument("--resume")
     parser.add_argument("--seed", type=int, default=7)
@@ -596,8 +660,12 @@ def main() -> None:
         parser.error("--dry-run cannot be combined with --resume")
     if args.override_learning_rate and not (args.resume and args.learning_rate is not None):
         parser.error("--override-learning-rate requires --resume and --learning-rate")
-    if args.eval_data and Path(args.eval_data).resolve() == Path(args.data).resolve():
-        parser.error("--eval-data must be different from --data")
+    if args.eval_data and args.pretrain_eval_text:
+        parser.error("--eval-data cannot be combined with --pretrain-eval-text")
+    train_path = Path(args.data or args.pretrain_text).resolve()
+    for flag, path in (("--eval-data", args.eval_data), ("--pretrain-eval-text", args.pretrain_eval_text)):
+        if path and Path(path).resolve() == train_path:
+            parser.error(f"{flag} must be different from the training data")
     print(json.dumps(train(args), indent=2))
 
 

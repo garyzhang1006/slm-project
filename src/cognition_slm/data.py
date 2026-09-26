@@ -207,3 +207,63 @@ def encode_examples(
             }
         )
     return encoded
+
+
+def load_pretrain_text(path: str | Path) -> list[str]:
+    """Read raw documents: a .jsonl file with a "text" field per line, else one whole-file document."""
+    path = Path(path)
+    if not path.exists():
+        raise FileNotFoundError(path)
+    if path.suffix != ".jsonl":
+        text = path.read_text(encoding="utf-8")
+        if not text.strip():
+            raise DataValidationError(f"{path}: text file is empty")
+        return [text]
+    documents: list[str] = []
+    with path.open("r", encoding="utf-8") as handle:
+        for record_number, line in enumerate(handle, start=1):
+            if not line.strip():
+                continue
+            try:
+                raw = json.loads(line, object_pairs_hook=_reject_duplicate_keys, parse_constant=_reject_constant)
+            except (DataValidationError, json.JSONDecodeError) as exc:
+                detail = exc.msg if isinstance(exc, json.JSONDecodeError) else str(exc)
+                raise DataValidationError(f"{path}:{record_number}: invalid JSON: {detail}") from exc
+            text = raw.get("text") if isinstance(raw, dict) else None
+            if not isinstance(text, str) or not text.strip():
+                raise DataValidationError(f"{path}:{record_number}: text must be non-empty text")
+            documents.append(text)
+    if not documents:
+        raise DataValidationError(f"{path}: dataset has no records")
+    return documents
+
+
+def pack_pretrain_text(
+    documents: Iterable[str], tokenizer: ByteTokenizer, block_size: int
+) -> list[dict[str, Any]]:
+    """Concatenate BOS/EOS-delimited documents into block_size rows with loss on every target.
+
+    Rows carry no auxiliary labels, so training skips the task/error/confidence heads.
+    Only the final row may be shorter; it is kept so small eval files still yield a row.
+    """
+    stream: list[int] = []
+    for document in documents:
+        stream.extend(tokenizer.encode(document))
+    rows = [stream[start:start + block_size] for start in range(0, len(stream), block_size)]
+    if rows and len(rows[-1]) < 2:
+        rows.pop()
+    if not rows:
+        raise ValueError("pretraining text produced no rows with at least two tokens")
+    return [
+        {
+            "id": f"packed-{index}",
+            "input_ids": row,
+            "pool_position": len(row) - 1,
+            # Target positions start at 1, so every next-token prediction is supervised.
+            "answer_start": 1,
+            "task_label": None,
+            "error_label": None,
+            "confidence_label": None,
+        }
+        for index, row in enumerate(rows)
+    ]

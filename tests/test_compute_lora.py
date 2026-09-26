@@ -38,6 +38,46 @@ class LoraBaselineTests(unittest.TestCase):
         self.assertIn("uninstall", calls[0])
         self.assertEqual(calls[0][-2:], ["--yes", "torchao"])
 
+    def test_left_pad_aligns_prompt_ends(self):
+        ids, mask = self.module.left_pad([[5, 6, 7], [8]], pad_id=0)
+        self.assertEqual(ids, [[5, 6, 7], [0, 0, 8]])
+        self.assertEqual(mask, [[1, 1, 1], [0, 0, 1]])
+
+    def test_generate_answers_batches_and_keeps_order(self):
+        import torch
+
+        class Tokenizer:
+            chat_template = None
+            pad_token_id = eos_token_id = 0
+
+            def __call__(self, text, add_special_tokens):
+                return type("Encoded", (), {"input_ids": [ord(character) for character in text[-3:]]})()
+
+            def decode(self, ids, skip_special_tokens):
+                return "".join(chr(int(value)) for value in ids if int(value) != 0)
+
+        class Model:
+            device = "cpu"
+            calls = []
+
+            def train(self, mode):
+                self.mode = mode
+
+            def generate(self, input_ids, attention_mask, **settings):
+                self.calls.append(input_ids.shape[0])
+                # Echo each row's last prompt character, then a newline and EOS padding.
+                last = input_ids[:, -1:]
+                tail = torch.tensor([[ord("\n"), 0]] * input_ids.shape[0])
+                return torch.cat([input_ids, last, tail], dim=1)
+
+        model = Model()
+        prompts = [f"q{index}" for index in range(5)]
+        answers = self.module.generate_answers(torch, model, Tokenizer(), prompts, 4, batch_size=2)
+        self.assertEqual(model.calls, [2, 2, 1])
+        self.assertFalse(model.mode)
+        self.assertEqual(len(answers), 5)
+        self.assertEqual(answers, [":"] * 5)
+
     def test_training_stays_in_fp32(self):
         # fp16 autocast made the base SmolLM2 eval loss NaN on Kaggle and ruined the first adapter.
         source = RUNNER.read_text()

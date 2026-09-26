@@ -34,6 +34,8 @@ ENGLISH_PROBES = (
     "What is my name?",
 )
 IGNORE_INDEX = -100
+# 16 prompts of under 100 tokens plus 64 new tokens fit a 16 GB T4 next to the fp32 360M model.
+GENERATION_BATCH_SIZE = 16
 
 
 def normalize(text: str) -> str:
@@ -196,16 +198,28 @@ def encode(tokenizer, prompt: str, answer: str | None = None):
     return prompt_ids, tokenizer(text, add_special_tokens=False).input_ids + [tokenizer.eos_token_id]
 
 
-def generate_answers(torch, model, tokenizer, prompts: list[str], max_new_tokens: int) -> list[str]:
-    model.eval()
+def left_pad(sequences: list[list[int]], pad_id: int) -> tuple[list[list[int]], list[list[int]]]:
+    """Left-pad prompts for batched decoder-only generation, so every row's new tokens start at one column."""
+    width = max(len(sequence) for sequence in sequences)
+    ids = [[pad_id] * (width - len(sequence)) + sequence for sequence in sequences]
+    mask = [[0] * (width - len(sequence)) + [1] * len(sequence) for sequence in sequences]
+    return ids, mask
+
+
+def generate_answers(torch, model, tokenizer, prompts: list[str], max_new_tokens: int,
+                     batch_size: int = GENERATION_BATCH_SIZE) -> list[str]:
+    """Greedy answers, batch_size prompts per generate call; one prompt per call left the T4 mostly idle."""
+    model.train(False)
     answers = []
     with torch.no_grad():
-        for prompt in prompts:
-            ids = torch.tensor([encode(tokenizer, prompt)], device=model.device)
-            output = model.generate(input_ids=ids, attention_mask=torch.ones_like(ids), do_sample=False,
-                                    max_new_tokens=max_new_tokens, pad_token_id=tokenizer.pad_token_id,
-                                    eos_token_id=tokenizer.eos_token_id)
-            answers.append(first_line(tokenizer.decode(output[0, ids.shape[1]:], skip_special_tokens=True)))
+        for start in range(0, len(prompts), batch_size):
+            ids, mask = left_pad([encode(tokenizer, prompt) for prompt in prompts[start:start + batch_size]],
+                                 tokenizer.pad_token_id)
+            ids = torch.tensor(ids, device=model.device)
+            output = model.generate(input_ids=ids, attention_mask=torch.tensor(mask, device=model.device),
+                                    do_sample=False, max_new_tokens=max_new_tokens,
+                                    pad_token_id=tokenizer.pad_token_id, eos_token_id=tokenizer.eos_token_id)
+            answers += [first_line(tokenizer.decode(row, skip_special_tokens=True)) for row in output[:, ids.shape[1]:]]
     return answers
 
 

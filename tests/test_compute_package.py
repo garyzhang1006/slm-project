@@ -38,7 +38,7 @@ def fake_root(directory: Path, runner: str) -> Path:
 class StageTableTests(unittest.TestCase):
     def test_stage_entries_follow_the_interface(self):
         stages = module("stages")
-        self.assertEqual(set(stages.STAGES), {"corpus", "pretrain", "sft_data", "sft", "eval", "lora", "lora_eval"})
+        self.assertEqual(set(stages.STAGES), {"corpus", "pretrain", "sft_data", "sft", "eval", "lora", "lora_eval", "distill_data"})
         for name, spec in stages.STAGES.items():
             self.assertEqual(set(spec), {"runner", "slug", "internet", "gpu", "attaches"}, name)
             self.assertRegex(spec["runner"], r"^compute/\w+\.py$")
@@ -70,7 +70,7 @@ class StageTableTests(unittest.TestCase):
         self.assertEqual(stages.stage_slug("pretrain", 3), "slm-160m-pretrain-3")
         self.assertEqual(stages.stage_attaches("pretrain", 1), ["slm-160m-corpus"])
         self.assertEqual(stages.stage_attaches("pretrain", 3), ["slm-160m-corpus", "slm-160m-pretrain-2"])
-        self.assertEqual(stages.stage_attaches("sft", pretrain_session=2), ["slm-160m-pretrain-2", "slm-sft-data"])
+        self.assertEqual(stages.stage_attaches("sft", pretrain_session=2), ["slm-160m-pretrain-2", "slm-sft-data", "slm-distill-data"])
         last = stages.pretrain_sessions()
         self.assertEqual(stages.stage_attaches("sft")[0], f"slm-160m-pretrain-{last}")
         for bad in ((lambda: stages.stage_slug("pretrain")), (lambda: stages.stage_slug("pretrain", 0)),

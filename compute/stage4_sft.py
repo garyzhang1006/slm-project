@@ -88,6 +88,36 @@ def holdout_prompts_in_training(train_path: Path, holdout_path: Path = ROOT / "d
     return [row["id"] for row in rows if normalize(row["prompt"]) in prompts]
 
 
+def merge_distill(train_path: Path, eval_path: Path, distill_paths: list[Path], output: Path) -> dict:
+    """Append distilled rows to sft_train, skipping prompts already in train or in eval.
+
+    Returns counts; with no distill file attached, output is not written and train_path stays in use.
+    """
+    from cognition_slm.audit import _prompt_key
+
+    if len(distill_paths) > 1:
+        raise RuntimeError(f"Expected at most one distill_train.jsonl, found {[str(path) for path in distill_paths]}")
+    if not distill_paths:
+        return {"attached": False, "added": 0}
+    train_lines = [line for line in train_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    seen = {_prompt_key(json.loads(line)["prompt"]) for line in train_lines}
+    # Eval prompts must stay unseen, or the SFT eval loss would measure memorization.
+    held_out = {_prompt_key(json.loads(line)["prompt"])
+                for line in eval_path.read_text(encoding="utf-8").splitlines() if line.strip()}
+    added, skipped = [], 0
+    for line in distill_paths[0].read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        key = _prompt_key(json.loads(line)["prompt"])
+        if key in seen or key in held_out:
+            skipped += 1
+            continue
+        seen.add(key)
+        added.append(line)
+    output.write_text("\n".join(train_lines + added) + "\n", encoding="utf-8")
+    return {"attached": True, "path": str(distill_paths[0]), "added": len(added), "skipped_duplicate": skipped}
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--epochs", type=float, default=EPOCHS)
@@ -102,6 +132,10 @@ def main(argv: list[str] | None = None) -> None:
     report_path = ROOT / "sft_report.json"
     source = latest_checkpoint()
     train_path, eval_path = find_one("sft_train.jsonl"), find_one("sft_eval.jsonl")
+    merged = artifacts / "sft_train_with_distill.jsonl"
+    distill = merge_distill(train_path, eval_path, sorted(INPUT.rglob("distill_train.jsonl")), merged)
+    if distill["attached"]:
+        train_path = merged
     # load_jsonl validates every record, so a malformed row fails here instead of mid-training.
     records, held_out = len(load_jsonl(train_path)), len(load_jsonl(eval_path))
     # Stage 3 filters these; checking again before GPU hours keeps the stage 5 holdout score honest.
@@ -126,7 +160,8 @@ def main(argv: list[str] | None = None) -> None:
               if parent_report and parent_report.exists() else None,
               "block_size": config.block_size, "train_records": records, "eval_records": held_out,
               "data_hashes": {"sft_train": digest(train_path), "sft_eval": digest(eval_path)},
-              "probes_in_training": probes_in_training(train_path), "steps": steps, "epochs": args.epochs}
+              "probes_in_training": probes_in_training(train_path), "steps": steps, "epochs": args.epochs,
+              "distill": distill}
     manifests = list(INPUT.rglob("sft_manifest.json"))
     if len(manifests) == 1:
         report["sft_manifest"] = json.loads(manifests[0].read_text())

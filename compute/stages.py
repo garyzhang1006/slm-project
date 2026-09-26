@@ -19,7 +19,7 @@ STAGES = {
                  "internet": True, "gpu": False, "attaches": []},
     # The last pretrain session is added by stage_attaches, since its number is only known at run time.
     "sft": {"runner": "compute/stage4_sft.py", "slug": "slm-160m-sft",
-            "internet": False, "gpu": True, "attaches": ["slm-sft-data"]},
+            "internet": False, "gpu": True, "attaches": ["slm-sft-data", "slm-distill-data"]},
     # The corpus supplies pretrain_eval.jsonl for held-out bits-per-byte.
     "eval": {"runner": "compute/stage5_evaluate.py", "slug": "slm-160m-eval",
              "internet": False, "gpu": True, "attaches": ["slm-160m-sft", "slm-160m-corpus"]},
@@ -27,6 +27,9 @@ STAGES = {
     "lora": {"runner": "compute/lora_baseline.py", "slug": "slm-lora-baseline",
              "internet": True, "gpu": True, "attaches": ["slm-sft-data"]},
     # Scores base SmolLM2 and the trained adapter on the 252 everyday questions; internet for the base model.
+    # The LoRA teacher answers Dolly questions whose human answers were too long for stage 3.
+    "distill_data": {"runner": "compute/distill_data.py", "slug": "slm-distill-data",
+                     "internet": True, "gpu": True, "attaches": ["slm-lora-baseline"]},
     "lora_eval": {"runner": "compute/lora_eval.py", "slug": "slm-lora-eval",
                   "internet": True, "gpu": True, "attaches": ["slm-lora-baseline"]},
 }

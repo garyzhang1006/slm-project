@@ -30,6 +30,8 @@ def prepare(output: Path, owner: str, slug: str, runner: str) -> None:
     files.append(ROOT / "scripts" / "english_corpus.py")
     files.append(ROOT / "scripts" / "qa_corpus.py")
     files.append(ROOT / "scripts" / "broad_english_corpus.py")
+    # Holdout-answer runners score their reports with it; the scorer is pure Python.
+    files.append(ROOT / "scripts" / "score_holdout.py")
     efficient = runner in {"kaggle_efficient_run.py", "kaggle_efficiency_verify.py", "kaggle_short_qa_pilot.py", "kaggle_broad_qa_pilot.py", "kaggle_elementary_run.py"}
     if runner in {"kaggle_english_run.py", "kaggle_qa_run.py", "kaggle_long_run.py"} or efficient:
         files.append(ROOT / "scripts" / "kaggle_studio_verify.py")

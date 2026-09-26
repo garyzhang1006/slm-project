@@ -1,0 +1,86 @@
+import contextlib
+import importlib
+import io
+import json
+from pathlib import Path
+import tempfile
+import unittest
+
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def scorer():
+    # Kaggle packages only the scripts a runner needs, so skip when the scorer is absent.
+    if not (ROOT / "scripts" / "score_holdout.py").exists():
+        raise unittest.SkipTest("score_holdout.py is not packaged here")
+    return importlib.import_module("scripts.score_holdout")
+
+
+class ScoreHoldoutTests(unittest.TestCase):
+    def setUp(self):
+        self.module = scorer()
+        self.rows = json.loads((ROOT / "data/simple_questions_holdout.json").read_text())["rows"]
+
+    def test_normalization(self):
+        normalize = self.module.normalize_answer
+        self.assertEqual(normalize("  Seven. "), "7")
+        self.assertEqual(normalize("Twenty-one"), "21")
+        self.assertEqual(normalize("twenty"), "20")
+        self.assertEqual(normalize("Apple,  banana, PEAR!"), "apple banana pear")
+        self.assertEqual(normalize("She doesn’t."), "she doesnt")
+        self.assertEqual(normalize("3.5 cups"), "3.5 cups")
+
+    def test_exact_and_whole_token_contains(self):
+        row = {"id": "x", "category": "math", "expected_rubric": "3"}
+        self.assertEqual(self.module.score_answer(row, "Three."), {"exact": True, "contains": True})
+        self.assertEqual(self.module.score_answer(row, "The answer is 3"), {"exact": False, "contains": True})
+        self.assertEqual(self.module.score_answer(row, "13"), {"exact": False, "contains": False})
+        row = {"id": "y", "category": "fact", "expected_rubric": "cat", "accepted_answers": ["cat", "kitten"]}
+        self.assertTrue(self.module.score_answer(row, "A kitten")["contains"])
+        self.assertIsNone(self.module.score_answer({"category": "unknown", "expected_rubric": "x"}, "x"))
+
+    def test_real_holdout_totals(self):
+        expected = {row["id"]: row["expected_rubric"] for row in self.rows}
+        predictions = [{"id": key, "answer": value.upper() + "."} for key, value in expected.items()]
+        predictions[0] = {"id": predictions[0]["id"], "answer": "wrong"}
+        report = self.module.score_predictions(self.rows, predictions[:-1])
+        manual = sum(row["category"] == "unknown" for row in self.rows)
+        scored = len(self.rows) - manual
+        self.assertEqual(report["total"]["scored"], scored)
+        self.assertEqual(report["total"]["manual_review"], manual)
+        self.assertEqual(report["total"]["missing"], 1)
+        self.assertEqual(report["total"]["exact"], scored - 2)
+        self.assertEqual(sum(bucket["scored"] for bucket in report["categories"].values()), scored)
+        self.assertIsNone(report["categories"]["unknown"]["exact_accuracy"])
+        self.assertEqual(report["unknown_ids"], [])
+
+    def test_rejects_bad_predictions(self):
+        for predictions in ([{"id": "a"}], [{"id": 1, "answer": "x"}],
+                            [{"id": "a", "answer": "x"}, {"id": "a", "answer": "y"}]):
+            with self.subTest(predictions=predictions), self.assertRaises(ValueError):
+                self.module.score_predictions(self.rows, predictions)
+
+    def test_cli_reads_jsonl_and_reports(self):
+        with tempfile.TemporaryDirectory() as directory:
+            jsonl = Path(directory) / "predictions.jsonl"
+            jsonl.write_text("".join(json.dumps({"id": row["id"], "answer": row["expected_rubric"]}) + "\n"
+                                     for row in self.rows) + json.dumps({"id": "extra", "answer": "x"}) + "\n")
+            report = Path(directory) / "report.json"
+            report.write_text(json.dumps({"simple_questions": [{"id": self.rows[0]["id"], "answer": "7"}]}))
+            single = Path(directory) / "single.jsonl"
+            single.write_text(json.dumps({"id": self.rows[0]["id"], "answer": "7"}) + "\n")
+            self.assertEqual(self.module.load_predictions(single), [{"id": self.rows[0]["id"], "answer": "7"}])
+            stdout, stderr = io.StringIO(), io.StringIO()
+            with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                self.assertEqual(self.module.main([str(jsonl)]), 0)
+                self.assertEqual(self.module.main([str(report), "--json"]), 0)
+                self.assertEqual(self.module.main([str(Path(directory) / "missing.json")]), 2)
+            lines = stdout.getvalue().splitlines()
+            total = next(line for line in lines if line.startswith("TOTAL"))
+            self.assertIn("exact 22/22 (100.0%)", total)
+            self.assertIn("extra", stderr.getvalue())
+            self.assertIn("error:", stderr.getvalue())
+
+
+if __name__ == "__main__":
+    unittest.main()

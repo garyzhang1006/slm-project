@@ -69,6 +69,12 @@ class DecisionTests(unittest.TestCase):
     def test_sft_then_eval_then_done(self):
         statuses = {"slm-160m-corpus": "complete", **{f"slm-160m-pretrain-{k}": "complete" for k in (1, 2, 3)}}
         reports = {("slm-160m-pretrain-3", "pretrain_session_3.json"): DONE}
+        self.assertEqual(decide(statuses, reports)["kind"], "stop")  # no LoRA teacher yet
+        statuses["slm-lora-baseline"] = "running"
+        self.assertEqual(decide(statuses, reports)["kind"], "wait")
+        statuses["slm-lora-baseline"] = "complete"
+        self.assertEqual(decide(statuses, reports)["stage"], "distill_data")
+        statuses["slm-distill-data"] = "complete"
         result = decide(statuses, reports)
         self.assertEqual((result["kind"], result["stage"], result["pretrain_session"]), ("push", "sft", 3))
         statuses["slm-160m-sft"] = "complete"

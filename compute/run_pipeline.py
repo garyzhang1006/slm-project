@@ -1,4 +1,4 @@
-"""Drive the slm-160m chain on Kaggle: pretrain sessions until one pass is done, then sft, then eval.
+"""Drive the slm-160m chain on Kaggle: pretrain sessions until one pass is done, then distill_data, sft, eval.
 
 Each round reads kernel statuses and reports, decides one action, and (unless --dry-run) pushes the next
 kernel. It never runs a model locally; every push goes to a Kaggle GPU. It checks the weekly GPU quota before
@@ -25,7 +25,8 @@ if str(ROOT) not in sys.path:
 from compute.stages import PRETRAIN_SESSION_SECONDS, stage_slug  # noqa: E402
 
 # GPU hours a push must have left in the weekly quota: the stage's own time cap plus setup and save.
-STAGE_HOURS = {"pretrain": PRETRAIN_SESSION_SECONDS / 3600 + 1.0, "sft": 9.5, "eval": 1.0}
+STAGE_HOURS = {"pretrain": PRETRAIN_SESSION_SECONDS / 3600 + 1.0, "distill_data": 1.5, "sft": 9.5,
+               "eval": 1.0}
 # Kaggle numbers pretrain sessions from 1; a chain this long means something is looping.
 MAX_PRETRAIN_SESSIONS = 20
 WAITING = {"queued", "running", "new_script", "pending"}
@@ -88,6 +89,19 @@ def next_action(status, report, quota_hours: float) -> dict:
                              f"{session_report.get('step_reached')}", session=last + 1)
     if session_report.get("status") != "complete":
         return action("stop", f"pretrain session {last} report status is {session_report.get('status')!r}")
+
+    # sft attaches the distilled answers, and distillation needs the finished LoRA teacher.
+    distill = status(stage_slug("distill_data"))
+    if distill in WAITING:
+        return action("wait", f"distill_data is {distill}")
+    if distill == "missing":
+        teacher = status(stage_slug("lora"))
+        if teacher != "complete":
+            return action("wait" if teacher in WAITING else "stop",
+                          f"distill_data needs the LoRA teacher, which is {teacher}")
+        return push_if_quota("distill_data", quota_hours, "sft needs distilled answers first")
+    if distill != "complete":
+        return action("stop", f"distill_data ended as {distill}; read its log before retrying")
 
     sft = status(stage_slug("sft"))
     if sft in WAITING:

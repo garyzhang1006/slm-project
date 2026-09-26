@@ -48,7 +48,7 @@ Kaggle gives a weekly GPU quota (check the current number on your account page),
 
 ## Run order
 
-Once the corpus exists, `python3 compute/run_pipeline.py --owner YOUR_KAGGLE_USERNAME --watch` does the rest of the main chain for you: it checks every 30 minutes, pushes the next pretrain session when the last one finishes, then sft and eval, and waits instead of pushing when the weekly GPU quota cannot cover the next stage. Add `--dry-run` to see the decision without pushing anything. The manual commands below still work.
+Once the corpus exists, `python3 compute/run_pipeline.py --owner YOUR_KAGGLE_USERNAME --watch` does the rest of the main chain for you: it checks every 30 minutes, pushes the next pretrain session when the last one finishes, then distill_data, sft and eval, and waits instead of pushing when the weekly GPU quota cannot cover the next stage. Add `--dry-run` to see the decision without pushing anything. The manual commands below still work.
 
 Every stage uses the same two commands: package, then push. Replace the owner if you are not `garyzhang11111`. Commands run from the repository root.
 
@@ -80,8 +80,12 @@ After each session, read `seconds_per_step` from its `pretrain_session_k.json`. 
 
 ### Fine-tune and evaluate
 
+Before sft, `distill_data` has the LoRA-tuned SmolLM2 (from the `lora` stage) answer up to 6,000 Dolly questions whose human answers were too long for stage 3, and stage 4 appends those short answers to `sft_train`. It needs about an hour of T4 time and a finished `slm-lora-baseline` kernel.
+
 ```bash
-# --pretrain-session names the last finished pretrain session (default: the estimated count, 4)
+python3 compute/package.py --stage distill_data --out /tmp/slm-distill
+kaggle kernels push -p /tmp/slm-distill
+# --pretrain-session names the last finished pretrain session (default: the estimated count, 6)
 python3 compute/package.py --stage sft --pretrain-session 4 --out /tmp/slm-sft
 kaggle kernels push -p /tmp/slm-sft --accelerator NvidiaTeslaT4
 

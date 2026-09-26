@@ -13,10 +13,20 @@ RESUME = {"status": "session_complete_resume_next", "step_reached": 4570}
 DONE = {"status": "complete", "step_reached": 22889}
 
 
-def decide(statuses, reports=None, quota=30.0):
+ADAPTER = "ab" * 32
+LORA_DONE = {"status": "complete_pending_manual_review", "adapter_sha256": ADAPTER}
+FRESH_FOLLOW_UPS = {("slm-lora-eval", "lora_eval_report.json"): {"adapter_sha256": ADAPTER},
+                    ("slm-distill-data", "distill_manifest.json"): {"teacher": {"adapter_sha256": ADAPTER}}}
+
+
+def decide(statuses, reports=None, quota=30.0, chooser=None):
     reports = reports or {}
-    return run_pipeline.next_action(lambda slug: statuses.get(slug, "missing"),
-                                    lambda slug, filename: reports.get((slug, filename)), quota)
+    return (chooser or run_pipeline.next_action)(lambda slug: statuses.get(slug, "missing"),
+                                                 lambda slug, filename: reports.get((slug, filename)), quota)
+
+
+def decide_lora(statuses, reports=None, quota=30.0):
+    return decide(statuses, reports, quota, run_pipeline.lora_action)
 
 
 class ParseTests(unittest.TestCase):
@@ -69,12 +79,13 @@ class DecisionTests(unittest.TestCase):
     def test_sft_then_eval_then_done(self):
         statuses = {"slm-160m-corpus": "complete", **{f"slm-160m-pretrain-{k}": "complete" for k in (1, 2, 3)}}
         reports = {("slm-160m-pretrain-3", "pretrain_session_3.json"): DONE}
-        self.assertEqual(decide(statuses, reports)["kind"], "stop")  # no LoRA teacher yet
-        statuses["slm-lora-baseline"] = "running"
-        self.assertEqual(decide(statuses, reports)["kind"], "wait")
-        statuses["slm-lora-baseline"] = "complete"
-        self.assertEqual(decide(statuses, reports)["stage"], "distill_data")
-        statuses["slm-distill-data"] = "complete"
+        waiting = decide(statuses, reports)  # no adapter or distilled answers yet
+        self.assertEqual((waiting["kind"], waiting["needs"]), ("wait", "lora"))
+        statuses.update({"slm-lora-baseline": "complete", "slm-distill-data": "complete"})
+        reports[("slm-lora-baseline", "lora_report.json")] = LORA_DONE
+        reports[("slm-distill-data", "distill_manifest.json")] = {"teacher": {"adapter_sha256": "old"}}
+        self.assertEqual(decide(statuses, reports)["kind"], "wait")  # distilled from an older adapter
+        reports.update(FRESH_FOLLOW_UPS)
         result = decide(statuses, reports)
         self.assertEqual((result["kind"], result["stage"], result["pretrain_session"]), ("push", "sft", 3))
         statuses["slm-160m-sft"] = "complete"
@@ -86,6 +97,55 @@ class DecisionTests(unittest.TestCase):
         self.assertEqual(decide(statuses, reports)["kind"], "wait")
         statuses["slm-160m-eval"] = "complete"
         self.assertEqual(decide(statuses, reports)["kind"], "done")
+
+
+class LoraChainTests(unittest.TestCase):
+    READY = {"slm-sft-data": "complete", "slm-lora-baseline": "complete"}
+
+    def test_sft_data_then_lora(self):
+        self.assertEqual(decide_lora({})["stage"], "sft_data")
+        self.assertEqual(decide_lora({"slm-sft-data": "running"})["kind"], "wait")
+        self.assertEqual(decide_lora({"slm-sft-data": "error"})["kind"], "stop")
+        result = decide_lora({"slm-sft-data": "complete"})
+        self.assertEqual((result["kind"], result["stage"]), ("push", "lora"))
+        self.assertEqual(decide_lora({"slm-sft-data": "complete"}, quota=2.0)["kind"], "wait")
+        self.assertEqual(decide_lora({**self.READY, "slm-lora-baseline": "error"})["kind"], "stop")
+
+    def test_old_adapter_is_retrained_after_follow_ups_finish(self):
+        old = {("slm-lora-baseline", "lora_report.json"): {"status": "complete_pending_manual_review"}}
+        busy = decide_lora({**self.READY, "slm-lora-eval": "queued"}, old)
+        self.assertEqual(busy["kind"], "wait")
+        self.assertIn("lora_eval", busy["reason"])
+        result = decide_lora({**self.READY, "slm-lora-eval": "complete"}, old)
+        self.assertEqual((result["kind"], result["stage"]), ("push", "lora"))
+        failed = {("slm-lora-baseline", "lora_report.json"): {"status": "failed_nonfinite_loss"}}
+        self.assertEqual(decide_lora(self.READY, failed)["kind"], "stop")
+
+    def test_follow_ups_rerun_on_a_new_adapter(self):
+        reports = {("slm-lora-baseline", "lora_report.json"): LORA_DONE}
+        self.assertEqual(decide_lora(self.READY, reports)["stage"], "lora_eval")
+        statuses = {**self.READY, "slm-lora-eval": "running"}
+        self.assertEqual(decide_lora(statuses, reports)["stage"], "distill_data")
+        statuses.update({"slm-lora-eval": "complete", "slm-distill-data": "complete"})
+        reports.update({("slm-lora-eval", "lora_eval_report.json"): {"adapter_sha256": "old"},
+                        ("slm-distill-data", "distill_manifest.json"): {"teacher": {"adapter_sha256": ADAPTER}}})
+        self.assertEqual(decide_lora(statuses, reports)["stage"], "lora_eval")
+        reports.update(FRESH_FOLLOW_UPS)
+        self.assertEqual(decide_lora(statuses, reports)["kind"], "done")
+        self.assertEqual(decide_lora({**statuses, "slm-distill-data": "error"}, reports)["kind"], "stop")
+
+    def test_round_shares_quota_and_stops_when_main_needs_a_stopped_lora_chain(self):
+        statuses = {"slm-160m-corpus": "complete", "slm-160m-pretrain-1": "complete", "slm-sft-data": "complete"}
+        reports = {("slm-160m-pretrain-1", "pretrain_session_1.json"): RESUME}
+        main, side = run_pipeline.decide_round(lambda slug: statuses.get(slug, "missing"),
+                                               lambda slug, filename: reports.get((slug, filename)), 14.0)
+        self.assertEqual((main["kind"], main["stage"]), ("push", "pretrain"))
+        self.assertEqual((side["kind"], side["stage"]), ("wait", "lora"))  # 14 - 12 hours left
+        statuses.update({"slm-160m-pretrain-1": "complete", "slm-lora-baseline": "error"})
+        reports[("slm-160m-pretrain-1", "pretrain_session_1.json")] = DONE
+        main, side = run_pipeline.decide_round(lambda slug: statuses.get(slug, "missing"),
+                                               lambda slug, filename: reports.get((slug, filename)), 30.0)
+        self.assertEqual((main["kind"], side["kind"]), ("stop", "stop"))
 
 
 class MainTests(unittest.TestCase):
@@ -104,13 +164,15 @@ class MainTests(unittest.TestCase):
         fake.push.return_value = "pushed"
         with mock.patch.object(run_pipeline, "Kaggle", return_value=fake), mock.patch("builtins.print"):
             run_pipeline.main(["--owner", "someone"])
-        self.assertEqual(fake.push.call_args[0][0]["session"], 1)
+        pushed = [call[0][0] for call in fake.push.call_args_list]
+        self.assertEqual([(decision["stage"], decision.get("session")) for decision in pushed],
+                         [("pretrain", 1), ("sft_data", None)])
 
 
     def test_watch_survives_transient_errors(self):
         fake = mock.Mock()
         fake.quota_hours.side_effect = [RuntimeError("Failed to resolve 'api.kaggle.com'"), 30.0]
-        fake.status.side_effect = lambda slug: "error" if slug == "slm-160m-corpus" else "missing"
+        fake.status.side_effect = lambda slug: "error"
         with mock.patch.object(run_pipeline, "Kaggle", return_value=fake), mock.patch("builtins.print"), \
                 mock.patch.object(run_pipeline.time, "sleep") as sleep:
             self.assertEqual(run_pipeline.main(["--owner", "someone", "--watch"]), 1)

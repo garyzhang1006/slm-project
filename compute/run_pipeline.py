@@ -1,7 +1,8 @@
 """Drive the slm-160m chain on Kaggle: pretrain sessions until one pass is done, then distill_data, sft, eval.
 
-Each round reads kernel statuses and reports, decides one action, and (unless --dry-run) pushes the next
-kernel. It never runs a model locally; every push goes to a Kaggle GPU. It checks the weekly GPU quota before
+Beside it runs the LoRA chain: sft_data, the LoRA adapter, then lora_eval and distill_data on that adapter.
+Each round reads kernel statuses and reports, decides one action per chain, and (unless --dry-run) pushes the
+next kernels. It never runs a model locally; every push goes to a Kaggle GPU. It checks the weekly GPU quota before
 each push, so a session that would be killed half way for lack of quota waits for the reset instead.
 Run from the repo root, logged in with the Kaggle CLI, e.g.
     python3 compute/run_pipeline.py --owner YOUR_KAGGLE_USERNAME --watch
@@ -26,7 +27,11 @@ from compute.stages import PRETRAIN_SESSION_SECONDS, stage_slug  # noqa: E402
 
 # GPU hours a push must have left in the weekly quota: the stage's own time cap plus setup and save.
 STAGE_HOURS = {"pretrain": PRETRAIN_SESSION_SECONDS / 3600 + 1.0, "distill_data": 1.5, "sft": 9.5,
-               "eval": 1.0}
+               "eval": 1.0, "lora": 4.0, "lora_eval": 1.0, "sft_data": 0.0}
+# Reports that record which adapter a LoRA follow-up used, as a path of keys to its adapter_sha256.
+ADAPTER_USERS = {"lora_eval": ("lora_eval_report.json", ("adapter_sha256",)),
+                 "distill_data": ("distill_manifest.json", ("teacher", "adapter_sha256"))}
+TERMINAL = {"done", "stop"}
 # Kaggle numbers pretrain sessions from 1; a chain this long means something is looping.
 MAX_PRETRAIN_SESSIONS = 20
 WAITING = {"queued", "running", "new_script", "pending"}
@@ -92,18 +97,9 @@ def next_action(status, report, quota_hours: float) -> dict:
     if session_report.get("status") != "complete":
         return action("stop", f"pretrain session {last} report status is {session_report.get('status')!r}")
 
-    # sft attaches the distilled answers, and distillation needs the finished LoRA teacher.
-    distill = status(stage_slug("distill_data"))
-    if distill in WAITING:
-        return action("wait", f"distill_data is {distill}")
-    if distill == "missing":
-        teacher = status(stage_slug("lora"))
-        if teacher != "complete":
-            return action("wait" if teacher in WAITING else "stop",
-                          f"distill_data needs the LoRA teacher, which is {teacher}")
-        return push_if_quota("distill_data", quota_hours, "sft needs distilled answers first")
-    if distill != "complete":
-        return action("stop", f"distill_data ended as {distill}; read its log before retrying")
+    # sft attaches the distilled answers; lora_action builds them from the current adapter.
+    if not follow_up_fresh(status, report, "distill_data", current_adapter(status, report)):
+        return action("wait", "sft waits for distill_data built from the current LoRA adapter", needs="lora")
 
     sft = status(stage_slug("sft"))
     if sft in WAITING:
@@ -125,6 +121,81 @@ def next_action(status, report, quota_hours: float) -> dict:
     if evaluation != "complete":
         return action("stop", f"eval ended as {evaluation}; read its log before retrying")
     return action("done", "eval finished; read eval_report.json from the eval kernel output")
+
+
+def dig(value, keys: tuple[str, ...]):
+    for key in keys:
+        value = value.get(key) if isinstance(value, dict) else None
+    return value
+
+
+def current_adapter(status, report) -> str | None:
+    """adapter_sha256 of the finished LoRA kernel, or None while it is missing, running, or from an older runner."""
+    if status(stage_slug("lora")) != "complete":
+        return None
+    return dig(report(stage_slug("lora"), "lora_report.json"), ("adapter_sha256",))
+
+
+def follow_up_fresh(status, report, stage: str, adapter: str | None) -> bool:
+    filename, keys = ADAPTER_USERS[stage]
+    return (adapter is not None and status(stage_slug(stage)) == "complete"
+            and dig(report(stage_slug(stage), filename), keys) == adapter)
+
+
+def lora_action(status, report, quota_hours: float) -> dict:
+    """One decision for the LoRA chain: sft_data, lora, then lora_eval and distill_data on the same adapter."""
+    data = status(stage_slug("sft_data"))
+    if data in WAITING:
+        return action("wait", f"sft_data is {data}")
+    if data == "missing":
+        return action("push", "the LoRA adapter trains on sft_data", stage="sft_data")
+    if data != "complete":
+        return action("stop", f"sft_data ended as {data}; read its log before retrying")
+
+    teacher = status(stage_slug("lora"))
+    if teacher in WAITING:
+        return action("wait", f"lora is {teacher}")
+    if teacher == "missing":
+        return push_if_quota("lora", quota_hours, "sft_data is ready")
+    if teacher != "complete":
+        return action("stop", f"lora ended as {teacher}; read its log before retrying")
+    lora_report = report(stage_slug("lora"), "lora_report.json") or {}
+    if lora_report.get("status") != "complete_pending_manual_review":
+        return action("stop", f"lora report status is {lora_report.get('status')!r}")
+    adapter = lora_report.get("adapter_sha256")
+    followers = {stage: status(stage_slug(stage)) for stage in ADAPTER_USERS}
+    if not adapter:
+        # A new lora version replaces the output that queued follow-ups would mount, so let them finish first.
+        busy = [stage for stage, state in followers.items() if state in WAITING]
+        if busy:
+            return action("wait", f"the adapter needs retraining once {', '.join(busy)} finishes")
+        return push_if_quota("lora", quota_hours, "the adapter predates best-step selection and the merged "
+                             "export, so it has no adapter_sha256")
+
+    waiting, stopped = [], []
+    for stage, state in followers.items():
+        if state in WAITING:
+            waiting.append(f"{stage} is {state}")
+        elif state == "missing" or (state == "complete" and not follow_up_fresh(status, report, stage, adapter)):
+            return push_if_quota(stage, quota_hours, f"{stage} has not run on adapter {adapter[:12]}")
+        elif state != "complete":
+            stopped.append(f"{stage} ended as {state}; read its log before retrying")
+    if stopped:
+        return action("stop", "; ".join(stopped))
+    if waiting:
+        return action("wait", "; ".join(waiting))
+    return action("done", f"lora_eval and distill_data both used adapter {adapter[:12]}")
+
+
+def decide_round(status, report, quota_hours: float) -> list[dict]:
+    """[main chain decision, LoRA chain decision]; a push on one chain leaves less quota for the other."""
+    main = next_action(status, report, quota_hours)
+    if main["kind"] == "push":
+        quota_hours -= STAGE_HOURS[main["stage"]]
+    side = lora_action(status, report, quota_hours)
+    if main.get("needs") == "lora" and side["kind"] == "stop":
+        main = action("stop", f"{main['reason']}, but the LoRA chain stopped")
+    return [main, side]
 
 
 class Kaggle:
@@ -175,10 +246,11 @@ def main(argv: list[str] | None = None) -> int:
     failures = 0
     while True:
         try:
-            decision = next_action(kaggle.status, kaggle.report, kaggle.quota_hours())
-            print(time.strftime("%Y-%m-%d %H:%M"), json.dumps(decision), flush=True)
-            if decision["kind"] == "push" and not args.dry_run:
-                print(kaggle.push(decision), flush=True)
+            decisions = decide_round(kaggle.status, kaggle.report, kaggle.quota_hours())
+            for decision in decisions:
+                print(time.strftime("%Y-%m-%d %H:%M"), json.dumps(decision), flush=True)
+                if decision["kind"] == "push" and not args.dry_run:
+                    print(kaggle.push(decision), flush=True)
             failures = 0
         except (RuntimeError, OSError) as error:
             # A DNS blip or API hiccup killed the first watch run; retry next round instead of dying.
@@ -189,8 +261,9 @@ def main(argv: list[str] | None = None) -> int:
                                                                "error": str(error)[:300]}), flush=True)
             time.sleep(args.interval)
             continue
-        if decision["kind"] in {"done", "stop"}:
-            return 0 if decision["kind"] == "done" else 1
+        kinds = {decision["kind"] for decision in decisions}
+        if kinds <= TERMINAL:
+            return 0 if kinds == {"done"} else 1
         if not args.watch or args.dry_run:
             return 0
         time.sleep(args.interval)

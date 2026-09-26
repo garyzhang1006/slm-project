@@ -172,6 +172,11 @@ def ensure_dependencies() -> dict:
     missing = [name for name in ("transformers", "peft", "accelerate") if importlib.util.find_spec(name) is None]
     if missing:
         subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", *missing], check=True)
+    # peft raises ImportError while wrapping layers when an old torchao is installed (Kaggle ships 0.10.0,
+    # peft wants >0.16.0). This stage never quantizes, so removing torchao is safer than upgrading it
+    # against the image's torch build.
+    if importlib.util.find_spec("torchao") is not None:
+        subprocess.run([sys.executable, "-m", "pip", "uninstall", "--quiet", "--yes", "torchao"], check=True)
     from importlib.metadata import version
     return {name: version(name) for name in ("torch", "transformers", "peft", "accelerate")}
 

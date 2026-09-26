@@ -4,6 +4,7 @@ from pathlib import Path
 import re
 import tempfile
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNNER = ROOT / "compute" / "lora_baseline.py"
@@ -26,6 +27,16 @@ class LoraBaselineTests(unittest.TestCase):
     def test_import_has_no_heavy_dependencies(self):
         for name in ("torch", "transformers", "peft"):
             self.assertNotIn(name, vars(self.module))
+
+    def test_dependencies_remove_incompatible_torchao(self):
+        calls = []
+        with mock.patch.object(self.module.importlib.util, "find_spec", return_value=object()), \
+                mock.patch.object(self.module.subprocess, "run", side_effect=lambda cmd, **_: calls.append(cmd)), \
+                mock.patch("importlib.metadata.version", return_value="1.0"):
+            self.module.ensure_dependencies()
+        self.assertEqual(len(calls), 1)
+        self.assertIn("uninstall", calls[0])
+        self.assertEqual(calls[0][-2:], ["--yes", "torchao"])
 
     def test_model_is_pinned(self):
         self.assertEqual(self.module.MODEL_ID, "HuggingFaceTB/SmolLM2-360M-Instruct")

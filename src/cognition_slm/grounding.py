@@ -10,8 +10,22 @@ _WORDS = re.compile(r"[a-z0-9]+(?:'[a-z]+)?", re.IGNORECASE)
 _STOP = frozenset("a an the is are was were be been being do does did can could would should will shall may might what which who whom whose when where why how i you he she it we they me my your his her its our their of to in on at by for from with about and or but as that this these those please tell explain answer question according source passage text".split())
 
 
+def _stem(word: str) -> str:
+    # Light suffix stripping so "panels"/"panel" and "used"/"use" match; irregular forms still miss.
+    if word.endswith("ies") and len(word) > 4:
+        return word[:-3] + "y"
+    # "used" leaves a 2-letter stem, so ing/ed allow it and "use" drops its e to meet it at "us".
+    for suffix, minimum in (("ing", 2), ("ed", 2), ("s", 3)):
+        if word.endswith(suffix) and not word.endswith("ss") and len(word) - len(suffix) >= minimum:
+            word = word[: -len(suffix)]
+            break
+    return word[:-1] if word.endswith("e") and len(word) > 2 else word
+
+
 def _terms(text: str) -> set[str]:
-    return {word for word in _WORDS.findall(text.casefold()) if word not in _STOP}
+    words = _WORDS.findall(text.casefold().replace("\u2019", "'"))
+    words = (word.removesuffix("'s") for word in words)
+    return {_stem(word) for word in words if word not in _STOP}
 
 
 def source_excerpts(request: dict) -> dict:

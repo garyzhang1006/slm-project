@@ -48,3 +48,14 @@ class GroundingTests(unittest.TestCase):
                         {"prompt": "x", "source_text": "x", "url": "file:///x"}):
             with self.subTest(request=str(request)[:80]), self.assertRaises(ValueError):
                 source_excerpts(request)
+
+    def test_possessives_and_regular_inflections_match(self):
+        passage = "The population of Paris is 2 million."
+        for prompt in ("What is Paris's population?", "What is Paris\u2019s population?"):
+            with self.subTest(prompt=prompt):
+                self.assertEqual(self.answer(prompt, passage)["sources"][0]["text"], passage)
+        passage = "Several city councils used a tram."
+        self.assertEqual(self.answer("Which cities use trams?", passage)["sources"][0]["text"], passage)
+        # Two content terms, so "use"/"used" must match on their own to clear the 0.6 cutoff.
+        passage = "Councils use a tram."
+        self.assertEqual(self.answer("Who used trams?", passage)["sources"][0]["text"], passage)

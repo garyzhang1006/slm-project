@@ -1,4 +1,4 @@
-"""Automatic exact and contains-match scoring for data/simple_questions_holdout.json."""
+"""Automatic exact and contains-match scoring for data/simple_questions_holdout.json or any file in its schema."""
 
 from __future__ import annotations
 
@@ -10,6 +10,8 @@ import sys
 
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_HOLDOUT = ROOT / "data" / "simple_questions_holdout.json"
+# compute/stage5_evaluate.py stores each file's answers under its own report key.
+REPORT_KEYS = {"simple_questions_holdout.json": "simple_questions", "everyday_eval.json": "everyday_eval"}
 # These rubrics describe a behavior (abstaining) rather than an answer string, so a human judges them.
 MANUAL_CATEGORIES = frozenset({"unknown"})
 _UNITS = {word: index for index, word in enumerate(
@@ -96,8 +98,8 @@ def score_predictions(rows: list[dict], predictions) -> dict:
             "scope": "Normalized string match only; manual review still decides correctness"}
 
 
-def load_predictions(path: Path) -> list[dict]:
-    """Read a JSON list, JSONL rows, or a runner report holding a simple_questions list."""
+def load_predictions(path: Path, report_key: str = "simple_questions") -> list[dict]:
+    """Read a JSON list, JSONL rows, or a runner report holding a list under report_key."""
     text = path.read_text(encoding="utf-8")
     try:
         value = json.loads(text)
@@ -105,21 +107,23 @@ def load_predictions(path: Path) -> list[dict]:
         value = [json.loads(line) for line in text.splitlines() if line.strip()]
     if isinstance(value, dict):
         # A one-line JSONL file parses as a single prediction object rather than a report.
-        value = [value] if "id" in value else value.get("simple_questions", value.get("predictions"))
+        value = [value] if "id" in value else value.get(report_key, value.get("predictions"))
     if not isinstance(value, list) or not all(isinstance(item, dict) for item in value):
-        raise ValueError(f"{path}: expected a list of {{id, answer}} objects, JSONL, or a report with simple_questions")
+        raise ValueError(f"{path}: expected a list of {{id, answer}} objects, JSONL, or a report with {report_key}")
     return value
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("predictions", type=Path, help="JSON or JSONL of {id, answer} predictions")
-    parser.add_argument("--holdout", type=Path, default=DEFAULT_HOLDOUT)
+    parser.add_argument("--holdout", type=Path, default=DEFAULT_HOLDOUT,
+                        help="Question file in the holdout schema, e.g. data/everyday_eval.json")
     parser.add_argument("--json", action="store_true", help="Print the full score report as JSON")
     args = parser.parse_args(argv)
     try:
         rows = json.loads(args.holdout.read_text(encoding="utf-8"))["rows"]
-        report = score_predictions(rows, load_predictions(args.predictions))
+        report_key = REPORT_KEYS.get(args.holdout.name, "simple_questions")
+        report = score_predictions(rows, load_predictions(args.predictions, report_key))
     except (OSError, ValueError, KeyError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 2
@@ -128,7 +132,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     format_rate = lambda value: "n/a" if value is None else f"{value:.1%}"
     for name, bucket in [*sorted(report["categories"].items()), ("TOTAL", report["total"])]:
-        print(f"{name:<12} exact {bucket['exact']}/{bucket['scored']} ({format_rate(bucket['exact_accuracy'])})"
+        print(f"{name:<14} exact {bucket['exact']}/{bucket['scored']} ({format_rate(bucket['exact_accuracy'])})"
               f"  contains {bucket['contains']}/{bucket['scored']} ({format_rate(bucket['contains_accuracy'])})"
               f"  manual {bucket['manual_review']}  missing {bucket['missing']}")
     if report["unknown_ids"]:

@@ -81,6 +81,23 @@ class ScoreHoldoutTests(unittest.TestCase):
             self.assertIn("extra", stderr.getvalue())
             self.assertIn("error:", stderr.getvalue())
 
+    def test_cli_scores_another_file_with_categories(self):
+        holdout = ROOT / "data/everyday_eval.json"
+        rows = json.loads(holdout.read_text())["rows"]
+        with tempfile.TemporaryDirectory() as directory:
+            # A stage5 report holds both lists; --holdout picks the matching one.
+            report = Path(directory) / "eval_report.json"
+            report.write_text(json.dumps({
+                "simple_questions": [{"id": self.rows[0]["id"], "answer": "7"}],
+                "everyday_eval": [{"id": row["id"], "answer": row["accepted_answers"][-1]} for row in rows]}))
+            stdout = io.StringIO()
+            with contextlib.redirect_stdout(stdout):
+                self.assertEqual(self.module.main([str(report), "--holdout", str(holdout)]), 0)
+        lines = stdout.getvalue().splitlines()
+        self.assertIn(f"exact {len(rows)}/{len(rows)} (100.0%)", lines[-1])
+        categories = {row["category"] for row in rows}
+        self.assertEqual({line.split()[0] for line in lines[:-1]}, categories)
+
 
 if __name__ == "__main__":
     unittest.main()

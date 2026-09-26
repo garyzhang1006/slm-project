@@ -186,14 +186,27 @@ class CognitionSLM(nn.Module):
         self.task_head = nn.Linear(config.n_embd, len(config.task_types))
         self.error_head = nn.Linear(config.n_embd, len(config.error_categories))
         self.confidence_head = nn.Linear(config.n_embd, 3)
-        self.apply(self._init_weights)
+        # GPT-2 scales residual output projections by 1/sqrt(2 * n_layer) so the
+        # residual stream variance does not grow with depth. Initializing in the
+        # same apply pass keeps RNG consumption identical to unscaled models.
+        residual_std = 0.02 / (2 * config.n_layer) ** 0.5
+        residual_projections = set()
+        if config.scaled_residual_init:
+            for block in self.blocks:
+                down = block.mlp.down if config.architecture == "modern" else block.mlp[2]
+                residual_projections.update((id(block.attention.proj), id(down)))
+        self.apply(
+            lambda module: self._init_weights(
+                module, residual_std if id(module) in residual_projections else 0.02
+            )
+        )
         if config.architecture == "modern":
             self.lm_head.weight = self.token_embedding.weight
 
     @staticmethod
-    def _init_weights(module: nn.Module) -> None:
+    def _init_weights(module: nn.Module, std: float = 0.02) -> None:
         if isinstance(module, nn.Linear):
-            nn.init.normal_(module.weight, mean=0.0, std=0.02)
+            nn.init.normal_(module.weight, mean=0.0, std=std)
             if module.bias is not None:
                 nn.init.zeros_(module.bias)
         elif isinstance(module, nn.Embedding):

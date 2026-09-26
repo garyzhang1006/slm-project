@@ -182,6 +182,42 @@ class ModelTests(unittest.TestCase):
         empty.loss.backward()
         self.assertTrue(torch.isfinite(model.token_embedding.weight.grad).all())
 
+    def test_160m_preset_parameter_count(self):
+        from cognition_slm.config import MODEL_PRESETS, ModelConfig
+        from cognition_slm.model import CognitionSLM
+
+        # The meta device builds shapes without allocating 160M real weights.
+        with torch.device("meta"):
+            model = CognitionSLM(ModelConfig(**MODEL_PRESETS["slm-160m"]))
+        self.assertEqual(sum(p.numel() for p in model.parameters()), 160_721_679)
+        self.assertEqual(model.blocks[0].attention.head_dim, 64)
+
+    def test_scaled_residual_init_only_touches_residual_projections(self):
+        from cognition_slm.config import ModelConfig
+        from cognition_slm.model import CognitionSLM
+
+        for architecture in ("legacy", "modern"):
+            with self.subTest(architecture=architecture):
+                kwargs = dict(block_size=16, n_layer=8, n_head=2, n_embd=256, architecture=architecture)
+                torch.manual_seed(0)
+                scaled = CognitionSLM(ModelConfig(**kwargs))
+                torch.manual_seed(0)
+                unscaled = CognitionSLM(ModelConfig(**kwargs, scaled_residual_init=False))
+                expected = 0.02 / (2 * 8) ** 0.5
+                for block in scaled.blocks:
+                    down = block.mlp.down if architecture == "modern" else block.mlp[2]
+                    self.assertAlmostEqual(float(block.attention.proj.weight.std()), expected, delta=expected * 0.1)
+                    self.assertAlmostEqual(float(down.weight.std()), expected, delta=expected * 0.1)
+                # Same RNG stream: residual projections are the unscaled draws times the factor,
+                # and every other tensor is bit-identical.
+                down_key = "mlp.down.weight" if architecture == "modern" else "mlp.2.weight"
+                reference = unscaled.state_dict()
+                for key, value in scaled.state_dict().items():
+                    if key.endswith(("attention.proj.weight", down_key)):
+                        self.assertTrue(torch.allclose(value, reference[key] / (2 * 8) ** 0.5), key)
+                    else:
+                        self.assertTrue(torch.equal(value, reference[key]), key)
+
 
 if __name__ == "__main__":
     unittest.main()

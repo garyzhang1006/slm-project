@@ -26,3 +26,15 @@ class ConfigTests(unittest.TestCase):
         config = ModelConfig(**MODEL_PRESETS["slm-500m"])
         self.assertEqual((config.n_layer, config.n_embd, config.n_head), (24, 1140, 10))
         self.assertEqual(len(config.task_types), 6)
+
+    def test_160m_preset_has_expected_shape_and_head_dim(self):
+        config = ModelConfig(**MODEL_PRESETS["slm-160m"])
+        config.validate()
+        self.assertEqual((config.n_layer, config.n_embd, config.n_head), (17, 768, 12))
+        self.assertEqual(config.n_embd // config.n_head, 64)
+        self.assertEqual(config.n_embd % 64, 0)
+
+    def test_scaled_residual_init_defaults(self):
+        self.assertTrue(ModelConfig().scaled_residual_init)
+        self.assertFalse(ModelConfig.from_dict({"n_layer": 1, "n_head": 2, "n_embd": 16}).scaled_residual_init)
+        self.assertTrue(ModelConfig.from_dict(ModelConfig().to_dict()).scaled_residual_init)

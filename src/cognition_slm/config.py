@@ -33,6 +33,8 @@ ARCHITECTURES = ("legacy", "modern")
 MODEL_PRESETS = {
     "demo": dict(block_size=2048, n_layer=2, n_head=4, n_embd=128, architecture="modern"),
     "slm-50m": dict(block_size=2048, n_layer=12, n_head=8, n_embd=512, architecture="modern"),
+    # 17 x 768 x 12 (head_dim 64) yields 160,721,679 parameters, sized for a Kaggle T4.
+    "slm-160m": dict(block_size=2048, n_layer=17, n_head=12, n_embd=768, architecture="modern"),
     # 24 x 1,140 x 10 keeps 2,048-byte context and yields 499,524,075 parameters.
     "slm-500m": dict(block_size=2048, n_layer=24, n_head=10, n_embd=1140, architecture="modern"),
 }
@@ -50,6 +52,7 @@ class ModelConfig:
     dropout: float = 0.0
     architecture: str = "legacy"
     rope_theta: float = 10_000.0
+    scaled_residual_init: bool = True
     task_types: tuple[str, ...] = TASK_TYPES
     error_categories: tuple[str, ...] = ERROR_CATEGORIES
 
@@ -80,6 +83,8 @@ class ModelConfig:
         # Historical checkpoints may omit these fields; never reinterpret their weights.
         values.setdefault("architecture", "legacy")
         values.setdefault("block_size", 256)
+        # Configs saved before GPT-2 residual scaling existed were initialized unscaled.
+        values.setdefault("scaled_residual_init", False)
         # Checkpoints created before language_generation used five task classes.
         values["task_types"] = tuple(values.get("task_types", LEGACY_TASK_TYPES))
         values["error_categories"] = tuple(values.get("error_categories", ERROR_CATEGORIES))

@@ -18,8 +18,62 @@ class TrainingTests(unittest.TestCase):
     def test_warmup_and_cosine_schedule_boundaries(self):
         self.assertAlmostEqual(_lr_scale(0, total_steps=20, warmup_steps=5), 0.2)
         self.assertAlmostEqual(_lr_scale(4, total_steps=20, warmup_steps=5), 1.0)
-        self.assertAlmostEqual(_lr_scale(19, total_steps=20, warmup_steps=5), 0.0)
+        self.assertAlmostEqual(_lr_scale(20, total_steps=20, warmup_steps=5), 0.0)
         self.assertAlmostEqual(_lr_scale(0, total_steps=20, warmup_steps=0), 1.0)
+
+    def test_final_update_has_positive_learning_rate(self):
+        # LambdaLR applies lambda(total_steps - 1) to the last update of a run.
+        for total, warmup in ((20, 5), (100, 5), (2, 0), (1, 0)):
+            with self.subTest(total=total, warmup=warmup):
+                self.assertGreater(_lr_scale(total - 1, total, warmup), 0.0)
+
+    def test_epoch_sampling_covers_every_record_once_per_pass(self):
+        from cognition_slm.train import _sample_indices
+
+        first = _sample_indices(7, 10, 0, 10)
+        second = _sample_indices(7, 10, 10, 10)
+        self.assertEqual(sorted(first), list(range(10)))
+        self.assertEqual(sorted(second), list(range(10)))
+        self.assertNotEqual(first, second)
+        self.assertEqual(_sample_indices(7, 10, 0, 25), first + second + _sample_indices(7, 10, 20, 5))
+        self.assertEqual(_sample_indices(7, 10, 3, 4), first[3:7])
+        self.assertNotEqual(_sample_indices(8, 10, 0, 10), first)
+
+    def test_nonfinite_loss_skips_fp16_update_and_fails_otherwise(self):
+        from unittest.mock import Mock
+        from cognition_slm.train import _skip_nonfinite_update
+
+        scaler = Mock()
+        scaler.get_scale.return_value = 1024.0
+        optimizer = Mock()
+        _skip_nonfinite_update("fp16", scaler, optimizer, 3)
+        optimizer.zero_grad.assert_called_once_with(set_to_none=True)
+        scaler.update.assert_called_once_with(new_scale=512.0)
+        for precision in ("fp32", "bf16"):
+            with self.assertRaisesRegex(RuntimeError, "non-finite training loss at step 3"):
+                _skip_nonfinite_update(precision, Mock(), Mock(), 3)
+
+    def test_cuda_rng_restore_ignores_visible_gpu_count(self):
+        import torch
+        from unittest.mock import Mock
+        from cognition_slm.train import _restore_cuda_rng
+
+        states = [torch.tensor([0], dtype=torch.uint8), torch.tensor([1], dtype=torch.uint8)]
+        for saved_device, expected in (("cuda", 0), ("cuda:1", 1), ("cuda:5", 1)):
+            with self.subTest(saved_device=saved_device):
+                fake_torch = Mock()
+                fake_torch.cuda.device_count.return_value = 1
+                device = torch.device("cuda")
+                _restore_cuda_rng(fake_torch, {
+                    "cuda_rng_state_all": states, "metadata": {"device": saved_device},
+                }, device)
+                restored, target = fake_torch.cuda.set_rng_state.call_args.args
+                self.assertTrue(torch.equal(restored, states[expected]))
+                self.assertEqual(target, device)
+        fake_torch = Mock()
+        _restore_cuda_rng(fake_torch, {"cuda_rng_state_all": states}, torch.device("cpu"))
+        _restore_cuda_rng(fake_torch, {"cuda_rng_state_all": []}, torch.device("cuda"))
+        fake_torch.cuda.set_rng_state.assert_not_called()
 
 
 class TrainingIntegrationTests(unittest.TestCase):
@@ -77,6 +131,66 @@ class TrainingIntegrationTests(unittest.TestCase):
             torch.testing.assert_close(weight, restored["model_state_dict"][name], rtol=0, atol=0)
         self.assertIn("torch_rng_state", restored)
         self.assertEqual(len(restored["optimizer_state_dict"]["param_groups"]), 2)
+
+    def test_resume_learning_rate_must_match_unless_overridden(self):
+        import torch
+        from cognition_slm.train import train
+
+        parent = train(self.args("parent.pt", steps=1, learning_rate=3e-4))
+        with self.assertRaisesRegex(ValueError, "--override-learning-rate"):
+            train(self.args("rejected.pt", resume=parent["checkpoint"], learning_rate=1e-5))
+        kept = train(self.args("kept.pt", resume=parent["checkpoint"]))
+        saved = torch.load(kept["checkpoint"], weights_only=True)
+        self.assertEqual(saved["metadata"]["learning_rate"], 3e-4)
+        self.assertEqual(saved["scheduler_state_dict"]["base_lrs"], [3e-4, 3e-4])
+        overridden = train(self.args(
+            "overridden.pt", resume=parent["checkpoint"], learning_rate=1e-5,
+            override_learning_rate=True,
+        ))
+        saved = torch.load(overridden["checkpoint"], weights_only=True)
+        self.assertEqual(saved["metadata"]["learning_rate"], 1e-5)
+        self.assertEqual(saved["scheduler_state_dict"]["base_lrs"], [1e-5, 1e-5])
+        for group in saved["optimizer_state_dict"]["param_groups"]:
+            self.assertEqual(group["initial_lr"], 1e-5)
+            self.assertLessEqual(group["lr"], 1e-5)
+
+    def test_override_learning_rate_applies_to_first_update_of_step_zero_restart(self):
+        import torch
+        from unittest.mock import patch
+        from cognition_slm.train import train
+
+        parent = train(self.args("parent.pt", steps=1, learning_rate=3e-4))
+        payload = torch.load(parent["checkpoint"], weights_only=True)
+        payload["metadata"]["step"] = 0
+        payload.pop("scheduler_state_dict")
+        restart = self.root / "restart.pt"
+        torch.save(payload, restart)
+        rates = []
+        step = torch.optim.AdamW.step
+
+        def record(optimizer, *args, **kwargs):
+            rates.append({group["lr"] for group in optimizer.param_groups})
+            return step(optimizer, *args, **kwargs)
+
+        with patch.object(torch.optim.AdamW, "step", record):
+            train(self.args("restarted.pt", resume=str(restart), steps=2,
+                            learning_rate=1e-5, override_learning_rate=True))
+        self.assertEqual(rates[0], {1e-5})
+
+    def test_resume_continues_sample_stream_from_checkpoint(self):
+        import torch
+        from cognition_slm.train import train
+
+        parent = train(self.args("parent.pt", steps=1, gradient_accumulation_steps=3))
+        saved = torch.load(parent["checkpoint"], weights_only=True)
+        self.assertEqual(saved["metadata"]["samples_seen"], 6)
+        legacy = dict(saved, metadata={k: v for k, v in saved["metadata"].items() if k != "samples_seen"})
+        legacy_path = self.root / "legacy-sampling.pt"
+        torch.save(legacy, legacy_path)
+        resumed = train(self.args("resumed.pt", resume=str(legacy_path), steps=2,
+                                  gradient_accumulation_steps=3))
+        saved = torch.load(resumed["checkpoint"], weights_only=True)
+        self.assertEqual(saved["metadata"]["samples_seen"], 12)
 
     def test_accumulation_matches_combined_batch_with_unequal_lengths(self):
         import torch

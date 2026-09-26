@@ -17,17 +17,15 @@ class EfficiencyTests(unittest.TestCase):
     def test_counters_match_real_supervision(self):
         from cognition_slm.data import load_jsonl, encode_examples
         from cognition_slm.tokenizer import ByteTokenizer
-        from cognition_slm.train import train
-        import random
+        from cognition_slm.train import _sample_indices, train
         args = self.fixture.args(steps=2, gradient_accumulation_steps=2)
         encoded = encode_examples(load_jsonl(args.data), ByteTokenizer(), 256)
         expected_input = expected_targets = 0
-        for step in (1, 2):
-            rng = random.Random(args.seed + step)
-            for _ in range(args.batch_size * args.gradient_accumulation_steps):
-                item = encoded[rng.randrange(len(encoded))]
-                expected_input += len(item["input_ids"])
-                expected_targets += len(item["input_ids"]) - item["answer_start"]
+        drawn = args.steps * args.batch_size * args.gradient_accumulation_steps
+        for index in _sample_indices(args.seed, len(encoded), 0, drawn):
+            item = encoded[index]
+            expected_input += len(item["input_ids"])
+            expected_targets += len(item["input_ids"]) - item["answer_start"]
         result = train(args)
         self.assertEqual(result["processed_input_tokens"], expected_input)
         self.assertEqual(result["supervised_tokens"], expected_targets)

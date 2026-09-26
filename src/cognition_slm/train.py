@@ -8,6 +8,7 @@ import math
 import os
 import random
 import tempfile
+from functools import lru_cache
 from pathlib import Path
 from time import monotonic
 
@@ -15,6 +16,8 @@ from .checkpoint import load_checkpoint_payload
 from .config import MODEL_PRESETS, ModelConfig
 from .data import encode_examples, load_jsonl
 from .tokenizer import ByteTokenizer
+
+DEFAULT_LEARNING_RATE = 3e-4
 
 
 def _import_torch():
@@ -41,9 +44,45 @@ def _device(torch, name: str):
 def _lr_scale(step: int, total_steps: int, warmup_steps: int) -> float:
     if warmup_steps > 0 and step < warmup_steps:
         return (step + 1) / warmup_steps
-    decay_steps = max(1, total_steps - warmup_steps - 1)
+    # Decay over the full post-warmup span so the final update still gets a nonzero rate.
+    decay_steps = max(1, total_steps - warmup_steps)
     progress = min(1.0, max(0.0, (step - warmup_steps) / decay_steps))
     return 0.5 * (1.0 + math.cos(math.pi * progress))
+
+
+@lru_cache(maxsize=2)
+def _epoch_permutation(seed: int, dataset_size: int, epoch: int) -> tuple[int, ...]:
+    permutation = list(range(dataset_size))
+    random.Random(f"{seed}:{epoch}").shuffle(permutation)
+    return tuple(permutation)
+
+
+def _sample_indices(seed: int, dataset_size: int, start: int, count: int) -> list[int]:
+    """Read `count` indices from seeded per-epoch permutations at global sample `start`."""
+    return [
+        _epoch_permutation(seed, dataset_size, position // dataset_size)[position % dataset_size]
+        for position in range(start, start + count)
+    ]
+
+
+def _restore_cuda_rng(torch, checkpoint: dict, device) -> None:
+    states = checkpoint.get("cuda_rng_state_all")
+    if device.type != "cuda" or not isinstance(states, list) or not states:
+        return
+    # Training uses one GPU. Older checkpoints stored every visible GPU's state, so pick
+    # the training device's entry instead of requiring the same GPU count on resume.
+    metadata = checkpoint.get("metadata")
+    saved_device = str(metadata.get("device", "cuda")) if isinstance(metadata, dict) else "cuda"
+    index = int(saved_device.split(":")[1]) if ":" in saved_device else 0
+    torch.cuda.set_rng_state(states[min(index, len(states) - 1)].cpu(), device)
+
+
+def _skip_nonfinite_update(precision: str, scaler, optimizer, step: int) -> None:
+    if precision != "fp16":
+        raise RuntimeError(f"non-finite training loss at step {step}")
+    # fp16 overflow is expected occasionally; back off the scale as GradScaler would.
+    optimizer.zero_grad(set_to_none=True)
+    scaler.update(new_scale=scaler.get_scale() / 2)
 
 
 def _move_optimizer_state(torch, optimizer, device) -> None:
@@ -245,13 +284,15 @@ def train(args: argparse.Namespace) -> dict:
     model.gradient_checkpointing = getattr(args, "gradient_checkpointing", False)
     previous_optimizer = checkpoint.get("optimizer_state_dict") if checkpoint else None
     legacy_groups = isinstance(previous_optimizer, dict) and len(previous_optimizer.get("param_groups", [])) == 1
+    requested_learning_rate = getattr(args, "learning_rate", None)
     optimizer = torch.optim.AdamW(
         _optimizer_parameters(model, args.weight_decay, legacy_groups),
-        lr=args.learning_rate, weight_decay=args.weight_decay,
+        lr=requested_learning_rate or DEFAULT_LEARNING_RATE, weight_decay=args.weight_decay,
         **({"fused": True} if fused_adamw else {}),
     )
     start_step = 0
-    base_learning_rate = args.learning_rate
+    sample_offset = 0
+    base_learning_rate = requested_learning_rate or DEFAULT_LEARNING_RATE
     if checkpoint is not None:
         model.load_state_dict(checkpoint["model_state_dict"])
         optimizer_state = checkpoint.get("optimizer_state_dict")
@@ -259,7 +300,20 @@ def train(args: argparse.Namespace) -> dict:
         if not isinstance(metadata, dict):
             metadata = {}
         if isinstance(metadata.get("learning_rate"), (int, float)):
-            base_learning_rate = float(metadata["learning_rate"])
+            saved_learning_rate = float(metadata["learning_rate"])
+            if getattr(args, "override_learning_rate", False):
+                if requested_learning_rate is None:
+                    raise ValueError("--override-learning-rate requires --learning-rate")
+            elif requested_learning_rate is not None and not math.isclose(
+                requested_learning_rate, saved_learning_rate, rel_tol=1e-9, abs_tol=0.0
+            ):
+                raise ValueError(
+                    f"--learning-rate {requested_learning_rate:g} differs from checkpoint "
+                    f"learning rate {saved_learning_rate:g}; omit it to keep the checkpoint "
+                    "rate or pass --override-learning-rate to change the peak rate"
+                )
+            else:
+                base_learning_rate = saved_learning_rate
         if isinstance(optimizer_state, dict):
             optimizer.load_state_dict(optimizer_state)
             if fused_adamw:
@@ -269,6 +323,10 @@ def train(args: argparse.Namespace) -> dict:
                     group["foreach"] = False
             _move_optimizer_state(torch, optimizer, device)
             start_step = int(metadata.get("step", 0))
+            samples_seen = metadata.get("samples_seen")
+            sample_offset = int(samples_seen) if isinstance(samples_seen, int) else (
+                start_step * args.batch_size * accumulation
+            )
     if start_step >= args.steps:
         raise ValueError(f"--steps must exceed checkpoint step {start_step}")
     scheduler = torch.optim.lr_scheduler.LambdaLR(
@@ -277,7 +335,14 @@ def train(args: argparse.Namespace) -> dict:
     )
     if checkpoint is not None and isinstance(checkpoint.get("scheduler_state_dict"), dict):
         scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
-    if start_step:
+    if checkpoint is not None:
+        # Restored optimizer and scheduler state carry the old peak rate; keep them in
+        # line with the chosen one so later scheduler steps use it too.
+        scheduler.base_lrs = [base_learning_rate] * len(optimizer.param_groups)
+        for parameter_group in optimizer.param_groups:
+            parameter_group["initial_lr"] = base_learning_rate
+    if checkpoint is not None:
+        # A step-0 checkpoint still carries the old lr from its optimizer state.
         # AMP may skip optimizer updates, so scheduler progress can lag batch steps.
         schedule_step = scheduler.last_epoch if isinstance(
             checkpoint.get("scheduler_state_dict"), dict
@@ -292,11 +357,7 @@ def train(args: argparse.Namespace) -> dict:
             scaler.load_state_dict(checkpoint["scaler_state_dict"])
         if isinstance(checkpoint.get("torch_rng_state"), torch.Tensor):
             torch.set_rng_state(checkpoint["torch_rng_state"].cpu())
-        cuda_rng = checkpoint.get("cuda_rng_state_all")
-        if device.type == "cuda" and isinstance(cuda_rng, list) and cuda_rng:
-            if len(cuda_rng) != torch.cuda.device_count():
-                raise ValueError("checkpoint CUDA device count differs; exact RNG resume is unavailable")
-            torch.cuda.set_rng_state_all([state.cpu() for state in cuda_rng])
+        _restore_cuda_rng(torch, checkpoint, device)
     model.train()
     output_path = Path(args.out)
     parameter_count = sum(parameter.numel() for parameter in model.parameters())
@@ -319,7 +380,8 @@ def train(args: argparse.Namespace) -> dict:
             "scheduler_state_dict": scheduler.state_dict(),
             "scaler_state_dict": scaler.state_dict(),
             "torch_rng_state": torch.get_rng_state(),
-            "cuda_rng_state_all": torch.cuda.get_rng_state_all() if device.type == "cuda" else [],
+            # Only the training device's state; the key name is kept for older readers.
+            "cuda_rng_state_all": [torch.cuda.get_rng_state(device)] if device.type == "cuda" else [],
             "metadata": {
                 "records": len(examples), "steps": step, "step": step,
                 "requested_steps": args.steps, "completed_steps": step - start_step,
@@ -339,17 +401,19 @@ def train(args: argparse.Namespace) -> dict:
                 "effective_batch_size": args.batch_size * accumulation,
                 "optimizer_steps": scheduler.last_epoch,
                 "skipped_optimizer_steps": skipped_optimizer_steps,
+                "samples_seen": sample_offset,
             },
         }, output_path)
 
     started_at = monotonic()
     for step in range(start_step + 1, args.steps + 1):
-        step_rng = random.Random(args.seed + step)
         optimizer.zero_grad(set_to_none=True)
         accumulated_loss = torch.zeros((), device=device)
+        # Epoch permutations cover every record once per pass and resume from samples_seen.
+        drawn = _sample_indices(args.seed, len(encoded), sample_offset, args.batch_size * accumulation)
+        sample_offset += len(drawn)
         microbatches = [
-            [step_rng.randrange(len(encoded)) for _ in range(args.batch_size)]
-            for _ in range(accumulation)
+            drawn[start:start + args.batch_size] for start in range(0, len(drawn), args.batch_size)
         ]
         total_targets = sum(
             len(encoded[index]["input_ids"]) - encoded[index]["answer_start"]
@@ -384,16 +448,18 @@ def train(args: argparse.Namespace) -> dict:
         # Synchronize once per update instead of twice per microbatch.
         loss_value = float(accumulated_loss.cpu())
         if not math.isfinite(loss_value):
-            raise RuntimeError(f"non-finite training loss at step {step}")
-        scaler.unscale_(optimizer)
-        torch.nn.utils.clip_grad_norm_(
-            model.parameters(), args.grad_clip, error_if_nonfinite=precision != "fp16"
-        )
-        if _scaled_optimizer_step(scaler, optimizer, scheduler):
-            successful_optimizer_steps += 1
-            updated_supervised_tokens += total_targets
-        else:
+            _skip_nonfinite_update(precision, scaler, optimizer, step)
             skipped_optimizer_steps += 1
+        else:
+            scaler.unscale_(optimizer)
+            torch.nn.utils.clip_grad_norm_(
+                model.parameters(), args.grad_clip, error_if_nonfinite=precision != "fp16"
+            )
+            if _scaled_optimizer_step(scaler, optimizer, scheduler):
+                successful_optimizer_steps += 1
+                updated_supervised_tokens += total_targets
+            else:
+                skipped_optimizer_steps += 1
         history.append(loss_value)
         duration_seconds = monotonic() - started_at
         timed_out = max_seconds is not None and duration_seconds >= max_seconds
@@ -477,7 +543,16 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--n-head", type=int)
     parser.add_argument("--n-embd", type=int)
     parser.add_argument("--dropout", type=float, default=0.0)
-    parser.add_argument("--learning-rate", type=float, default=3e-4)
+    parser.add_argument(
+        "--learning-rate", type=float,
+        help=f"Peak learning rate (default {DEFAULT_LEARNING_RATE:g}). With --resume it defaults to "
+             "the checkpoint's rate, and a different value is rejected unless --override-learning-rate is set",
+    )
+    parser.add_argument(
+        "--override-learning-rate", action="store_true",
+        help="With --resume, replace the checkpoint's peak learning rate by --learning-rate while keeping "
+             "the schedule position and optimizer moments",
+    )
     parser.add_argument("--weight-decay", type=float, default=0.01)
     parser.add_argument("--warmup-steps", type=int, default=5)
     parser.add_argument("--grad-clip", type=float, default=1.0)
@@ -513,12 +588,14 @@ def main() -> None:
         parser.error("--n-layer, --n-head, and --n-embd must be positive")
     if args.weight_decay < 0 or args.warmup_steps < 0 or args.eval_every < 1:
         parser.error("--weight-decay must be non-negative; --warmup-steps and --eval-every must be positive")
-    if args.learning_rate <= 0 or args.grad_clip <= 0 or args.log_every < 1:
+    if (args.learning_rate is not None and args.learning_rate <= 0) or args.grad_clip <= 0 or args.log_every < 1:
         parser.error("--learning-rate and --grad-clip must be positive; --log-every must be positive")
     if args.warmup_steps > args.steps:
         parser.error("--warmup-steps cannot exceed --steps")
     if args.dry_run and args.resume:
         parser.error("--dry-run cannot be combined with --resume")
+    if args.override_learning_rate and not (args.resume and args.learning_rate is not None):
+        parser.error("--override-learning-rate requires --resume and --learning-rate")
     if args.eval_data and Path(args.eval_data).resolve() == Path(args.data).resolve():
         parser.error("--eval-data must be different from --data")
     print(json.dumps(train(args), indent=2))

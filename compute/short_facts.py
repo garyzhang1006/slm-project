@@ -273,6 +273,12 @@ ARTICLES = (
     ("a", "door"), ("a", "cloud"), ("a", "table"), ("a", "drum"), ("a", "ship"), ("a", "flag"),
     ("a", "nest"), ("a", "kettle"),
 )
+# Holdout rows 19 and 24 sort pear, apple, banana and ask len("sun"), so those words stay out, and the
+# phrasings differ from the holdout templates so the rows teach the skill without copying the questions.
+HOLDOUT_SORT_WORDS = {"pear", "apple", "banana", "sun"}
+SORT_WORDS = ("cherry", "grape", "lemon", "mango", "olive", "peach", "plum", "kiwi", "melon", "tiger",
+              "zebra", "horse", "rabbit", "eagle", "otter", "bread", "cheese", "butter", "honey", "rice",
+              "river", "cloud", "forest", "desert", "island", "violin", "drum", "flute", "piano", "guitar")
 STORY_NAMES = ("Alice", "Ivan", "Chen", "Sofia", "Amir", "Beth", "Diego", "Kira")
 STORY_ITEMS = ("stickers", "crayons", "shells", "buttons", "cookies", "balloons")
 LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -559,6 +565,42 @@ def grammar_rows() -> list[dict]:
     return rows
 
 
+def sort_rows() -> list[dict]:
+    words = [word for word in SORT_WORDS if word not in HOLDOUT_SORT_WORDS]
+    rows = []
+    # Consecutive triples, each listed out of order by a fixed rotation, so the answer is never the prompt.
+    for index in range(len(words)):
+        triple = [words[index], words[(index + 7) % len(words)], words[(index + 13) % len(words)]]
+        shown = triple[1:] + triple[:1] if sorted(triple) == triple else triple
+        listed, answer = ", ".join(shown), ", ".join(sorted(triple))
+        group = f"sort:{answer}"
+        rows += [
+            _row(f"Sort these words from A to Z: {listed}.", answer, "english", group),
+            _row(f"Arrange alphabetically: {listed}", answer, "english", group),
+        ]
+    for index in range(len(words)):
+        left, right = words[index], words[(index + 11) % len(words)]
+        if left[0] == right[0]:
+            continue
+        rows.append(_row(f"Which word comes first in the alphabet, {left} or {right}?", min(left, right),
+                         "english", f"first:{min(left, right)}:{max(left, right)}"))
+    return rows
+
+
+def code_rows() -> list[dict]:
+    rows = []
+    for word in (word for word in SORT_WORDS if word not in HOLDOUT_SORT_WORDS):
+        group = f"code:str:{word}"
+        rows += [
+            _row(f'How many characters are in the Python string "{word}"?', str(len(word)), "code", group),
+            _row(f'What is len("{word}") in Python?', str(len(word)), "code", group),
+            _row(f'In Python, what does "{word}".upper() give?', f'"{word.upper()}"', "code", group),
+        ]
+    for size in range(1, 7):
+        items = ", ".join(str(number) for number in range(2, 2 + size))
+        rows.append(_row(f"What is len([{items}]) in Python?", str(size), "code", f"code:list:{size}"))
+    return rows
+
 def short_fact_rows() -> list[dict]:
     """All rows in a fixed order, each {prompt, answer, category, group}, with unique prompts."""
     worded = (calendar_rows() + opposite_rows() + plural_rows() + fact_rows() + copy_rows()
@@ -568,7 +610,7 @@ def short_fact_rows() -> list[dict]:
     worded += [dict(row, prompt=wrapper + row["prompt"])
                for wrapper in WORD_WRAPPERS for row in list(worded)]
     rows = (arithmetic_rows() + comparison_rows() + worded + refusal_rows() + number_rows()
-            + clock_rows() + story_rows() + letter_rows())
+            + clock_rows() + story_rows() + letter_rows() + sort_rows() + code_rows())
     unique, seen = [], set()
     for row in rows:
         key = " ".join(row["prompt"].casefold().split())

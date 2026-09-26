@@ -1,6 +1,7 @@
 import hashlib
 import json
 import operator
+import re
 import os
 from pathlib import Path
 import subprocess
@@ -122,7 +123,7 @@ class ShortFactTests(unittest.TestCase):
         self.assertGreater(len(rows), 3000)
         self.assertEqual(len({" ".join(row["prompt"].casefold().split()) for row in rows}), len(rows))
         self.assertEqual({row["category"] for row in rows},
-                         {"math", "instruction", "fact", "english", "unknown"})
+                         {"math", "instruction", "fact", "english", "unknown", "code"})
         self.assertEqual(len(sft.short_fact_records()), len(rows))
 
     def test_holdout_items_are_left_out(self):
@@ -166,6 +167,20 @@ class ShortFactTests(unittest.TestCase):
         self.assertEqual(answers["Kyiv is the capital of which country?"], "Ukraine")
         self.assertEqual(answers["Should you say a hour or an hour?"], "an hour")
         self.assertEqual(answers["Is a mango a kind of fruit or a kind of tool?"], "fruit")
+
+    def test_sort_and_code_rows_are_correct_and_avoid_holdout_words(self):
+        for row in short_facts.sort_rows():
+            listed = row["prompt"].split(": ", 1)[-1].rstrip(".") if ":" in row["prompt"] else None
+            if listed:
+                self.assertEqual(", ".join(sorted(listed.split(", "))), row["answer"], row["prompt"])
+                self.assertNotEqual(listed, row["answer"], row["prompt"])
+        for row in short_facts.sort_rows() + short_facts.code_rows():
+            words = set(re.findall(r"[a-z]+", row["prompt"].casefold()))
+            self.assertFalse(words & short_facts.HOLDOUT_SORT_WORDS, row["prompt"])
+        answers = {row["prompt"]: row["answer"] for row in short_facts.short_fact_rows()}
+        self.assertEqual(answers['What is len("tiger") in Python?'], "5")
+        self.assertEqual(answers["What is len([2, 3, 4]) in Python?"], "3")
+        self.assertEqual(answers['In Python, what does "plum".upper() give?'], '"PLUM"')
 
 
 class SftDataTests(unittest.TestCase):

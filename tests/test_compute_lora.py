@@ -108,6 +108,14 @@ class LoraBaselineTests(unittest.TestCase):
         self.assertNotIn("GradScaler", source)
         self.assertIn("isfinite(loss)", source)
 
+    def test_merged_export_follows_final_eval(self):
+        # merge_and_unload rewrites the base layers, so it must run after the adapter is saved and scored.
+        source = RUNNER.read_text()
+        self.assertLess(source.index('report["final"] = evaluate_holdout'), source.index("merge_and_unload()"))
+        self.assertLess(source.index("model.save_pretrained(adapter)"), source.index("merge_and_unload()"))
+        self.assertIn('"lora-merged"', source)
+        self.assertIn("adapter_sha256=", source)
+
     def test_model_is_pinned(self):
         self.assertEqual(self.module.MODEL_ID, "HuggingFaceTB/SmolLM2-360M-Instruct")
         self.assertRegex(self.module.MODEL_REVISION, r"^[0-9a-f]{40}$")

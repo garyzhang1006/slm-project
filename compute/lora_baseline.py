@@ -421,11 +421,20 @@ def main(argv: list[str] | None = None) -> None:
     adapter = artifacts / "lora-adapter"
     model.save_pretrained(adapter)
     tokenizer.save_pretrained(adapter)
-    report.update(status="evaluating", adapter=str(adapter))
+    weights = adapter / "adapter_model.safetensors"
+    # run_pipeline compares this hash with lora_eval and distill_data reports to spot runs on an older adapter.
+    report.update(status="evaluating", adapter=str(adapter),
+                  adapter_sha256=digest(weights) if weights.exists() else None)
     write_json(destination, report)
     model.config.use_cache = True
     report["final"] = evaluate_holdout(torch, model, tokenizer, holdout, args.max_new_tokens, score_predictions)
     report["passes_gate"] = report["final"]["scores"]["total"]["exact"] > PREVIOUS_CUSTOM_CORRECT
+    # Plain transformers weights with the adapter folded in, so Studio can serve it without peft.
+    # Last, because merge_and_unload rewrites the base layers in place.
+    merged = artifacts / "lora-merged"
+    model.merge_and_unload().save_pretrained(merged)
+    tokenizer.save_pretrained(merged)
+    report["merged"] = str(merged)
     report["status"] = "complete_pending_manual_review"
     write_json(destination, report)
     print("final holdout", json.dumps(report["final"]["scores"]["total"]), report["status"], flush=True)

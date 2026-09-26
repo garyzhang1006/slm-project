@@ -38,7 +38,7 @@ studio has 2 modes:
 
 studio loads `artifacts/slm-500m-language-quality.pt` by default and checks it has exactly 499,524,075 params. weights aren't in git, so grab them from kaggle first. to use a diff checkpoint, run `./launch-studio.command --checkpoint /path/to/model.pt`, and if the port is taken, add `--port 8767`.
 
-the model that actually answers qs rn is smollm2-360m-instruct w/ the lora adapter from the `slm-lora-baseline` kaggle run (18/22 exact on the holdout, lowkey goated). download its `artifacts/lora-adapter` folder, `pip install transformers peft`, and run `./launch-studio.command --lora-adapter /path/to/lora-adapter`. first launch downloads the base model (~700 mb) from hugging face.
+the model that actually answers qs rn is smollm2-360m-instruct w/ the lora adapter from the `slm-lora-baseline` kaggle run (18/22 exact on the holdout, lowkey goated). download its `artifacts/lora-adapter` folder, `pip install transformers peft`, and run `./launch-studio.command --lora-adapter /path/to/lora-adapter`. first launch downloads the base model (~700 mb) from hugging face. runs after the merge update also save `artifacts/lora-merged`, which has the adapter baked in, so `--lora-adapter /path/to/lora-merged` works w/ just `pip install transformers` and no extra download.
 
 want just the source-excerpt mode, w/ no weights and no pytorch?
 

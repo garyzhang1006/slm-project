@@ -24,13 +24,13 @@ class LoraRuntime(ModelRuntime):
 
     def load(self) -> None:
         try:
-            if not (self.checkpoint / "adapter_config.json").is_file():
+            merged = not (self.checkpoint / "adapter_config.json").is_file()
+            if merged and not (self.checkpoint / "config.json").is_file():
                 raise FileNotFoundError(
-                    f"No adapter_config.json in {self.checkpoint}. Download artifacts/lora-adapter from the "
-                    "slm-lora-baseline Kaggle output and pass that folder to --lora-adapter."
+                    f"No adapter_config.json or config.json in {self.checkpoint}. Download artifacts/lora-adapter "
+                    "or artifacts/lora-merged from the slm-lora-baseline Kaggle output and pass that folder."
                 )
             import torch
-            from peft import PeftModel
             from transformers import AutoModelForCausalLM, AutoTokenizer
 
             from .generate import _device
@@ -38,16 +38,22 @@ class LoraRuntime(ModelRuntime):
             device = _device(self.device)
             tokenizer = AutoTokenizer.from_pretrained(self.checkpoint)
             # fp32: the first Kaggle run showed fp16 overflowing SmolLM2 activations.
-            base = AutoModelForCausalLM.from_pretrained(BASE_MODEL_ID, revision=BASE_MODEL_REVISION,
-                                                        torch_dtype=torch.float32)
-            model = PeftModel.from_pretrained(base, str(self.checkpoint))
+            if merged:
+                # lora-merged already has the adapter folded into the weights, so peft is not needed.
+                base = model = AutoModelForCausalLM.from_pretrained(self.checkpoint, torch_dtype=torch.float32)
+            else:
+                from peft import PeftModel
+
+                base = AutoModelForCausalLM.from_pretrained(BASE_MODEL_ID, revision=BASE_MODEL_REVISION,
+                                                            torch_dtype=torch.float32)
+                model = PeftModel.from_pretrained(base, str(self.checkpoint))
             model.to(device)
             model.train(False)
             self.model, self.tokenizer = model, tokenizer
             self.metadata.update(
                 parameters=sum(parameter.numel() for parameter in model.parameters()),
                 context_window=base.config.max_position_embeddings,
-                device=str(device), architecture="llama+lora",
+                device=str(device), architecture="llama+lora (merged)" if merged else "llama+lora",
             )
             self.state = "ready"
         except Exception as exc:

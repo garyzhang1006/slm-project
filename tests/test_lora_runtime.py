@@ -113,6 +113,13 @@ class LoraCliTests(unittest.TestCase):
         lora.assert_called_once_with(Path(directory), "cpu")
         plain.assert_not_called()
 
+    def test_merged_folder_selects_lora_runtime(self):
+        with tempfile.TemporaryDirectory() as directory:
+            (Path(directory) / "config.json").write_text("{}")
+            lora, plain = self.run_main(["--lora-adapter", directory])
+        lora.assert_called_once_with(Path(directory), "cpu")
+        plain.assert_not_called()
+
     def test_bad_adapter_arguments_exit(self):
         with tempfile.TemporaryDirectory() as directory:
             with self.assertRaises(SystemExit):

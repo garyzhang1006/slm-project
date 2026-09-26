@@ -162,10 +162,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--lora-dropout", type=float, default=0.05)
     parser.add_argument("--max-new-tokens", type=int, default=64)
     parser.add_argument("--eval-rows", type=int, default=512, help="sft_eval rows used for held-out loss")
+    parser.add_argument("--eval-every", type=int, default=250,
+                        help="Optimizer steps between held-out loss checks; the best adapter is kept")
     parser.add_argument("--seed", type=int, default=1234)
     args = parser.parse_args(argv)
     if min(args.batch_size, args.gradient_accumulation_steps, args.max_steps, args.max_length) < 1:
         parser.error("batch size, accumulation, max steps and max length must be positive")
+    if args.eval_every < 0:
+        parser.error("--eval-every must be 0 (off) or positive")
     return args
 
 
@@ -230,6 +234,26 @@ def evaluate_holdout(torch, model, tokenizer, holdout_rows: list[dict], max_new_
     return {"predictions": [{**row, "answer": answer} for row, answer in zip(holdout_rows, answers)],
             "scores": score(holdout_rows, predictions),
             "english_probes": [{"prompt": prompt, "answer": answer} for prompt, answer in zip(ENGLISH_PROBES, probes)]}
+
+
+class BestAdapter:
+    """CPU copy of the trainable (LoRA) weights with the lowest held-out loss seen so far."""
+
+    def __init__(self) -> None:
+        self.loss, self.step, self.weights = None, None, {}
+
+    def offer(self, loss: float | None, step: int, named_parameters) -> bool:
+        if loss is None or not math.isfinite(loss) or (self.loss is not None and loss >= self.loss):
+            return False
+        self.loss, self.step = loss, step
+        self.weights = {name: parameter.detach().to("cpu", copy=True)
+                        for name, parameter in named_parameters if parameter.requires_grad}
+        return True
+
+    def restore(self, named_parameters) -> None:
+        for name, parameter in named_parameters:
+            if name in self.weights:
+                parameter.data.copy_(self.weights[name].to(parameter.device))
 
 
 def evaluation_loss(torch, model, examples: list, batch_size: int, pad_id: int) -> float | None:
@@ -341,6 +365,7 @@ def main(argv: list[str] | None = None) -> None:
     if initial is not None and not math.isfinite(initial):
         raise RuntimeError(f"Base model eval loss is {initial} before any training; fix numerics before "
                            "spending GPU time on the adapter")
+    best = BestAdapter()
     started, step, micro, order = time.monotonic(), 0, 0, []
     stopped_reason = "planned_steps"
     model.train()
@@ -375,12 +400,24 @@ def main(argv: list[str] | None = None) -> None:
             report["training"]["log"].append(entry)
             print(json.dumps(entry), flush=True)
             write_json(destination, report)
+        if args.eval_every and step % args.eval_every == 0 and step < total_steps:
+            held_out = evaluation_loss(torch, model, eval_examples, args.batch_size, tokenizer.pad_token_id)
+            kept = best.offer(held_out, step, model.named_parameters())
+            report["training"].setdefault("eval_log", []).append({"step": step, "eval_loss": held_out, "best": kept})
+            print(json.dumps({"step": step, "eval_loss": held_out, "best": kept}), flush=True)
+            write_json(destination, report)
         if time.monotonic() - started > args.max_seconds:
             stopped_reason = "max_seconds"
             break
+    final_loss = evaluation_loss(torch, model, eval_examples, args.batch_size, tokenizer.pad_token_id)
+    best.offer(final_loss, step, model.named_parameters())
+    # A late loss spike (or overfitting in the last epoch) should not decide which adapter ships.
+    restored = best.step is not None and best.step != step
+    if restored:
+        best.restore(model.named_parameters())
     report["training"].update(
         completed_steps=step, stopped_reason=stopped_reason, seconds=round(time.monotonic() - started, 1),
-        final_eval_loss=evaluation_loss(torch, model, eval_examples, args.batch_size, tokenizer.pad_token_id))
+        final_eval_loss=final_loss, best_step=best.step, best_eval_loss=best.loss, restored_best=restored)
     adapter = artifacts / "lora-adapter"
     model.save_pretrained(adapter)
     tokenizer.save_pretrained(adapter)

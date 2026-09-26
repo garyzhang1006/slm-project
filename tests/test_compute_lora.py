@@ -78,6 +78,29 @@ class LoraBaselineTests(unittest.TestCase):
         self.assertEqual(len(answers), 5)
         self.assertEqual(answers, [":"] * 5)
 
+    def test_best_adapter_keeps_lowest_loss_and_restores_it(self):
+        import torch
+
+        lora = torch.nn.Parameter(torch.tensor([1.0]))
+        frozen = torch.nn.Parameter(torch.tensor([5.0]), requires_grad=False)
+        named = lambda: [("lora_A", lora), ("base", frozen)]
+        best = self.module.BestAdapter()
+        self.assertFalse(best.offer(None, 1, named()))
+        self.assertFalse(best.offer(float("nan"), 1, named()))
+        self.assertTrue(best.offer(2.0, 250, named()))
+        self.assertEqual(set(best.weights), {"lora_A"})
+        lora.data.fill_(9.0)
+        self.assertFalse(best.offer(2.5, 500, named()))
+        self.assertEqual(best.step, 250)
+        best.restore(named())
+        self.assertEqual(lora.item(), 1.0)
+        self.assertTrue(best.offer(1.5, 750, named()))
+
+    def test_eval_every_is_validated(self):
+        self.assertEqual(self.module.parse_args([]).eval_every, 250)
+        with self.assertRaises(SystemExit), mock.patch("sys.stderr"):
+            self.module.parse_args(["--eval-every", "-1"])
+
     def test_training_stays_in_fp32(self):
         # fp16 autocast made the base SmolLM2 eval loss NaN on Kaggle and ruined the first adapter.
         source = RUNNER.read_text()

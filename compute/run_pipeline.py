@@ -30,6 +30,8 @@ STAGE_HOURS = {"pretrain": PRETRAIN_SESSION_SECONDS / 3600 + 1.0, "distill_data"
 # Kaggle numbers pretrain sessions from 1; a chain this long means something is looping.
 MAX_PRETRAIN_SESSIONS = 20
 WAITING = {"queued", "running", "new_script", "pending"}
+# Consecutive failed rounds (network or CLI errors) before --watch gives up: 3 hours at the default interval.
+MAX_CONSECUTIVE_FAILURES = 6
 
 
 def parse_status(output: str) -> str:
@@ -170,11 +172,23 @@ def main(argv: list[str] | None = None) -> int:
     if args.interval < 60:
         parser.error("--interval must be at least 60 seconds; Kaggle status changes slowly")
     kaggle = Kaggle(args.owner)
+    failures = 0
     while True:
-        decision = next_action(kaggle.status, kaggle.report, kaggle.quota_hours())
-        print(time.strftime("%Y-%m-%d %H:%M"), json.dumps(decision), flush=True)
-        if decision["kind"] == "push" and not args.dry_run:
-            print(kaggle.push(decision), flush=True)
+        try:
+            decision = next_action(kaggle.status, kaggle.report, kaggle.quota_hours())
+            print(time.strftime("%Y-%m-%d %H:%M"), json.dumps(decision), flush=True)
+            if decision["kind"] == "push" and not args.dry_run:
+                print(kaggle.push(decision), flush=True)
+            failures = 0
+        except (RuntimeError, OSError) as error:
+            # A DNS blip or API hiccup killed the first watch run; retry next round instead of dying.
+            failures += 1
+            if not args.watch or failures >= MAX_CONSECUTIVE_FAILURES:
+                raise
+            print(time.strftime("%Y-%m-%d %H:%M"), json.dumps({"kind": "retry", "failures": failures,
+                                                               "error": str(error)[:300]}), flush=True)
+            time.sleep(args.interval)
+            continue
         if decision["kind"] in {"done", "stop"}:
             return 0 if decision["kind"] == "done" else 1
         if not args.watch or args.dry_run:

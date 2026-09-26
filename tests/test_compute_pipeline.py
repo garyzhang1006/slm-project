@@ -107,5 +107,23 @@ class MainTests(unittest.TestCase):
         self.assertEqual(fake.push.call_args[0][0]["session"], 1)
 
 
+    def test_watch_survives_transient_errors(self):
+        fake = mock.Mock()
+        fake.quota_hours.side_effect = [RuntimeError("Failed to resolve 'api.kaggle.com'"), 30.0]
+        fake.status.side_effect = lambda slug: "error" if slug == "slm-160m-corpus" else "missing"
+        with mock.patch.object(run_pipeline, "Kaggle", return_value=fake), mock.patch("builtins.print"), \
+                mock.patch.object(run_pipeline.time, "sleep") as sleep:
+            self.assertEqual(run_pipeline.main(["--owner", "someone", "--watch"]), 1)
+        sleep.assert_called_once()
+
+    def test_watch_gives_up_after_repeated_errors(self):
+        fake = mock.Mock()
+        fake.quota_hours.side_effect = RuntimeError("down")
+        with mock.patch.object(run_pipeline, "Kaggle", return_value=fake), mock.patch("builtins.print"), \
+                mock.patch.object(run_pipeline.time, "sleep"), self.assertRaises(RuntimeError):
+            run_pipeline.main(["--owner", "someone", "--watch"])
+        self.assertEqual(fake.quota_hours.call_count, run_pipeline.MAX_CONSECUTIVE_FAILURES)
+
+
 if __name__ == "__main__":
     unittest.main()

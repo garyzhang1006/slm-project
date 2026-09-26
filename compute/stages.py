@@ -38,11 +38,10 @@ TOKENS_PER_STEP = PRETRAIN_BATCH_SIZE * PRETRAIN_GRADIENT_ACCUMULATION * BLOCK_S
 PRETRAIN_TOTAL_STEPS = math.ceil(PRETRAIN_TARGET_BYTES / TOKENS_PER_STEP)
 # Kaggle stops a session at 12 h; 11 h leaves an hour for setup, the final save and the report.
 PRETRAIN_SESSION_SECONDS = 11 * 3600
-# ESTIMATE, not a measurement. The 500M runs finished 3,142 steps of 16,384 tokens in at most 3.5 h
-# on a T4, about 16 TFLOP/s at 8*N FLOPs per token (6*N plus a recomputed forward for gradient
-# checkpointing). 160,721,679 params * 8 * 65,536 tokens / 16e12 is about 5.3 s, rounded up to 5.5.
-# Replace it with seconds_per_step from pretrain_session_1.json once session 1 has run.
-SECONDS_PER_STEP_ESTIMATE = 5.5
+# Measured, not estimated: pretrain session 1 (Kaggle T4, fp16, 2026-09-26) reported
+# seconds_per_step 8.72 over 4,570 steps. The FLOP-based guess of 5.5 left out attention over 2,048
+# positions. At 8.72 s a pass is about 55 GPU-hours in 6 sessions of about 4,470 steps.
+SECONDS_PER_STEP_ESTIMATE = 8.72
 SESSION_RESERVE_SECONDS = 600
 
 

@@ -8,7 +8,7 @@ Besides predicting the next token, the model has three little side heads that gu
 
 The 500M model is real (exactly 499,524,075 parameters) but it can't hold a conversation yet. It scored 30/64 on held-out template questions, only 3/24 on everyday questions, and 0/12 on unseen question probes. The problem is data, not code: it has seen well under 1% of the text a model this size needs. See [measured results](docs/elementary-results.md) and the [500M audit](reports/slm-500m-code-and-capability-audit.md) for the gory details.
 
-The plan to fix that lives in [`compute/`](compute/README.md). Short version: either LoRA-tune a small open model (one Kaggle session) or pretrain the new `slm-160m` on real text and then fine-tune it (roughly 35 hours of Kaggle T4 time, by estimate).
+The plan to fix that lives in [`compute/`](compute/README.md). Short version: either LoRA-tune a small open model (one Kaggle session) or pretrain the new `slm-160m` on real text and then fine-tune it (roughly 55 hours of Kaggle T4 time at the speed session 1 measured).
 
 ## What's in the box
 

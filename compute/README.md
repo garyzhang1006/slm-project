@@ -34,12 +34,12 @@ The model has N = 160,721,679 parameters and the corpus target is D = 1.5 billio
 
 Gradient checkpointing repeats the forward pass, so the real cost is closer to 8 × N × D ≈ 1.93e18 FLOPs. The earlier 500M runs reached about 16 TFLOP/s on a Kaggle T4 at fp16, which gives 1.93e18 / 16e12 ≈ 120,000 seconds, or about 33 GPU-hours.
 
-The step-based view agrees. One optimizer step is batch 8 × accumulation 4 × 2,048 bytes = 65,536 tokens, so one pass over the corpus is 22,889 steps (`PRETRAIN_TOTAL_STEPS` in `stages.py`). At the estimated 5.5 seconds per step (`SECONDS_PER_STEP_ESTIMATE`), that is about 35 GPU-hours, split into 4 sessions of about 7,090 steps each. Attention over 2,048 positions adds FLOPs that 6 × N × D leaves out, and it costs relatively more on a 160M model than on the 500M one, so read 35 hours as a lower bound until session 1 reports its real step time.
+The step-based view agrees. One optimizer step is batch 8 × accumulation 4 × 2,048 bytes = 65,536 tokens, so one pass over the corpus is 22,889 steps (`PRETRAIN_TOTAL_STEPS` in `stages.py`). Session 1 measured 8.72 seconds per step (`SECONDS_PER_STEP_ESTIMATE`), well above the 5.5 the FLOP count suggested, because attention over 2,048 positions adds FLOPs that 6 × N × D leaves out and costs relatively more on a 160M model. At 8.72 seconds a full pass is about 55 GPU-hours, split into 6 sessions of about 4,470 steps each.
 
 | Stage | Estimated T4 hours |
 |---|---|
 | corpus, sft_data | 0 (CPU) |
-| pretrain | about 35, in 4 sessions |
+| pretrain | about 55, in 6 sessions (measured speed) |
 | sft | 1 to 2 |
 | eval | under 1 |
 | lora | 1 to 2 |
@@ -74,7 +74,7 @@ python3 compute/package.py --stage pretrain --session 2 --out /tmp/slm-pretrain-
 kaggle kernels push -p /tmp/slm-pretrain-2 --accelerator NvidiaTeslaT4 --timeout 43200
 ```
 
-After session 1, read `seconds_per_step` from its `pretrain_session_1.json`. If it differs from 5.5, update `SECONDS_PER_STEP_ESTIMATE` in `stages.py` so `pretrain_sessions()` gives the right session count. Stop when the session report shows the step reached equals `PRETRAIN_TOTAL_STEPS`.
+After each session, read `seconds_per_step` from its `pretrain_session_k.json`. If it drifts from 8.72, update `SECONDS_PER_STEP_ESTIMATE` in `stages.py` so `pretrain_sessions()` gives the right session count. Stop when the session report shows the step reached equals `PRETRAIN_TOTAL_STEPS`.
 
 ### Fine-tune and evaluate
 

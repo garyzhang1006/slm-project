@@ -59,3 +59,11 @@ class GroundingTests(unittest.TestCase):
         # Two content terms, so "use"/"used" must match on their own to clear the 0.6 cutoff.
         passage = "Councils use a tram."
         self.assertEqual(self.answer("Who used trams?", passage)["sources"][0]["text"], passage)
+
+    def test_irregular_past_forms_match(self):
+        passage = "Hamlet was written by Shakespeare."
+        self.assertEqual(self.answer("Who wrote Hamlet?", passage)["sources"][0]["text"], passage)
+        passage = "The fox ran across the bridge."
+        self.assertEqual(self.answer("Who runs across the bridge?", passage)["sources"][0]["text"], passage)
+        # Ambiguous forms stay out of the table, so the tool "saw" never lemmatizes to "see".
+        self.assertTrue(self.answer("Who sees the barn?", "A saw hung in the barn.")["abstained"])

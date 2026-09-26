@@ -118,6 +118,7 @@ class LoraChainTests(unittest.TestCase):
         self.assertIn("lora_eval", busy["reason"])
         result = decide_lora({**self.READY, "slm-lora-eval": "complete"}, old)
         self.assertEqual((result["kind"], result["stage"]), ("push", "lora"))
+        self.assertEqual(decide_lora(self.READY)["kind"], "wait")  # report download failed
         failed = {("slm-lora-baseline", "lora_report.json"): {"status": "failed_nonfinite_loss"}}
         self.assertEqual(decide_lora(self.READY, failed)["kind"], "stop")
 

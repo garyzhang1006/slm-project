@@ -159,7 +159,10 @@ def lora_action(status, report, quota_hours: float) -> dict:
         return push_if_quota("lora", quota_hours, "sft_data is ready")
     if teacher != "complete":
         return action("stop", f"lora ended as {teacher}; read its log before retrying")
-    lora_report = report(stage_slug("lora"), "lora_report.json") or {}
+    lora_report = report(stage_slug("lora"), "lora_report.json")
+    if lora_report is None:
+        # Kaggle.report returns None when the download fails, which is usually a transient API error.
+        return action("wait", "could not read lora_report.json from the lora kernel; retrying next round")
     if lora_report.get("status") != "complete_pending_manual_review":
         return action("stop", f"lora report status is {lora_report.get('status')!r}")
     adapter = lora_report.get("adapter_sha256")

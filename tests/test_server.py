@@ -7,7 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from cognition_slm.server import DEFAULT_PARAMETERS, ModelRuntime, WorkbenchServer, default_checkpoint, main, validate_request
+from cognition_slm.server import DEFAULT_PARAMETERS, MAX_BODY_BYTES, ModelRuntime, WorkbenchServer, default_checkpoint, main, validate_request
 
 
 class RequestValidationTests(unittest.TestCase):
@@ -286,6 +286,12 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(result["text"], "[S1] The launch date is Friday.")
         self.runtime.generate.assert_not_called()
 
+    def test_grounded_accepts_the_largest_escaped_body(self):
+        # Every byte a control character: the page allows it, and JSON escapes each one to six bytes.
+        body = json.dumps({"prompt": "\x01" * 2000, "source_text": "\x01" * 12000})
+        status, _ = self.request(path="/api/grounded", body=body, headers={"Content-Type": "application/json"})
+        self.assertNotEqual(status, 413)
+
     def test_grounded_invalid_input(self):
         status, _ = self.request(path="/api/grounded", body='{"prompt":"hi"}',
                                  headers={"Content-Type": "application/json"})
@@ -300,7 +306,7 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.request(body="{}")[0], 415)
         headers = {"Content-Type": "application/json"}
         self.assertEqual(self.request(body="invalid", headers=headers)[0], 400)
-        self.assertEqual(self.request(body="x" * 16_385, headers=headers)[0], 413)
+        self.assertEqual(self.request(body="x" * (MAX_BODY_BYTES + 1), headers=headers)[0], 413)
         self.runtime.generate.assert_not_called()
 
     def test_unknown_and_traversal_paths(self):

@@ -14,10 +14,13 @@ from urllib.parse import urlsplit
 
 from .config import TASK_TYPES
 from .data import format_prompt, validate_record
-from .grounding import source_excerpts
+from .grounding import MAX_PROMPT_BYTES, MAX_SOURCE_BYTES, source_excerpts
 
 DEFAULT_CHECKPOINT = Path("artifacts/slm-500m-language-quality.pt")
 DEFAULT_PARAMETERS = 499_524_075
+# The largest search body: 12,000 source and 2,000 question bytes can each grow sixfold when JSON
+# escapes control characters as \u00XX, plus the object's own keys and quotes.
+MAX_BODY_BYTES = 6 * (MAX_SOURCE_BYTES + MAX_PROMPT_BYTES) + 64
 
 
 def default_checkpoint() -> Path:
@@ -262,8 +265,8 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
             if self.headers.get("Transfer-Encoding"):
                 raise ValueError("Transfer-Encoding is not supported.")
             length = int(self.headers.get("Content-Length", "0"))
-            if not 0 < length <= 16_384:
-                self._json(413, {"error": "Request body must contain 1 to 16384 bytes."})
+            if not 0 < length <= MAX_BODY_BYTES:
+                self._json(413, {"error": f"Request body must contain 1 to {MAX_BODY_BYTES} bytes."})
                 return
             body = self.rfile.read(length)
             if len(body) != length:

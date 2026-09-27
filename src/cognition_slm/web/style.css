@@ -10,7 +10,7 @@
   --ink: #1b1b19;
   --on-ink: #ffffff;
   --muted: #676762;
-  --faint: #9d9d97;
+  --faint: #73736d;
   --line: #e8e8e4;
   --line-strong: #d5d5cf;
   --accent: #2f6b58;
@@ -33,7 +33,7 @@
     --ink: #ecece8;
     --on-ink: #131312;
     --muted: #a3a39d;
-    --faint: #72726c;
+    --faint: #8a8a84;
     --line: #2a2a28;
     --line-strong: #3b3b38;
     --accent: #7dc2a8;
@@ -475,7 +475,12 @@ svg {
 }
 
 .composer:focus-within {
-  border-color: color-mix(in srgb, var(--accent) 50%, var(--line-strong));
+  border-color: var(--accent);
+}
+
+/* The composer border marks the question box, so the pasted-text box needs its own focus mark. */
+.source:focus-within {
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 .composer textarea {

@@ -21,33 +21,35 @@ the plan to fix it lives in [`compute/`](compute/README.md). there are two route
 - mixed precision, gradient accumulation, activation checkpointing, and checkpoints that resume exactly where they stopped, including the order of the training samples.
 - studio, a small web page that runs on your machine for trying the model.
 - a "context therapist" that reads long chat logs and points out drift and contradictions.
-- about 290 tests.
+- about 370 tests.
 
 ## studio
+
+studio is a small web page for asking the model questions on your own computer.
 
 ```bash
 ./launch-studio.command
 ```
 
-then open [http://127.0.0.1:8766](http://127.0.0.1:8766). the first launch uses `uv` to build a python 3.13 environment called `.venv-ui-py313`, and later launches reuse it. leave the terminal open while you use it and press control-c to stop.
+the launcher starts a local server and opens [http://127.0.0.1:8766](http://127.0.0.1:8766) in your browser. the first launch uses `uv` to build a python 3.13 environment called `.venv-ui-py313`, and later launches reuse it. leave the terminal window open while you use studio, and press control-c there to stop it.
 
-studio has two modes.
+type a question and press enter, and the answer shows up under it. each question is answered on its own, so the model never sees your earlier questions. the button at the top right shows which model is loaded and whether it's ready, and clicking it shows the model's size, context window and device. the sliders button next to it opens the settings. the defaults are made for short answers: temperature 0.3, top-p 0.9 and at most 64 new tokens. top-k, repetition penalty and stop sequences are under advanced.
 
-in source excerpts mode, which is the default, you paste some reference text and ask a question. it answers with up to three quotes from your text, each tagged with a citation like `[S1]`. no model runs in this mode, and if nothing in your text matches the question, it tells you so rather than inventing an answer.
+the "search my text" switch under the question box doesn't use the model at all. you paste some text, ask a question, and studio shows up to three passages from your text that answer it, each tagged like `S1`. if nothing in your text matches, it says so instead of making something up.
 
-model response mode runs the model itself. the defaults are set for short answers: temperature 0.3, top-p 0.9 and at most 64 new tokens. through the api you can also set a repetition penalty and stop sequences.
+enter sends and shift+enter starts a new line. `/` jumps to the question box and `n` starts a new conversation.
 
 by default studio loads `artifacts/slm-500m-language-quality.pt` and checks that it has exactly 499,524,075 parameters. the weights aren't stored in git, so download them from kaggle first. to load a different checkpoint, run `./launch-studio.command --checkpoint /path/to/model.pt`. if port 8766 is already in use, add `--port 8767`.
 
-right now the model that answers questions best is smollm2-360m-instruct with the lora adapter from the `slm-lora-baseline` kaggle run. it gets 18 of 22 holdout questions exactly right, compared with 5 for the same model without the adapter. to use it, download the `artifacts/lora-adapter` folder from that run, run `pip install transformers peft`, and start studio with `./launch-studio.command --lora-adapter /path/to/lora-adapter`. the first launch downloads the base model from hugging face, which is about 700 mb. newer runs also save `artifacts/lora-merged`, where the adapter is already folded into the model weights. that folder works with `--lora-adapter` too, needs only `pip install transformers`, and skips the hugging face download. a larger version trained the same way on smollm2-1.7b-instruct comes from the `slm-lora-1b7` kaggle run. it loads with the same `--lora-adapter` flag, and studio reads `base_model.json` in the adapter folder to pick the right base model. it needs about 7 gb of memory and answers more slowly on a laptop.
+right now the model that answers questions best is smollm2-360m-instruct with the lora adapter from the `slm-lora-baseline` kaggle run. it gets 16 of 22 holdout questions and 100 of 252 everyday questions exactly right, compared with 5 and 7 for the same model without the adapter, and [compute/RESULTS.md](compute/RESULTS.md) has the full breakdown. to use it, download the `artifacts/lora-adapter` folder from that run, run `pip install transformers peft`, and start studio with `./launch-studio.command --lora-adapter /path/to/lora-adapter`. the first launch downloads the base model from hugging face, which is about 700 mb. newer runs also save `artifacts/lora-merged`, where the adapter is already folded into the model weights. that folder works with `--lora-adapter` too, needs only `pip install transformers`, and skips the hugging face download. a larger version trained the same way on smollm2-1.7b-instruct comes from the `slm-lora-1b7` kaggle run. it loads with the same `--lora-adapter` flag, and studio reads `base_model.json` in the adapter folder to pick the right base model. it needs about 7 gb of memory and answers more slowly on a laptop.
 
-if you only want source excerpts mode, you can skip the weights and pytorch entirely:
+if you only want to search your own text, you can skip the weights and pytorch entirely. studio then starts with search my text selected:
 
 ```bash
 ./launch-studio.command --sources-only
 ```
 
-a few limits: pasted text is capped at 12,000 bytes and questions at 2,000 bytes, and studio never fetches anything from the internet. the chat history is kept in the page and disappears when you refresh. model output is always displayed as plain text and never run as code.
+a few limits: pasted text is capped at 12,000 bytes and questions at 2,000 bytes, and the page never loads anything from the internet. the conversation lives only in the page and disappears when you refresh. model output is always shown as plain text and never run as code.
 
 ## quick start
 

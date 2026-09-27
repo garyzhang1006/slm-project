@@ -335,8 +335,6 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); $("prompt-form").requestSubmit(); return; }
   if (event.metaKey || event.ctrlKey || ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)) return;
   if (event.key === "/") { event.preventDefault(); $("prompt").focus(); }
-  // preventDefault keeps the "n" out of the question box that newSession focuses.
-  else if (event.key.toLowerCase() === "n" && state.runs) { event.preventDefault(); newSession(); }
 });
 
 $("new-session").addEventListener("click", newSession);

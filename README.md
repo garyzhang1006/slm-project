@@ -37,7 +37,7 @@ type a question and press enter, and the answer shows up under it. each question
 
 the "search my text" switch under the question box doesn't use the model at all. you paste some text, ask a question, and studio shows up to three passages from your text that answer it, each tagged like `S1`. if nothing in your text matches, it says so instead of making something up.
 
-enter sends and shift+enter starts a new line. `/` jumps to the question box and `n` starts a new conversation.
+enter sends and shift+enter starts a new line, and `/` jumps to the question box. the pencil button at the top starts a new conversation.
 
 by default studio loads `artifacts/slm-500m-language-quality.pt` and checks that it has exactly 499,524,075 parameters. the weights aren't stored in git, so download them from kaggle first. to load a different checkpoint, run `./launch-studio.command --checkpoint /path/to/model.pt`. if port 8766 is already in use, add `--port 8767`.
 

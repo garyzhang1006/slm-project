@@ -32,6 +32,11 @@ STAGES = {
                      "internet": True, "gpu": True, "attaches": ["slm-lora-baseline"]},
     "lora_eval": {"runner": "compute/lora_eval.py", "slug": "slm-lora-eval",
                   "internet": True, "gpu": True, "attaches": ["slm-lora-baseline"]},
+    # The same runners on SmolLM2-1.7B-Instruct; "args" is appended to the runner's command line.
+    "lora_1b7": {"runner": "compute/lora_baseline.py", "slug": "slm-lora-1b7", "args": ["--model", "1.7b"],
+                 "internet": True, "gpu": True, "attaches": ["slm-sft-data"]},
+    "lora_1b7_eval": {"runner": "compute/lora_eval.py", "slug": "slm-lora-1b7-eval",
+                      "internet": True, "gpu": True, "attaches": ["slm-lora-1b7"]},
 }
 
 # Byte tokenizer: one token per byte, so the corpus byte target is also the token count.

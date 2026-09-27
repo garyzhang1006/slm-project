@@ -83,7 +83,7 @@ def prepare(stage: str, output: Path, owner: str = OWNER, session: int | None = 
             archive.write(path, path.relative_to(root))
         archive.writestr("source-manifest.json", json.dumps(manifest, indent=2))
     payload = base64.b64encode(buffer.getvalue()).decode("ascii")
-    argv = [] if session is None else ["--session", str(session)]
+    argv = list(STAGES[stage].get("args", [])) + ([] if session is None else ["--session", str(session)])
     output.mkdir(parents=True, exist_ok=True)
     (output / "run.py").write_text(run_script(payload, runner, argv))
     (output / "source-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")

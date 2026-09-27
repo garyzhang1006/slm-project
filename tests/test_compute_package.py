@@ -38,9 +38,10 @@ def fake_root(directory: Path, runner: str) -> Path:
 class StageTableTests(unittest.TestCase):
     def test_stage_entries_follow_the_interface(self):
         stages = module("stages")
-        self.assertEqual(set(stages.STAGES), {"corpus", "pretrain", "sft_data", "sft", "eval", "lora", "lora_eval", "distill_data"})
+        self.assertEqual(set(stages.STAGES), {"corpus", "pretrain", "sft_data", "sft", "eval", "lora", "lora_eval",
+                                              "distill_data", "lora_1b7", "lora_1b7_eval"})
         for name, spec in stages.STAGES.items():
-            self.assertEqual(set(spec), {"runner", "slug", "internet", "gpu", "attaches"}, name)
+            self.assertEqual(set(spec) - {"args"}, {"runner", "slug", "internet", "gpu", "attaches"}, name)
             self.assertRegex(spec["runner"], r"^compute/\w+\.py$")
         self.assertFalse(stages.STAGES["sft_data"]["gpu"])
         self.assertTrue(stages.STAGES["lora"]["internet"])
@@ -124,6 +125,14 @@ class PackageTests(unittest.TestCase):
         self.assertEqual(metadata["kernel_sources"], [])
         script, _ = self.payload(out)
         self.assertIn("] + []", script)
+
+    def test_stage_args_reach_the_runner(self):
+        out, _ = self.build("lora_1b7")
+        metadata = json.loads((out / "kernel-metadata.json").read_text())
+        self.assertEqual(metadata["id"], "someone/slm-lora-1b7")
+        self.assertEqual(metadata["kernel_sources"], ["someone/slm-sft-data"])
+        script, _ = self.payload(out)
+        self.assertIn("] + ['--model', '1.7b']", script)
 
     def test_cli_rejects_flags_for_the_wrong_stage(self):
         package = module("package")

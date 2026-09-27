@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import time
 from pathlib import Path
 
@@ -11,6 +12,8 @@ from .server import ModelRuntime, validate_request
 BASE_MODEL_ID = "HuggingFaceTB/SmolLM2-360M-Instruct"
 BASE_MODEL_REVISION = "a10cc1512eabd3dde888204e902eca88bddb4951"
 SYSTEM_PROMPT = "You are a helpful assistant. Answer in plain English with a short, direct reply."
+# compute/lora_baseline.py writes this next to the adapter; older adapters without it are 360M.
+BASE_MODEL_FILE = "base_model.json"
 # Below this temperature, sampling is replaced with greedy decoding, as in generate.py.
 GREEDY_BELOW = 1e-3
 
@@ -44,7 +47,12 @@ class LoraRuntime(ModelRuntime):
             else:
                 from peft import PeftModel
 
-                base = AutoModelForCausalLM.from_pretrained(BASE_MODEL_ID, revision=BASE_MODEL_REVISION,
+                model_id, revision = BASE_MODEL_ID, BASE_MODEL_REVISION
+                if (self.checkpoint / BASE_MODEL_FILE).is_file():
+                    recorded = json.loads((self.checkpoint / BASE_MODEL_FILE).read_text())
+                    model_id, revision = recorded["model_id"], recorded["model_revision"]
+                self.metadata["name"] = f"{model_id.rsplit('/', 1)[-1]} + LoRA"
+                base = AutoModelForCausalLM.from_pretrained(model_id, revision=revision,
                                                             torch_dtype=torch.float32)
                 model = PeftModel.from_pretrained(base, str(self.checkpoint))
             model.to(device)

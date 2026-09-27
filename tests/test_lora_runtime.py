@@ -88,6 +88,38 @@ class LoraRuntimeTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "exceeds context window"):
             runtime([EOS], window=10).generate({"prompt": "hello there", "max_new_tokens": 5})
 
+    def test_load_uses_the_recorded_base_model(self):
+        loads = []
+
+        class Loaded(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.weight = torch.nn.Parameter(torch.zeros(2))
+                self.config = SimpleNamespace(max_position_embeddings=8192)
+
+        def from_pretrained(name, **options):
+            loads.append((str(name), options.get("revision")))
+            return Loaded()
+
+        transformers = SimpleNamespace(AutoTokenizer=SimpleNamespace(from_pretrained=lambda path: FakeTokenizer()),
+                                       AutoModelForCausalLM=SimpleNamespace(from_pretrained=from_pretrained))
+        peft = SimpleNamespace(PeftModel=SimpleNamespace(from_pretrained=lambda base, path: base))
+        with tempfile.TemporaryDirectory() as directory, \
+                patch.dict("sys.modules", {"transformers": transformers, "peft": peft}):
+            adapter = Path(directory)
+            (adapter / "adapter_config.json").write_text("{}")
+            (adapter / "base_model.json").write_text(
+                '{"model_id": "HuggingFaceTB/SmolLM2-1.7B-Instruct", "model_revision": "abc"}')
+            loaded = LoraRuntime(adapter)
+            loaded.load()
+            (adapter / "base_model.json").unlink()
+            older = LoraRuntime(adapter)
+            older.load()
+        self.assertEqual(loaded.state, "ready", loaded.error)
+        self.assertEqual(loads, [("HuggingFaceTB/SmolLM2-1.7B-Instruct", "abc"),
+                                 ("HuggingFaceTB/SmolLM2-360M-Instruct", BASE_MODEL_REVISION)])
+        self.assertEqual(loaded.metadata["name"], "SmolLM2-1.7B-Instruct + LoRA")
+
     def test_missing_adapter_is_reported(self):
         loaded = LoraRuntime(Path("/nonexistent/lora-adapter"))
         loaded.load()

@@ -53,6 +53,15 @@ IGNORE_INDEX = -100
 GENERATION_BATCH_SIZE = 16
 
 
+def base_model(adapter: Path) -> tuple[str, str]:
+    """(model_id, revision) an adapter was trained on; adapters saved before --model existed are 360M."""
+    path = adapter / BASE_MODEL_FILE
+    if not path.exists():
+        return MODEL_ID, MODEL_REVISION
+    base = json.loads(path.read_text())
+    return base["model_id"], base["model_revision"]
+
+
 def normalize(text: str) -> str:
     """Casefold and keep word and number tokens only, so punctuation or spacing cannot hide a holdout copy."""
     return " ".join(re.findall(r"[^\W_]+", text.casefold().replace("'", "").replace("\u2019", "")))

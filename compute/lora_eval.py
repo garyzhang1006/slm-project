@@ -17,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from compute.lora_baseline import (MODEL_ID, MODEL_REVISION, digest, ensure_dependencies,  # noqa: E402
+from compute.lora_baseline import (base_model, digest, ensure_dependencies,  # noqa: E402
                                    find_input, generate_answers, write_json)
 
 EVAL_FILES = ("data/everyday_eval.json", "data/simple_questions_holdout.json")
@@ -74,8 +74,9 @@ def main(argv: list[str] | None = None) -> None:
         raise RuntimeError("CUDA is required for the LoRA eval; enable the T4 accelerator")
     adapter = adapter_dir()
     destination = ROOT / "lora_eval_report.json"
+    model_id, model_revision = base_model(adapter)
     sets = {REPORT_KEYS[Path(name).name]: json.loads((ROOT / name).read_text())["rows"] for name in EVAL_FILES}
-    report = {"status": "evaluating", "model_id": MODEL_ID, "model_revision": MODEL_REVISION,
+    report = {"status": "evaluating", "model_id": model_id, "model_revision": model_revision,
               "versions": versions, "adapter": str(adapter),
               "adapter_sha256": digest(adapter / "adapter_model.safetensors")
               if (adapter / "adapter_model.safetensors").exists() else None,
@@ -83,11 +84,11 @@ def main(argv: list[str] | None = None) -> None:
               "gpu": torch.cuda.get_device_name(0), "base": {}, "lora": {}}
     write_json(destination, report)
 
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_ID, revision=MODEL_REVISION)
+    tokenizer = AutoTokenizer.from_pretrained(model_id, revision=model_revision)
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
     # fp32 to match training: fp16 overflowed SmolLM2 activations in the first LoRA run.
-    model = AutoModelForCausalLM.from_pretrained(MODEL_ID, revision=MODEL_REVISION, torch_dtype=torch.float32)
+    model = AutoModelForCausalLM.from_pretrained(model_id, revision=model_revision, torch_dtype=torch.float32)
     model.to("cuda")
     for key, rows in sets.items():
         report["base"][key] = score_model(torch, model, tokenizer, rows, args.max_new_tokens, score_predictions)

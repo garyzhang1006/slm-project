@@ -115,6 +115,13 @@ class LoraBaselineTests(unittest.TestCase):
         self.assertIn("write_json(merged / BASE_MODEL_FILE, base)", source)
         self.assertNotIn("from_pretrained(MODEL_ID", source)
 
+    def test_base_model_defaults_to_360m_for_older_adapters(self):
+        with tempfile.TemporaryDirectory() as directory:
+            adapter = Path(directory)
+            self.assertEqual(self.module.base_model(adapter), (self.module.MODEL_ID, self.module.MODEL_REVISION))
+            (adapter / "base_model.json").write_text(json.dumps(self.module.MODELS["1.7b"]))
+            self.assertEqual(self.module.base_model(adapter)[0], "HuggingFaceTB/SmolLM2-1.7B-Instruct")
+
     def test_eval_every_is_validated(self):
         self.assertEqual(self.module.parse_args([]).eval_every, 250)
         with self.assertRaises(SystemExit), mock.patch("sys.stderr"):

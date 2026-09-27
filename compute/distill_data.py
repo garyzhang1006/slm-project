@@ -20,7 +20,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from compute.lora_baseline import (GENERATION_BATCH_SIZE, MODEL_ID, MODEL_REVISION, encode,  # noqa: E402
+from compute.lora_baseline import (GENERATION_BATCH_SIZE, base_model, encode,  # noqa: E402
                                    ensure_dependencies, find_input, left_pad)
 from compute.stage1_corpus import HOLDOUT_PATH, contains_secret, digest, normalize_overlap, write_json  # noqa: E402
 from compute.stage3_sft_data import (EVERYDAY_EVAL_PATH, MAX_DOLLY_RESPONSE_CHARS, SOURCES,  # noqa: E402
@@ -146,11 +146,12 @@ def main(argv: list[str] | None = None) -> None:
     if not torch.cuda.is_available():
         raise RuntimeError("CUDA is required for distillation; enable the T4 accelerator")
     adapter = find_input("adapter_config.json").parent
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_ID, revision=MODEL_REVISION)
+    model_id, model_revision = base_model(adapter)
+    tokenizer = AutoTokenizer.from_pretrained(model_id, revision=model_revision)
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
     # fp32, as in training: fp16 overflowed SmolLM2 activations.
-    model = AutoModelForCausalLM.from_pretrained(MODEL_ID, revision=MODEL_REVISION, torch_dtype=torch.float32)
+    model = AutoModelForCausalLM.from_pretrained(model_id, revision=model_revision, torch_dtype=torch.float32)
     model = PeftModel.from_pretrained(model.to("cuda"), str(adapter))
     answers = generate(torch, model, tokenizer, [prompt for _, prompt in prompts], args.max_new_tokens)
     dropped: dict[str, int] = {}
@@ -159,7 +160,7 @@ def main(argv: list[str] | None = None) -> None:
     write_jsonl(records, path)
     write_json(args.out_dir / "distill_manifest.json", {
         "rows": len(records), "prompts": len(prompts), "dropped": dropped, "sha256": digest(path),
-        "teacher": {"model_id": MODEL_ID, "model_revision": MODEL_REVISION, "adapter": str(adapter),
+        "teacher": {"model_id": model_id, "model_revision": model_revision, "adapter": str(adapter),
                     "adapter_sha256": digest(adapter / "adapter_model.safetensors")
                     if (adapter / "adapter_model.safetensors").exists() else None},
         "prompt_source": {DOLLY: SOURCES[DOLLY]}, "versions": versions,

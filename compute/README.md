@@ -14,6 +14,8 @@ Nothing in this folder trains or downloads on your own machine. Every stage runs
 | sft | `stage4_sft.py` | `slm-160m-sft` | T4 | no | last pretrain session, sft_data |
 | eval | `stage5_evaluate.py` | `slm-160m-eval` | T4 | no | sft, corpus |
 | lora | `lora_baseline.py` | `slm-lora-baseline` | T4 | yes | sft_data |
+| lora_1b7 | `lora_baseline.py --model 1.7b` | `slm-lora-1b7` | T4 | yes | sft_data |
+| lora_1b7_eval | `lora_eval.py` | `slm-lora-1b7-eval` | T4 | yes | lora_1b7 |
 
 - **corpus** streams FineWeb-Edu (`sample-10BT`, ODC-By) and TinyStories (CDLA-Sharing-1.0) at pinned revisions, keeps English text only, drops duplicates and anything matching the secret patterns in `cognition_slm.audit`, and holds out about 0.5% for evaluation. It writes `corpus/pretrain_train.jsonl`, `corpus/pretrain_eval.jsonl` and `corpus/corpus_manifest.json` with counts, byte totals, hashes and licenses.
 - **pretrain** trains the `slm-160m` preset (160,721,679 parameters, 2,048-byte context) with next-byte loss on the corpus. Each session stops after 11 hours, saves `artifacts/slm-160m-pretrain.pt`, and records its measured seconds per step, the step it reached and held-out bits per byte in `pretrain_session_<k>.json`. Session k resumes from session k-1.
@@ -21,6 +23,8 @@ Nothing in this folder trains or downloads on your own machine. Every stage runs
 - **sft** fine-tunes the last pretrain checkpoint on those records at learning rate 1e-4 and writes `artifacts/slm-160m-sft.pt` with `sft_report.json`.
 - **eval** answers the 24 holdout questions and a fixed set of English probes greedily (temperature 0, at most 64 new tokens, stopping at a newline), scores them with `scripts/score_holdout.py`, measures held-out bits per byte, and writes `eval_report.json`. It also answers the 252 questions in `data/everyday_eval.json` and reports them under `everyday_eval_scores`, per category. The pass gate is holdout accuracy above the old 3/24.
 - **lora** fine-tunes `HuggingFaceTB/SmolLM2-360M-Instruct` (Apache-2.0, revision `a10cc1512eabd3dde888204e902eca88bddb4951`) with LoRA on the same `sft_train.jsonl`, scores it on the same holdout, and writes `lora_report.json` plus the adapter.
+- **lora_1b7** runs the same runner on `HuggingFaceTB/SmolLM2-1.7B-Instruct` (Apache-2.0, revision `31b70e2e869a7173562077fd711b654946d38674`). The fp32 weights take about 6.8 GB of the T4's 16 GB, so it trains one epoch on micro-batches of 4 with gradient checkpointing. Every adapter folder now holds `base_model.json`, which is how `lora_eval`, `distill_data` and Studio know which base model to load.
+- **lora_1b7_eval** scores the 1.7B base model and its adapter on the everyday questions and the holdout, like `lora_eval` does for the 360M model.
 
 ## How much GPU time
 
@@ -43,12 +47,14 @@ The step-based view agrees. One optimizer step is batch 8 × accumulation 4 × 2
 | sft | 1 to 2 |
 | eval | under 1 |
 | lora | 1 to 2 |
+| lora_1b7 | 2.5 to 4 (estimated, not yet measured) |
+| lora_1b7_eval | about 1 |
 
 Kaggle gives a weekly GPU quota (check the current number on your account page), so pretraining will likely span more than one week.
 
 ## Run order
 
-Once the corpus exists, `python3 compute/run_pipeline.py --owner YOUR_KAGGLE_USERNAME --watch` does the rest of the main chain for you: it checks every 30 minutes, pushes the next pretrain session when the last one finishes, then distill_data, sft and eval, and waits instead of pushing when the weekly GPU quota cannot cover the next stage. It drives the LoRA chain in the same loop: sft_data, then the `lora` adapter, then `lora_eval` and `distill_data`. Each follow-up records the `adapter_sha256` it used, so when the adapter is retrained both rerun, and sft waits for distilled answers from the current adapter. A push on one chain counts against the quota the other chain sees in that round. Add `--dry-run` to see the decision without pushing anything. `python3 compute/collect_results.py --owner YOUR_KAGGLE_USERNAME` downloads only the JSON reports and rewrites [RESULTS.md](RESULTS.md): bits per byte for each pretrain session, the LoRA adapter against the base model per category (re-scored with the current answer keys in `data/`), distillation counts, and the SFT and eval numbers. The manual commands below still work.
+Once the corpus exists, `python3 compute/run_pipeline.py --owner YOUR_KAGGLE_USERNAME --watch` does the rest of the main chain for you: it checks every 30 minutes, pushes the next pretrain session when the last one finishes, then distill_data, sft and eval, and waits instead of pushing when the weekly GPU quota cannot cover the next stage. It also runs the 1.7B chain (lora_1b7, then lora_1b7_eval), which only gets GPU quota the other chains leave over. It drives the LoRA chain in the same loop: sft_data, then the `lora` adapter, then `lora_eval` and `distill_data`. Each follow-up records the `adapter_sha256` it used, so when the adapter is retrained both rerun, and sft waits for distilled answers from the current adapter. A push on one chain counts against the quota the other chain sees in that round. Add `--dry-run` to see the decision without pushing anything. `python3 compute/collect_results.py --owner YOUR_KAGGLE_USERNAME` downloads only the JSON reports and rewrites [RESULTS.md](RESULTS.md): bits per byte for each pretrain session, the LoRA adapter against the base model per category (re-scored with the current answer keys in `data/`), distillation counts, and the SFT and eval numbers. The manual commands below still work.
 
 Every stage uses the same two commands: package, then push. Replace the owner if you are not `garyzhang11111`. Commands run from the repository root.
 

@@ -27,6 +27,11 @@ the plan to fix it lives in [`compute/`](compute/README.md). there are two route
 
 studio is a small web page for asking the model questions on your own computer.
 
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/studio-dark.png">
+  <img src="docs/studio-light.png" alt="studio with two questions and their answers, and the question box at the bottom" width="720">
+</picture>
+
 ```bash
 ./launch-studio.command
 ```

@@ -96,6 +96,25 @@ class LoraBaselineTests(unittest.TestCase):
         self.assertEqual(lora.item(), 1.0)
         self.assertTrue(best.offer(1.5, 750, named()))
 
+    def test_model_choice_sets_base_and_defaults(self):
+        small = self.module.parse_args([])
+        self.assertEqual((small.model_id, small.epochs, small.gradient_checkpointing),
+                         (self.module.MODEL_ID, 2.0, False))
+        large = self.module.parse_args(["--model", "1.7b"])
+        self.assertEqual(large.model_id, "HuggingFaceTB/SmolLM2-1.7B-Instruct")
+        self.assertRegex(large.model_revision, r"^[0-9a-f]{40}$")
+        self.assertEqual((large.batch_size, large.gradient_accumulation_steps, large.epochs), (4, 4, 1.0))
+        self.assertTrue(large.gradient_checkpointing)
+        self.assertEqual(self.module.parse_args(["--model", "1.7b", "--batch-size", "2"]).batch_size, 2)
+        with self.assertRaises(SystemExit), mock.patch("sys.stderr"):
+            self.module.parse_args(["--model", "7b"])
+
+    def test_base_model_is_written_beside_both_exports(self):
+        source = RUNNER.read_text()
+        self.assertIn("write_json(adapter / BASE_MODEL_FILE, base)", source)
+        self.assertIn("write_json(merged / BASE_MODEL_FILE, base)", source)
+        self.assertNotIn("from_pretrained(MODEL_ID", source)
+
     def test_eval_every_is_validated(self):
         self.assertEqual(self.module.parse_args([]).eval_every, 250)
         with self.assertRaises(SystemExit), mock.patch("sys.stderr"):

@@ -20,6 +20,21 @@ import time
 MODEL_ID = "HuggingFaceTB/SmolLM2-360M-Instruct"
 MODEL_REVISION = "a10cc1512eabd3dde888204e902eca88bddb4951"
 MODEL_LICENSE = "apache-2.0"
+# --model choices. The 1.7B revision was read from https://huggingface.co/api/models/HuggingFaceTB/
+# SmolLM2-1.7B-Instruct on 2026-09-26 (license apache-2.0, same ChatML tokenizer family as the 360M model).
+MODELS = {
+    "360m": {"model_id": MODEL_ID, "model_revision": MODEL_REVISION},
+    "1.7b": {"model_id": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
+             "model_revision": "31b70e2e869a7173562077fd711b654946d38674"},
+}
+# fp32 1.7B weights take about 6.8 GB of the T4's 16 GB, so it trains on smaller micro-batches with
+# gradient checkpointing, and one epoch keeps it inside the --max-seconds budget.
+MODEL_DEFAULTS = {
+    "360m": {"epochs": 2.0, "batch_size": 8, "gradient_accumulation_steps": 2, "gradient_checkpointing": False},
+    "1.7b": {"epochs": 1.0, "batch_size": 4, "gradient_accumulation_steps": 4, "gradient_checkpointing": True},
+}
+# Written next to the adapter so lora_eval, distill_data and Studio load the base it was trained on.
+BASE_MODEL_FILE = "base_model.json"
 # Standard projection names of the transformers Llama implementation that SmolLM2 uses.
 TARGET_MODULES = ("q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj")
 SYSTEM_PROMPT = "You are a helpful assistant. Answer in plain English with a short, direct reply."
@@ -148,12 +163,14 @@ def first_line(text: str) -> str:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--epochs", type=float, default=2.0)
+    parser.add_argument("--model", choices=sorted(MODELS), default="360m",
+                        help="SmolLM2 base to adapt; unset training flags take this model's defaults")
+    parser.add_argument("--epochs", type=float, default=None)
     parser.add_argument("--max-steps", type=int, default=3000)
     parser.add_argument("--max-seconds", type=float, default=3 * 3600,
                         help="Stop training early and still evaluate once this wall-clock budget is spent")
-    parser.add_argument("--batch-size", type=int, default=8)
-    parser.add_argument("--gradient-accumulation-steps", type=int, default=2)
+    parser.add_argument("--batch-size", type=int, default=None)
+    parser.add_argument("--gradient-accumulation-steps", type=int, default=None)
     parser.add_argument("--learning-rate", type=float, default=2e-4)
     parser.add_argument("--warmup-ratio", type=float, default=0.03)
     parser.add_argument("--max-length", type=int, default=384)
@@ -166,6 +183,10 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                         help="Optimizer steps between held-out loss checks; the best adapter is kept")
     parser.add_argument("--seed", type=int, default=1234)
     args = parser.parse_args(argv)
+    for name, value in MODEL_DEFAULTS[args.model].items():
+        if getattr(args, name, None) is None:
+            setattr(args, name, value)
+    args.model_id, args.model_revision = MODELS[args.model]["model_id"], MODELS[args.model]["model_revision"]
     if min(args.batch_size, args.gradient_accumulation_steps, args.max_steps, args.max_length) < 1:
         parser.error("batch size, accumulation, max steps and max length must be positive")
     if args.eval_every < 0:
@@ -311,7 +332,7 @@ def main(argv: list[str] | None = None) -> None:
     artifacts.mkdir(exist_ok=True)
     destination = root / "lora_report.json"
     report = {
-        "status": "baseline", "model_id": MODEL_ID, "model_revision": MODEL_REVISION,
+        "status": "baseline", "model_id": args.model_id, "model_revision": args.model_revision,
         "model_license": MODEL_LICENSE, "versions": versions, "arguments": vars(args),
         "gpu": torch.cuda.get_device_name(0), "source_manifest": manifest,
         "data": {"train": {"path": str(train_path), "sha256": digest(train_path), "rows": len(train_rows),
@@ -324,13 +345,14 @@ def main(argv: list[str] | None = None) -> None:
     }
     write_json(destination, report)
 
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_ID, revision=MODEL_REVISION)
+    tokenizer = AutoTokenizer.from_pretrained(args.model_id, revision=args.model_revision)
     if tokenizer.pad_token_id is None:
         tokenizer.pad_token = tokenizer.eos_token
     # Plain fp32 throughout. fp16 autocast overflowed SmolLM2 activations: the untouched base model's
     # eval loss was already NaN on the first Kaggle run, and the adapter came out unusable.
     # The T4 has no native bf16, and 360M fp32 parameters still fit its 16 GB.
-    model = AutoModelForCausalLM.from_pretrained(MODEL_ID, revision=MODEL_REVISION, torch_dtype=torch.float32)
+    model = AutoModelForCausalLM.from_pretrained(args.model_id, revision=args.model_revision,
+                                                 torch_dtype=torch.float32)
     model.to("cuda")
     report["baseline"] = evaluate_holdout(torch, model, tokenizer, holdout, args.max_new_tokens, score_predictions)
     report["status"] = "training"
@@ -339,6 +361,8 @@ def main(argv: list[str] | None = None) -> None:
 
     config = LoraConfig(r=args.lora_r, lora_alpha=args.lora_alpha, lora_dropout=args.lora_dropout,
                         target_modules=list(TARGET_MODULES), task_type="CAUSAL_LM")
+    if args.gradient_checkpointing:
+        model.gradient_checkpointing_enable(gradient_checkpointing_kwargs={"use_reentrant": False})
     model = get_peft_model(model, config)
     model.config.use_cache = False
     trainable = [parameter for parameter in model.parameters() if parameter.requires_grad]
@@ -421,6 +445,8 @@ def main(argv: list[str] | None = None) -> None:
     adapter = artifacts / "lora-adapter"
     model.save_pretrained(adapter)
     tokenizer.save_pretrained(adapter)
+    base = {"model_id": args.model_id, "model_revision": args.model_revision}
+    write_json(adapter / BASE_MODEL_FILE, base)
     weights = adapter / "adapter_model.safetensors"
     # run_pipeline compares this hash with lora_eval and distill_data reports to spot runs on an older adapter.
     report.update(status="evaluating", adapter=str(adapter),
@@ -434,6 +460,7 @@ def main(argv: list[str] | None = None) -> None:
     merged = artifacts / "lora-merged"
     model.merge_and_unload().save_pretrained(merged)
     tokenizer.save_pretrained(merged)
+    write_json(merged / BASE_MODEL_FILE, base)
     report["merged"] = str(merged)
     report["status"] = "complete_pending_manual_review"
     write_json(destination, report)

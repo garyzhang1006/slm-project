@@ -1,12 +1,13 @@
 # Results
 
-Collected from Kaggle kernel reports on 2026-09-26 21:30 by `compute/collect_results.py`. Regenerate it rather than editing by hand.
+Collected from Kaggle kernel reports on 2026-09-26 23:58 by `compute/collect_results.py`. Regenerate it rather than editing by hand.
 
 ## slm-160m pretraining
 
 | session | steps reached | s/step | eval bits/byte | status |
 |---|---|---|---|---|
 | 1 | 4570 | 8.72 | 1.289 | session_complete_resume_next |
+| 2 | 9140 | 8.72 | 1.193 | session_complete_resume_next |
 
 ## LoRA adapter (SmolLM2-360M-Instruct)
 
@@ -44,7 +45,10 @@ These rows ask the model to admit it doesn't know, so a person judges them and t
 
 ## LoRA adapter (SmolLM2-1.7B-Instruct)
 
-No LoRA report yet.
+- Status: complete_pending_manual_review
+- Holdout exact: base 4/22, adapter 18/22
+- Eval loss: 1.905 before training, best 1.332 at step 1122, final 1.332
+- Adapter sha256: `b31d7bd5708f73c9cf7d77f862131bed65ff3495d592cf7ef245df52e8c02bab`
 
 ## SmolLM2-1.7B-Instruct: LoRA vs base, re-scored with the current answer keys
 

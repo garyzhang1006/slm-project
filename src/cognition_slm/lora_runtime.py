@@ -40,6 +40,12 @@ class LoraRuntime(ModelRuntime):
 
             device = _device(self.device)
             tokenizer = AutoTokenizer.from_pretrained(self.checkpoint)
+            model_id, revision = BASE_MODEL_ID, BASE_MODEL_REVISION
+            if (self.checkpoint / BASE_MODEL_FILE).is_file():
+                recorded = json.loads((self.checkpoint / BASE_MODEL_FILE).read_text())
+                model_id, revision = recorded["model_id"], recorded["model_revision"]
+            # Merged folders record their base too, so Studio names the model that is actually served.
+            self.metadata["name"] = f"{model_id.rsplit('/', 1)[-1]} + LoRA"
             # fp32: the first Kaggle run showed fp16 overflowing SmolLM2 activations.
             if merged:
                 # lora-merged already has the adapter folded into the weights, so peft is not needed.
@@ -47,11 +53,6 @@ class LoraRuntime(ModelRuntime):
             else:
                 from peft import PeftModel
 
-                model_id, revision = BASE_MODEL_ID, BASE_MODEL_REVISION
-                if (self.checkpoint / BASE_MODEL_FILE).is_file():
-                    recorded = json.loads((self.checkpoint / BASE_MODEL_FILE).read_text())
-                    model_id, revision = recorded["model_id"], recorded["model_revision"]
-                self.metadata["name"] = f"{model_id.rsplit('/', 1)[-1]} + LoRA"
                 base = AutoModelForCausalLM.from_pretrained(model_id, revision=revision,
                                                             torch_dtype=torch.float32)
                 model = PeftModel.from_pretrained(base, str(self.checkpoint))

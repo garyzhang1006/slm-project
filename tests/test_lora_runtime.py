@@ -120,6 +120,29 @@ class LoraRuntimeTests(unittest.TestCase):
                                  ("HuggingFaceTB/SmolLM2-360M-Instruct", BASE_MODEL_REVISION)])
         self.assertEqual(loaded.metadata["name"], "SmolLM2-1.7B-Instruct + LoRA")
 
+    def test_merged_folder_is_named_after_its_recorded_base(self):
+        class Loaded(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.weight = torch.nn.Parameter(torch.zeros(2))
+                self.config = SimpleNamespace(max_position_embeddings=8192)
+
+        loads = []
+        transformers = SimpleNamespace(
+            AutoTokenizer=SimpleNamespace(from_pretrained=lambda path: FakeTokenizer()),
+            AutoModelForCausalLM=SimpleNamespace(from_pretrained=lambda name, **options: loads.append(str(name)) or Loaded()))
+        with tempfile.TemporaryDirectory() as directory, patch.dict("sys.modules", {"transformers": transformers}):
+            merged = Path(directory)
+            (merged / "config.json").write_text("{}")
+            (merged / "base_model.json").write_text(
+                '{"model_id": "HuggingFaceTB/SmolLM2-1.7B-Instruct", "model_revision": "abc"}')
+            loaded = LoraRuntime(merged)
+            loaded.load()
+        self.assertEqual(loaded.state, "ready", loaded.error)
+        self.assertEqual(loads, [str(merged)])
+        self.assertEqual(loaded.metadata["name"], "SmolLM2-1.7B-Instruct + LoRA")
+        self.assertEqual(loaded.metadata["architecture"], "llama+lora (merged)")
+
     def test_missing_adapter_is_reported(self):
         loaded = LoraRuntime(Path("/nonexistent/lora-adapter"))
         loaded.load()

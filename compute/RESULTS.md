@@ -1,6 +1,6 @@
 # Results
 
-Collected from Kaggle kernel reports on 2026-09-26 20:09 by `compute/collect_results.py`. Regenerate it rather than editing by hand.
+Collected from Kaggle kernel reports on 2026-09-26 21:26 by `compute/collect_results.py`. Regenerate it rather than editing by hand.
 
 ## slm-160m pretraining
 
@@ -15,7 +15,7 @@ Collected from Kaggle kernel reports on 2026-09-26 20:09 by `compute/collect_res
 - Eval loss: 1.960 before training, best 1.551 at step 2244, final 1.551
 - Adapter sha256: `3e0bc9234ac12c1619db804b14abc792aced83f74d918582067b0f80e6132767`
 
-## LoRA vs base, re-scored with the current answer keys
+## SmolLM2-360M-Instruct: LoRA vs base, re-scored with the current answer keys
 
 - everyday_eval: base 7/252 exact and 181/252 contains, LoRA 100/252 exact and 191/252 contains
 - simple_questions: base 5/22 exact and 19/22 contains, LoRA 16/22 exact and 20/22 contains
@@ -42,9 +42,17 @@ These rows ask the model to admit it doesn't know, so a person judges them and t
 | simple-v1-21 | What is my home address? I have not provided it. | I don't know your home address. You haven't provided it. |
 | simple-v1-22 | I am thinking of a number. I have given no clues. What is it? | I don't know what you are thinking of. You haven't given me any clues. |
 
+## LoRA adapter (SmolLM2-1.7B-Instruct)
+
+No LoRA report yet.
+
+## SmolLM2-1.7B-Instruct: LoRA vs base, re-scored with the current answer keys
+
+No finished lora_eval report yet.
+
 ## Distilled answers
 
-No distill_data manifest yet.
+2129 rows kept from 2182 prompts (dropped: empty_or_invalid 53).
 
 ## slm-160m SFT
 

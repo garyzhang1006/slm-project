@@ -37,6 +37,8 @@ def collect(fetch) -> dict:
     return {"pretrain": pretrain,
             "lora": fetch(stage_slug("lora"), "lora_report.json"),
             "lora_eval": fetch(stage_slug("lora_eval"), "lora_eval_report.json"),
+            "lora_1b7": fetch(stage_slug("lora_1b7"), "lora_report.json"),
+            "lora_1b7_eval": fetch(stage_slug("lora_1b7_eval"), "lora_eval_report.json"),
             "distill": fetch(stage_slug("distill_data"), "distill_manifest.json"),
             "sft": fetch(stage_slug("sft"), "sft_report.json"),
             "eval": fetch(stage_slug("eval"), "eval_report.json")}
@@ -70,21 +72,9 @@ def contains(scores: dict) -> str:
     return f"{total['contains']}/{total['scored']}"
 
 
-def render(results: dict, rescored: dict, stamp: str) -> str:
-    lines = ["# Results", "", f"Collected from Kaggle kernel reports on {stamp} by `compute/collect_results.py`. "
-             "Regenerate it rather than editing by hand.", ""]
-
-    lines += ["## slm-160m pretraining", ""]
-    if results["pretrain"]:
-        lines += ["| session | steps reached | s/step | eval bits/byte | status |", "|---|---|---|---|---|"]
-        lines += [f"| {report.get('session')} | {report.get('step_reached')} | "
-                  f"{number(report.get('seconds_per_step'), 2)} | {number(report.get('eval_bits_per_byte'))} | "
-                  f"{report.get('status')} |" for report in results["pretrain"]]
-    else:
-        lines.append("No finished pretrain session yet.")
-
-    lines += ["", "## LoRA adapter (SmolLM2-360M-Instruct)", ""]
-    lora = results["lora"]
+def lora_sections(name: str, lora: dict | None, lora_eval: dict | None, rescored: dict) -> list[str]:
+    """Adapter training summary plus its re-scored eval against the base model."""
+    lines = ["", f"## LoRA adapter ({name})", ""]
     if lora:
         training = lora.get("training", {})
         baseline, final = lora.get("baseline", {}).get("scores"), lora.get("final", {}).get("scores")
@@ -98,10 +88,10 @@ def render(results: dict, rescored: dict, stamp: str) -> str:
     else:
         lines.append("No LoRA report yet.")
 
-    lines += ["", "## LoRA vs base, re-scored with the current answer keys", ""]
+    lines += ["", f"## {name}: LoRA vs base, re-scored with the current answer keys", ""]
     everyday = rescored.get("everyday_eval")
     if everyday:
-        used, current = results["lora_eval"].get("adapter_sha256"), (lora or {}).get("adapter_sha256")
+        used, current = lora_eval.get("adapter_sha256"), (lora or {}).get("adapter_sha256")
         if used and current and used != current:
             lines += ["These predictions came from a different adapter than the LoRA report above.", ""]
         for key, scores in rescored.items():
@@ -120,7 +110,7 @@ def render(results: dict, rescored: dict, stamp: str) -> str:
                          f"{right['contains']} | {right['scored']} |")
         manual = [row for scores in rescored.values() for row in scores["lora"].get("rows", [])
                   if row.get("manual_review")]
-        predictions = {row["id"]: row for side in results["lora_eval"].get("lora", {}).values()
+        predictions = {row["id"]: row for side in lora_eval.get("lora", {}).values()
                        for row in side.get("predictions", [])}
         if manual:
             lines += ["", "These rows ask the model to admit it doesn't know, so a person judges them and they "
@@ -131,6 +121,26 @@ def render(results: dict, rescored: dict, stamp: str) -> str:
                 lines.append("| " + " | ".join(cell.replace("|", "/").replace("\n", " ") for cell in cells) + " |")
     else:
         lines.append("No finished lora_eval report yet.")
+
+    return lines
+
+
+def render(results: dict, rescored: dict, stamp: str, large_rescored: dict | None = None) -> str:
+    lines = ["# Results", "", f"Collected from Kaggle kernel reports on {stamp} by `compute/collect_results.py`. "
+             "Regenerate it rather than editing by hand.", ""]
+
+    lines += ["## slm-160m pretraining", ""]
+    if results["pretrain"]:
+        lines += ["| session | steps reached | s/step | eval bits/byte | status |", "|---|---|---|---|---|"]
+        lines += [f"| {report.get('session')} | {report.get('step_reached')} | "
+                  f"{number(report.get('seconds_per_step'), 2)} | {number(report.get('eval_bits_per_byte'))} | "
+                  f"{report.get('status')} |" for report in results["pretrain"]]
+    else:
+        lines.append("No finished pretrain session yet.")
+
+    lines += lora_sections("SmolLM2-360M-Instruct", results["lora"], results["lora_eval"], rescored)
+    lines += lora_sections("SmolLM2-1.7B-Instruct", results.get("lora_1b7"), results.get("lora_1b7_eval"),
+                           large_rescored or {})
 
     lines += ["", "## Distilled answers", ""]
     distill = results["distill"]
@@ -171,7 +181,8 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     results = collect(Kaggle(args.owner).report)
     rescored = rescore(results["lora_eval"]) if results["lora_eval"] else {}
-    args.out.write_text(render(results, rescored, time.strftime("%Y-%m-%d %H:%M")))
+    large = rescore(results["lora_1b7_eval"]) if results["lora_1b7_eval"] else {}
+    args.out.write_text(render(results, rescored, time.strftime("%Y-%m-%d %H:%M"), large))
     print(f"wrote {args.out}")
     return 0
 

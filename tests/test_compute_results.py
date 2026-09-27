@@ -94,6 +94,17 @@ class RenderTests(unittest.TestCase):
         self.assertIn("Held-out text bits/byte: 1.100", text)
         self.assertNotIn("—", text)
 
+    def test_large_adapter_gets_its_own_sections(self):
+        empty = {"pretrain": [], "lora": None, "lora_eval": None, "distill": None, "sft": None, "eval": None,
+                 "lora_1b7": {"status": "complete_pending_manual_review", "adapter_sha256": "ab" * 32},
+                 "lora_1b7_eval": adapter_report()}
+        text = collect_results.render(empty, {}, "now", collect_results.rescore(adapter_report()))
+        self.assertIn("## LoRA adapter (SmolLM2-1.7B-Instruct)", text)
+        large = text.split("## SmolLM2-1.7B-Instruct: LoRA vs base", 1)[1]
+        self.assertIn("| category | base exact |", large)
+        small = text.split("## SmolLM2-360M-Instruct: LoRA vs base", 1)[1].split("## LoRA adapter", 1)[0]
+        self.assertIn("No finished lora_eval report yet.", small)
+
     def test_main_writes_the_file(self):
         with tempfile.TemporaryDirectory() as directory:
             out = Path(directory) / "RESULTS.md"

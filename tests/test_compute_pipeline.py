@@ -138,15 +138,38 @@ class LoraChainTests(unittest.TestCase):
     def test_round_shares_quota_and_stops_when_main_needs_a_stopped_lora_chain(self):
         statuses = {"slm-160m-corpus": "complete", "slm-160m-pretrain-1": "complete", "slm-sft-data": "complete"}
         reports = {("slm-160m-pretrain-1", "pretrain_session_1.json"): RESUME}
-        main, side = run_pipeline.decide_round(lambda slug: statuses.get(slug, "missing"),
-                                               lambda slug, filename: reports.get((slug, filename)), 14.0)
+        main, side, large = run_pipeline.decide_round(lambda slug: statuses.get(slug, "missing"),
+                                                      lambda slug, filename: reports.get((slug, filename)), 14.0)
         self.assertEqual((main["kind"], main["stage"]), ("push", "pretrain"))
         self.assertEqual((side["kind"], side["stage"]), ("wait", "lora"))  # 14 - 12 hours left
+        self.assertEqual((large["kind"], large["stage"]), ("wait", "lora_1b7"))
         statuses.update({"slm-160m-pretrain-1": "complete", "slm-lora-baseline": "error"})
         reports[("slm-160m-pretrain-1", "pretrain_session_1.json")] = DONE
-        main, side = run_pipeline.decide_round(lambda slug: statuses.get(slug, "missing"),
-                                               lambda slug, filename: reports.get((slug, filename)), 30.0)
+        main, side, _ = run_pipeline.decide_round(lambda slug: statuses.get(slug, "missing"),
+                                                  lambda slug, filename: reports.get((slug, filename)), 30.0)
         self.assertEqual((main["kind"], side["kind"]), ("stop", "stop"))
+
+
+class LargeLoraChainTests(unittest.TestCase):
+    def test_waits_for_shared_sft_data_then_trains_and_evaluates(self):
+        large = run_pipeline.large_lora_action
+        self.assertEqual(decide({}, chooser=large)["kind"], "wait")
+        self.assertEqual(decide({"slm-sft-data": "error"}, chooser=large)["kind"], "stop")
+        statuses = {"slm-sft-data": "complete"}
+        pushed = decide(statuses, chooser=large)
+        self.assertEqual((pushed["kind"], pushed["stage"]), ("push", "lora_1b7"))
+        self.assertEqual(decide(statuses, quota=4.0, chooser=large)["kind"], "wait")
+        statuses["slm-lora-1b7"] = "complete"
+        self.assertEqual(decide(statuses, chooser=large)["kind"], "wait")  # report not readable yet
+        reports = {("slm-lora-1b7", "lora_report.json"): LORA_DONE}
+        self.assertEqual(decide(statuses, reports, chooser=large)["stage"], "lora_1b7_eval")
+        statuses["slm-lora-1b7-eval"] = "complete"
+        reports[("slm-lora-1b7-eval", "lora_eval_report.json")] = {"adapter_sha256": "old"}
+        self.assertEqual(decide(statuses, reports, chooser=large)["stage"], "lora_1b7_eval")
+        reports[("slm-lora-1b7-eval", "lora_eval_report.json")] = {"adapter_sha256": ADAPTER}
+        self.assertEqual(decide(statuses, reports, chooser=large)["kind"], "done")
+        statuses["slm-lora-1b7"] = "error"
+        self.assertEqual(decide(statuses, reports, chooser=large)["kind"], "stop")
 
 
 class MainTests(unittest.TestCase):

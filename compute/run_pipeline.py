@@ -1,6 +1,7 @@
 """Drive the slm-160m chain on Kaggle: pretrain sessions until one pass is done, then distill_data, sft, eval.
 
-Beside it runs the LoRA chain: sft_data, the LoRA adapter, then lora_eval and distill_data on that adapter.
+Beside it run two LoRA chains: sft_data, the 360M adapter, then lora_eval and distill_data on that adapter;
+and the 1.7B adapter (lora_1b7) with its own eval, which gets whatever GPU quota the other chains leave.
 Each round reads kernel statuses and reports, decides one action per chain, and (unless --dry-run) pushes the
 next kernels. It never runs a model locally; every push goes to a Kaggle GPU. It checks the weekly GPU quota before
 each push, so a session that would be killed half way for lack of quota waits for the reset instead.
@@ -27,10 +28,13 @@ from compute.stages import PRETRAIN_SESSION_SECONDS, stage_slug  # noqa: E402
 
 # GPU hours a push must have left in the weekly quota: the stage's own time cap plus setup and save.
 STAGE_HOURS = {"pretrain": PRETRAIN_SESSION_SECONDS / 3600 + 1.0, "distill_data": 1.5, "sft": 9.5,
-               "eval": 1.0, "lora": 4.0, "lora_eval": 1.0, "sft_data": 0.0}
+               "eval": 1.0, "lora": 4.0, "lora_eval": 1.0, "sft_data": 0.0,
+               "lora_1b7": 4.5, "lora_1b7_eval": 1.5}
 # Reports that record which adapter a LoRA follow-up used, as a path of keys to its adapter_sha256.
 ADAPTER_USERS = {"lora_eval": ("lora_eval_report.json", ("adapter_sha256",)),
-                 "distill_data": ("distill_manifest.json", ("teacher", "adapter_sha256"))}
+                 "distill_data": ("distill_manifest.json", ("teacher", "adapter_sha256")),
+                 "lora_1b7_eval": ("lora_eval_report.json", ("adapter_sha256",))}
+LORA_FOLLOW_UPS = ("lora_eval", "distill_data")
 TERMINAL = {"done", "stop"}
 # Kaggle numbers pretrain sessions from 1; a chain this long means something is looping.
 MAX_PRETRAIN_SESSIONS = 20
@@ -166,7 +170,7 @@ def lora_action(status, report, quota_hours: float) -> dict:
     if lora_report.get("status") != "complete_pending_manual_review":
         return action("stop", f"lora report status is {lora_report.get('status')!r}")
     adapter = lora_report.get("adapter_sha256")
-    followers = {stage: status(stage_slug(stage)) for stage in ADAPTER_USERS}
+    followers = {stage: status(stage_slug(stage)) for stage in LORA_FOLLOW_UPS}
     if not adapter:
         # A new lora version replaces the output that queued follow-ups would mount, so let them finish first.
         busy = [stage for stage, state in followers.items() if state in WAITING]
@@ -190,15 +194,51 @@ def lora_action(status, report, quota_hours: float) -> dict:
     return action("done", f"lora_eval and distill_data both used adapter {adapter[:12]}")
 
 
+def large_lora_action(status, report, quota_hours: float) -> dict:
+    """One decision for the 1.7B chain: lora_1b7 on the shared sft_data, then lora_1b7_eval on its adapter."""
+    data = status(stage_slug("sft_data"))
+    if data in WAITING or data == "missing":
+        # lora_action pushes sft_data; pushing it here too would start two versions in one round.
+        return action("wait", f"lora_1b7 needs sft_data, which is {data}")
+    if data != "complete":
+        return action("stop", f"sft_data ended as {data}")
+    teacher = status(stage_slug("lora_1b7"))
+    if teacher in WAITING:
+        return action("wait", f"lora_1b7 is {teacher}")
+    if teacher == "missing":
+        return push_if_quota("lora_1b7", quota_hours, "sft_data is ready")
+    if teacher != "complete":
+        return action("stop", f"lora_1b7 ended as {teacher}; read its log before retrying")
+    lora_report = report(stage_slug("lora_1b7"), "lora_report.json")
+    if lora_report is None:
+        return action("wait", "could not read lora_report.json from lora_1b7; retrying next round")
+    adapter = lora_report.get("adapter_sha256")
+    if lora_report.get("status") != "complete_pending_manual_review" or not adapter:
+        return action("stop", f"lora_1b7 report status is {lora_report.get('status')!r}")
+    evaluation = status(stage_slug("lora_1b7_eval"))
+    if evaluation in WAITING:
+        return action("wait", f"lora_1b7_eval is {evaluation}")
+    if evaluation == "missing" or (evaluation == "complete"
+                                   and not follow_up_fresh(status, report, "lora_1b7_eval", adapter)):
+        return push_if_quota("lora_1b7_eval", quota_hours, f"lora_1b7_eval has not run on adapter {adapter[:12]}")
+    if evaluation != "complete":
+        return action("stop", f"lora_1b7_eval ended as {evaluation}; read its log before retrying")
+    return action("done", f"lora_1b7_eval used adapter {adapter[:12]}")
+
+
 def decide_round(status, report, quota_hours: float) -> list[dict]:
-    """[main chain decision, LoRA chain decision]; a push on one chain leaves less quota for the other."""
-    main = next_action(status, report, quota_hours)
-    if main["kind"] == "push":
-        quota_hours -= STAGE_HOURS[main["stage"]]
-    side = lora_action(status, report, quota_hours)
+    """[main chain, 360M LoRA chain, 1.7B LoRA chain] decisions, in priority order: each push leaves less
+    quota for the chains after it."""
+    decisions = []
+    for chooser in (next_action, lora_action, large_lora_action):
+        decision = chooser(status, report, quota_hours)
+        if decision["kind"] == "push":
+            quota_hours -= STAGE_HOURS[decision["stage"]]
+        decisions.append(decision)
+    main, side = decisions[0], decisions[1]
     if main.get("needs") == "lora" and side["kind"] == "stop":
-        main = action("stop", f"{main['reason']}, but the LoRA chain stopped")
-    return [main, side]
+        decisions[0] = action("stop", f"{main['reason']}, but the LoRA chain stopped")
+    return decisions
 
 
 class Kaggle:

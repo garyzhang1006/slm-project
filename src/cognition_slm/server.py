@@ -7,6 +7,7 @@ import json
 import math
 import threading
 import time
+import webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -300,6 +301,7 @@ def main() -> None:
     parser.add_argument("--device", choices=("cpu", "mps", "cuda", "auto"), default="cpu")
     parser.add_argument("--port", type=int, default=8766)
     parser.add_argument("--sources-only", action="store_true", help="Serve reference excerpts without loading or running model weights.")
+    parser.add_argument("--open", action="store_true", help="Open Studio in the default browser once the server is listening.")
     parser.add_argument("--lora-adapter", type=Path, default=None,
                         help="Serve SmolLM2-360M-Instruct with this LoRA adapter folder (needs transformers and peft), "
                              "or a lora-merged folder (transformers only).")
@@ -324,13 +326,17 @@ def main() -> None:
     try:
         server = WorkbenchServer(("127.0.0.1", args.port), runtime)
     except OSError as exc:
-        parser.exit(1, f"Cannot start workbench: {exc}. Try a different --port.\n")
+        parser.exit(1, f"Cannot start slm studio: {exc}. Try a different port, for example --port {args.port + 1}.\n")
     if args.sources_only:
         runtime.state = "disabled"
         runtime.error = "Model disabled in --sources-only mode. Source excerpts remain available."
     else:
         threading.Thread(target=runtime.load, daemon=True).start()
-    print(f"Cognition workbench: http://127.0.0.1:{args.port}", flush=True)
+    url = f"http://127.0.0.1:{args.port}"
+    print(f"slm studio is running at {url}", flush=True)
+    # Only after binding succeeded, so a port clash never opens a dead page.
+    if args.open:
+        webbrowser.open(url)
     try:
         server.serve_forever()
     except KeyboardInterrupt:

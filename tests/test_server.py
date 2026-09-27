@@ -34,6 +34,17 @@ class RequestValidationTests(unittest.TestCase):
             runtime.return_value.load.assert_not_called()
             thread.assert_not_called()
 
+    def test_open_flag_opens_the_browser_after_binding(self):
+        for argv, opened in ((["studio", "--sources-only", "--open", "--port", "8770"], True),
+                             (["studio", "--sources-only", "--port", "8770"], False)):
+            with self.subTest(argv=argv), patch("sys.argv", argv), \
+                 patch("cognition_slm.server.ModelRuntime"), \
+                 patch("cognition_slm.server.WorkbenchServer") as server, \
+                 patch("cognition_slm.server.webbrowser.open") as browser:
+                server.return_value.serve_forever.side_effect = KeyboardInterrupt
+                main()
+                self.assertEqual(browser.call_args_list, [(("http://127.0.0.1:8770",),)] if opened else [])
+
     def test_wrong_size_checkpoint_rejected(self):
         import torch
         import tempfile

@@ -36,6 +36,6 @@ if result.returncode:
 '
 fi
 export PYTHONPATH="$PWD/src${PYTHONPATH:+:$PYTHONPATH}"
-echo "Starting SLM Studio"
-echo "Keep this terminal open. Press Control-C to stop."
-exec "$VENV_DIR/bin/python" -m cognition_slm.server "$@"
+echo "Starting slm studio. It opens in your browser once the server is up."
+echo "Keep this window open while you use it, and press Control-C here to stop it."
+exec "$VENV_DIR/bin/python" -m cognition_slm.server --open "$@"

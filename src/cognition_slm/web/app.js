@@ -11,7 +11,7 @@ const LIMITS = { source: 12000, question: 2000 };
 const DEFAULTS = { "max-tokens": "64", temperature: "0.3", "task-type": "language_generation", "top-k": "40", "top-p": "0.9", "repetition-penalty": "1" };
 const INTRO = {
   model: ["What would you like to know?", "Ask a short question. Everything runs on your computer, and answers can be wrong."],
-  sources: ["Search your own text", "Paste some text and ask about it. Studio shows the passages that answer your question, word for word."],
+  sources: ["Search your own text", "Paste some text and ask about it. Studio quotes the passages that use the words in your question."],
 };
 const EXAMPLE = {
   source: "The Riverside Library is open from 9 am to 8 pm on weekdays and from 10 am to 4 pm on Saturdays. It is closed on Sundays and public holidays.\n\nMembers can borrow up to 12 books at a time for three weeks. Laptops can be borrowed for one day and must be returned to the front desk.\n\nPrinting costs 10 cents per page.",
@@ -52,7 +52,9 @@ function sourceMode() {
 
 // The project's own checkpoints read task_type; hosted models such as SmolLM2 with LoRA ignore it.
 function customModel() {
-  return !String(state.status?.model?.architecture || "").startsWith("llama");
+  // Unknown until the model loads, so the task field stays hidden rather than flashing up for LoRA models.
+  const architecture = state.status?.model?.architecture;
+  return Boolean(architecture) && !String(architecture).startsWith("llama");
 }
 
 function phase() {
@@ -109,13 +111,13 @@ function syncComposer() {
   $("generate").classList.toggle("busy", state.busy);
   $("generate").setAttribute("aria-label", state.busy ? "Working on an answer" : grounded ? "Search" : "Send");
 
-  const problem = grounded ? "" : overflow ? `Shorten your question. The answer needs room for ${config.max_new_tokens} tokens.`
-    : !validK ? "Top K must be a whole number from 0 to 259. Change it in Settings."
-    : !validStops ? "Stop sequences: use at most 4 entries in Settings, each at most 64 UTF-8 bytes."
+  const problem = grounded ? "" : overflow ? "Shorten your question, or lower Answer length in Settings."
+    : !validK ? "Top K must be a whole number from 0 to 259. Change it in Settings, under Advanced."
+    : !validStops ? "Stop sequences: use at most 4 entries in Settings, under Advanced, each at most 64 UTF-8 bytes."
     : "";
   let note = "", error = false;
   if (state.notice) ({ text: note, error } = state.notice);
-  else if (current === "offline") [note, error] = ["Can't reach Studio. Start it again with launch-studio.command, then reload this page.", true];
+  else if (current === "offline") [note, error] = ["Can't reach Studio. Start it again the way you started it before, and this page will reconnect on its own.", true];
   else if (sourceOverflow) [note, error] = [`Keep your text under ${LIMITS.source.toLocaleString()} bytes and your question under ${LIMITS.question.toLocaleString()}.`, true];
   else if (grounded && count && !sourceBytes) note = "Paste the text you want to search first.";
   else if (!grounded && ["error", "disabled"].includes(current)) [note, error] = ["The model couldn't load. Search my text still works, and the status button at the top shows why.", true];
@@ -203,7 +205,7 @@ function showResult(run, response) {
     // Abstentions carry fallback text, so they show a note instead of copyable excerpts.
     const sources = response.abstained ? [] : response.sources || [];
     if (!sources.length) {
-      run.answer.replaceChildren(element("p", "answer-note", "Your text doesn't seem to answer this. Try a more specific question or paste more text."));
+      run.answer.replaceChildren(element("p", "answer-note", "No passage in your text uses enough of the words in your question. Try fewer words, or words from your text."));
       announce("No matching passages in your text.");
       return;
     }
@@ -230,7 +232,7 @@ function showResult(run, response) {
     announce(text);
     return;
   }
-  const empty = response.finish_reason === "stop" ? "A stop sequence ended the response before any text. Clear Stop sequences in Settings and try again."
+  const empty = response.finish_reason === "stop" ? "A stop sequence ended the response before any text. Clear Stop sequences in Settings, under Advanced, and try again."
     : "The model returned no text. Try rephrasing, or raise the temperature in Settings.";
   run.answer.replaceChildren(element("p", "answer-note", empty), meta);
   announce(empty);
@@ -305,7 +307,8 @@ async function pollStatus() {
 
 function renderStatus() {
   const current = phase();
-  const model = state.status?.model || {};
+  // A search-only server never loads its model, so its details would describe weights that are not in use.
+  const model = current === "disabled" ? {} : state.status?.model || {};
   const names = { ready: model.name || "Model ready", loading: "Loading model", disabled: "Search only", error: "Model unavailable", offline: "Offline", connecting: "Connecting" };
   $("status-dot").className = `dot ${current}`;
   $("model-name").textContent = names[current] || "Model unavailable";

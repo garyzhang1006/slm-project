@@ -284,6 +284,11 @@ svg {
   text-align: center;
 }
 
+.intro h1:focus,
+.question:focus {
+  outline: none;
+}
+
 .intro h1 {
   margin: 0;
   font-size: clamp(26px, 4vw, 32px);

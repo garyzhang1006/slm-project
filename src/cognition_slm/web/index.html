@@ -35,7 +35,7 @@
 
   <main id="main" class="main">
     <section id="intro" class="intro">
-      <h1 id="intro-title">What would you like to know?</h1>
+      <h1 id="intro-title" tabindex="-1">What would you like to know?</h1>
       <p id="intro-text">Ask a short question. Everything runs on your computer, and answers can be wrong.</p>
     </section>
 
@@ -94,19 +94,19 @@
     <div class="sheet-body">
       <p class="sheet-note">These change how the model answers. Searching your own text ignores them.</p>
       <div class="field">
-        <div class="field-row"><label for="max-tokens">Answer length</label><output id="max-tokens-value" for="max-tokens">64 tokens</output></div>
+        <div class="field-row"><label for="max-tokens">Answer length</label><output id="max-tokens-value" for="max-tokens" aria-live="off">64 tokens</output></div>
         <input id="max-tokens" type="range" min="16" max="512" step="16" value="64">
       </div>
       <div class="field">
-        <div class="field-row"><label for="temperature">Temperature</label><output id="temperature-value" for="temperature">0.3</output></div>
-        <input id="temperature" type="range" min="0" max="2" step="0.1" value="0.3">
-        <p class="hint">Lower gives steadier answers, higher gives more varied ones.</p>
+        <div class="field-row"><label for="temperature">Temperature</label><output id="temperature-value" for="temperature" aria-live="off">0.3</output></div>
+        <input id="temperature" type="range" min="0" max="2" step="0.1" value="0.3" aria-describedby="temperature-hint">
+        <p id="temperature-hint" class="hint">Lower gives steadier answers, higher gives more varied ones.</p>
       </div>
       <details class="advanced">
         <summary>Advanced</summary>
         <div id="task-field" class="field">
           <label for="task-type">Task type</label>
-          <select id="task-type">
+          <select id="task-type" aria-describedby="task-hint">
             <option value="language_generation">Language generation</option>
             <option value="code_generation">Code generation</option>
             <option value="code_debugging">Code debugging</option>
@@ -114,22 +114,22 @@
             <option value="algorithm_reasoning">Algorithm reasoning</option>
             <option value="metacognitive_review">Metacognitive review</option>
           </select>
-          <p class="hint">Only the project's own checkpoints use this. Code generation and debugging answers show in a monospaced block.</p>
+          <p id="task-hint" class="hint">Only the project's own checkpoints use this. Code generation and debugging answers show in a monospaced block.</p>
         </div>
         <div class="field">
           <label for="top-k">Top K</label>
-          <input id="top-k" type="number" min="0" max="259" value="40" inputmode="numeric">
-          <p class="hint">Sample from the K most likely tokens, or 0 for all of them.</p>
+          <input id="top-k" type="number" min="0" max="259" value="40" inputmode="numeric" aria-describedby="top-k-hint">
+          <p id="top-k-hint" class="hint">Sample from the K most likely tokens, from 1 to 259, or 0 for all of them.</p>
         </div>
         <div class="field">
-          <div class="field-row"><label for="top-p">Top P</label><output id="top-p-value" for="top-p">0.90</output></div>
-          <input id="top-p" type="range" min="0.05" max="1" step="0.05" value="0.9">
-          <p class="hint">Sample from the smallest set of tokens that covers this much probability. 1 keeps all.</p>
+          <div class="field-row"><label for="top-p">Top P</label><output id="top-p-value" for="top-p" aria-live="off">0.90</output></div>
+          <input id="top-p" type="range" min="0.05" max="1" step="0.05" value="0.9" aria-describedby="top-p-hint">
+          <p id="top-p-hint" class="hint">Sample from the smallest set of tokens that covers this much probability. 1 keeps all.</p>
         </div>
         <div class="field">
-          <div class="field-row"><label for="repetition-penalty">Repetition penalty</label><output id="repetition-penalty-value" for="repetition-penalty">1.00</output></div>
-          <input id="repetition-penalty" type="range" min="1" max="2" step="0.05" value="1">
-          <p class="hint">Discourages repeating earlier tokens. 1 turns it off.</p>
+          <div class="field-row"><label for="repetition-penalty">Repetition penalty</label><output id="repetition-penalty-value" for="repetition-penalty" aria-live="off">1.00</output></div>
+          <input id="repetition-penalty" type="range" min="1" max="2" step="0.05" value="1" aria-describedby="penalty-hint">
+          <p id="penalty-hint" class="hint">Discourages repeating earlier tokens. 1 turns it off.</p>
         </div>
         <div class="field">
           <label for="stop-sequences">Stop sequences</label>

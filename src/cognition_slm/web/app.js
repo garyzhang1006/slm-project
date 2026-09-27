@@ -123,7 +123,7 @@ function syncComposer() {
   else if (!grounded && current === "loading") note = "Loading the model. The first start can take a minute.";
   else if (!grounded && busy && !state.busy) note = "The model is answering another request. Try again in a moment.";
   else if (state.busy && state.slow) note = "Still working. Longer answers take more time.";
-  else if (thread && !state.busy) note = "Each question is answered on its own, without the earlier ones.";
+  else if (thread) note = "Each question is answered on its own, without the earlier ones.";
   // Rewriting identical text would make some screen readers repeat it on every keystroke.
   if ($("feedback").textContent !== note) $("feedback").textContent = note;
   $("feedback").classList.toggle("error", error);
@@ -166,7 +166,9 @@ function reveal(turn) {
 
 function addTurn(run) {
   run.turn = element("article", "turn");
-  run.turn.append(element("p", "question", run.prompt));
+  const question = element("p", "question", run.prompt);
+  question.tabIndex = -1;
+  run.turn.append(question);
   const tag = run.grounded ? "Searched your text" : run.custom && run.options.task_type !== "language_generation" ? labels[run.options.task_type] : "";
   if (tag) run.turn.append(element("p", "question-tag", tag));
   run.answer = element("div", "answer");
@@ -253,6 +255,9 @@ $("prompt-form").addEventListener("submit", async (event) => {
   const run = { prompt: $("prompt").value.trim(), options: settings(), grounded, custom: customModel(), source_text: grounded ? $("source-text").value : "" };
   state.busy = true; state.slow = false; state.notice = null; state.runs += 1;
   addTurn(run);
+  announce("Working on an answer");
+  // Touch screens: the chip or button just used may have disappeared, so hand focus to the new question.
+  if (touch) run.turn.firstChild.focus({ preventScroll: true });
   $("prompt").value = "";
   autosize(); syncComposer(); reveal(run.turn);
   const slow = setTimeout(() => { state.slow = true; syncComposer(); }, 8000);
@@ -280,7 +285,7 @@ function newSession() {
   $("prompt").value = "";
   autosize(); syncComposer();
   window.scrollTo({ top: 0 });
-  if (!touch) $("prompt").focus();
+  $(touch ? "intro-title" : "prompt").focus();
 }
 
 async function pollStatus() {

@@ -118,9 +118,17 @@ def render(results: dict, rescored: dict, stamp: str) -> str:
             left, right = base.get(name, empty), adapter.get(name, empty)
             lines.append(f"| {name} | {left['exact']} | {right['exact']} | {left['contains']} | "
                          f"{right['contains']} | {right['scored']} |")
-        manual = everyday["lora"]["total"].get("manual_review", 0)
+        manual = [row for scores in rescored.values() for row in scores["lora"].get("rows", [])
+                  if row.get("manual_review")]
+        predictions = {row["id"]: row for side in results["lora_eval"].get("lora", {}).values()
+                       for row in side.get("predictions", [])}
         if manual:
-            lines += ["", f"{manual} abstain rows need a human to judge them and are not in the counts."]
+            lines += ["", "These rows ask the model to admit it doesn't know, so a person judges them and they "
+                      "are left out of the counts:", "", "| id | prompt | LoRA answer |", "|---|---|---|"]
+            for row in manual:
+                shown = predictions.get(row["id"], {})
+                cells = [row["id"], shown.get("prompt", ""), shown.get("answer", "")]
+                lines.append("| " + " | ".join(cell.replace("|", "/").replace("\n", " ") for cell in cells) + " |")
     else:
         lines.append("No finished lora_eval report yet.")
 

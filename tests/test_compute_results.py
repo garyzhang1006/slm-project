@@ -84,6 +84,11 @@ class RenderTests(unittest.TestCase):
         rows = len(EVERYDAY) - sum(row["category"] == "unknown" for row in EVERYDAY)
         self.assertIn(f"base 0/{rows} exact and 0/{rows} contains, LoRA {rows}/{rows} exact", text)
         self.assertIn("| base exact | LoRA exact | base contains | LoRA contains | scored |", text)
+        self.assertIn("| id | prompt | LoRA answer |", text)
+        manual = [row["id"] for row in HOLDOUT if row["category"] == "unknown"]
+        self.assertTrue(manual)
+        for identifier in manual:
+            self.assertIn(f"| {identifier} |", text)
         self.assertIn("5000 rows kept from 6000 prompts (dropped: empty_or_invalid 1000).", text)
         self.assertIn("eval LM loss 1.200", text)
         self.assertIn("Held-out text bits/byte: 1.100", text)

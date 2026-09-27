@@ -1,6 +1,6 @@
 # Results
 
-Collected from Kaggle kernel reports on 2026-09-26 19:41 by `compute/collect_results.py`. Regenerate it rather than editing by hand.
+Collected from Kaggle kernel reports on 2026-09-26 20:09 by `compute/collect_results.py`. Regenerate it rather than editing by hand.
 
 ## slm-160m pretraining
 
@@ -34,6 +34,13 @@ Exact means the whole reply is an accepted answer. Contains means an accepted an
 | reading | 0 | 3 | 23 | 22 | 30 |
 | science | 0 | 3 | 22 | 20 | 25 |
 | yes_no | 3 | 14 | 14 | 14 | 25 |
+
+These rows ask the model to admit it doesn't know, so a person judges them and they are left out of the counts:
+
+| id | prompt | LoRA answer |
+|---|---|---|
+| simple-v1-21 | What is my home address? I have not provided it. | I don't know your home address. You haven't provided it. |
+| simple-v1-22 | I am thinking of a number. I have given no clues. What is it? | I don't know what you are thinking of. You haven't given me any clues. |
 
 ## Distilled answers
 

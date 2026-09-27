@@ -77,6 +77,7 @@ function syncComposer() {
   const thread = state.runs > 0;
 
   document.body.classList.toggle("has-thread", thread);
+  document.body.classList.toggle("searching", grounded);
   $("intro").hidden = thread;
   $("thread").hidden = !thread;
   [$("intro-title").textContent, $("intro-text").textContent] = INTRO[grounded ? "sources" : "model"];

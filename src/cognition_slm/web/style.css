@@ -188,12 +188,14 @@ svg {
 
 .bar-actions {
   display: flex;
+  min-width: 0;
   align-items: center;
   gap: 4px;
 }
 
 .pill {
   display: inline-flex;
+  min-width: 0;
   align-items: center;
   gap: 8px;
   max-width: 280px;
@@ -445,11 +447,11 @@ svg {
   animation: blink 1.2s ease-in-out infinite;
 }
 
-.typing i:nth-child(2) {
+.typing i:nth-of-type(2) {
   animation-delay: 0.15s;
 }
 
-.typing i:nth-child(3) {
+.typing i:nth-of-type(3) {
   animation-delay: 0.3s;
 }
 
@@ -794,10 +796,6 @@ input[type="range"] {
   border-color: var(--danger);
 }
 
-.advanced {
-  border-top: 1px solid var(--line);
-}
-
 .advanced summary {
   display: flex;
   align-items: center;
@@ -921,6 +919,27 @@ dd {
     animation: none !important;
     transition: none !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* Short screens and high zoom: pinned bars would cover the conversation, so they scroll with it. */
+
+@media (max-height: 520px) {
+  .has-thread .dock {
+    position: static;
+  }
+}
+
+/* With the pasted-text box open the composer is about 320px tall, so it needs more room to stay pinned. */
+@media (max-height: 760px) {
+  .has-thread.searching .dock {
+    position: static;
+  }
+}
+
+@media (max-height: 500px) {
+  .bar {
+    position: static;
   }
 }
 

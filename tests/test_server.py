@@ -1,5 +1,6 @@
 import http.client
 import json
+import re
 import threading
 import unittest
 from pathlib import Path
@@ -184,7 +185,22 @@ class StudioAssetTests(unittest.TestCase):
             self.assertIn(snippet, script)
         # Source-excerpt requests carry only the prompt and reference text.
         self.assertIn("grounded ? { prompt: run.prompt, source_text: run.source_text }", script)
-        self.assertIn('$("settings-open").disabled = grounded', script)
+
+    def test_script_ids_exist_in_page(self):
+        html = (self.web / "index.html").read_text()
+        script = (self.web / "app.js").read_text()
+        # The dialogs are also looked up as $(name) and $(`${name}-open`).
+        ids = set(re.findall(r'\$\("([a-z-]+)"\)', script)) | {"settings", "settings-open", "about", "about-open"}
+        for element_id in sorted(ids):
+            self.assertIn(f'id="{element_id}"', html)
+
+    def test_page_loads_only_same_origin_assets(self):
+        html = (self.web / "index.html").read_text()
+        # The server's CSP blocks inline scripts and styles, so every asset must be a same-origin file.
+        self.assertNotIn("<style", html)
+        self.assertNotIn(" style=", html)
+        self.assertEqual(re.findall(r"<script[^>]*>", html), ['<script src="/app.js" defer>'])
+        self.assertNotRegex(html, r'(src|href)="https?://')
 
 
 class ServerTests(unittest.TestCase):

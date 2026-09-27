@@ -1,9 +1,25 @@
 "use strict";
 
 const $ = (id) => document.getElementById(id);
-const state = { status: null, busy: false, runs: [], selected: null, stopEdited: false, stopTask: "language_generation" };
+const state = { status: null, offline: false, busy: false, slow: false, notice: null, runs: 0, stopEdited: false, stopTask: "language_generation" };
 const encoder = new TextEncoder();
+const bytes = (text) => encoder.encode(text).length;
+const plural = (count, noun) => `${Number(count).toLocaleString()} ${noun}${count === 1 ? "" : "s"}`;
 const labels = Object.fromEntries([...$("task-type").options].map((option) => [option.value, option.text]));
+// Same limits as grounding.py.
+const LIMITS = { source: 12000, question: 2000 };
+const DEFAULTS = { "max-tokens": "64", temperature: "0.3", "task-type": "language_generation", "top-k": "40", "top-p": "0.9", "repetition-penalty": "1" };
+const INTRO = {
+  model: ["What would you like to know?", "Ask a short question. Everything runs on your computer, and answers can be wrong."],
+  sources: ["Search your own text", "Paste some text and ask about it. Studio shows the passages that answer your question, word for word."],
+};
+const EXAMPLE = {
+  source: "The Riverside Library is open from 9 am to 8 pm on weekdays and from 10 am to 4 pm on Saturdays. It is closed on Sundays and public holidays.\n\nMembers can borrow up to 12 books at a time for three weeks. Laptops can be borrowed for one day and must be returned to the front desk.\n\nPrinting costs 10 cents per page.",
+  question: "How many books can members borrow?",
+};
+// Touch keyboards have no Shift+Enter, so there Enter adds a line break and the arrow button sends.
+const touch = matchMedia("(pointer: coarse)").matches;
+const motion = () => (matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth");
 
 // A newline stop keeps short answers to one line; multi-line tasks such as code start without one.
 const defaultStops = (task) => (task === "language_generation" ? "\\n" : "");
@@ -31,7 +47,16 @@ function promptTokens() {
 }
 
 function sourceMode() {
-  return $("response-mode").value === "source_excerpts";
+  return $("mode-sources").checked;
+}
+
+// The project's own checkpoints read task_type; hosted models such as SmolLM2 with LoRA ignore it.
+function customModel() {
+  return !String(state.status?.model?.architecture || "").startsWith("llama");
+}
+
+function phase() {
+  return state.offline ? "offline" : state.status?.state || "connecting";
 }
 
 function syncComposer() {
@@ -40,41 +65,78 @@ function syncComposer() {
   const grounded = sourceMode();
   const config = settings();
   const count = promptTokens();
+  const current = phase();
   const context = state.status?.model?.context_window;
-  const sourceBytes = encoder.encode($("source-text").value).length;
-  const sourceOverflow = grounded && (sourceBytes > 12000 || encoder.encode($("prompt").value.trim()).length > 2000);
-  const overflow = !grounded && context && count + config.max_new_tokens > context;
+  const sourceBytes = bytes($("source-text").value);
+  const questionBytes = bytes($("prompt").value.trim());
+  const sourceOverflow = grounded && (sourceBytes > LIMITS.source || questionBytes > LIMITS.question);
+  const overflow = !grounded && Boolean(context) && count + config.max_new_tokens > context;
   const validK = Number.isInteger(config.top_k) && config.top_k >= 0 && config.top_k <= 259;
   const validStops = !config.stop_sequences || (config.stop_sequences.length <= 4 && config.stop_sequences.every((item) => encoder.encode(item).length <= 64));
-  $("token-count").textContent = grounded ? `${sourceBytes.toLocaleString()} / 12,000 source bytes` : `${count.toLocaleString()}${context ? ` / ${context.toLocaleString()}` : ""} tokens`;
-  $("token-count").classList.toggle("over-budget", Boolean(overflow || sourceOverflow));
-  $("task-label").textContent = grounded ? "Source excerpts" : labels[config.task_type];
+  const busy = Boolean(state.status?.busy);
+  const thread = state.runs > 0;
+
+  document.body.classList.toggle("has-thread", thread);
+  $("intro").hidden = thread;
+  $("thread").hidden = !thread;
+  [$("intro-title").textContent, $("intro-text").textContent] = INTRO[grounded ? "sources" : "model"];
   $("source-panel").hidden = !grounded;
-  $("source-text").required = false;
-  $("source-text").disabled = !grounded || state.busy;
-  $("response-mode").disabled = state.busy;
-  $("settings-open").disabled = grounded || state.busy;
-  $("composer-model").textContent = grounded ? "Reference search" : `Cognition ${state.status?.model?.parameters ? `${(state.status.model.parameters / 1e6).toFixed(1)}M` : "SLM"}`;
-  if (!state.busy) $("generate").querySelector("span").textContent = grounded ? "Find excerpts" : "Run prompt";
-  $("starters").hidden = grounded || !$("conversation").hidden;
-  $("temperature-value").value = config.temperature.toFixed(1);
+  $("prompt").placeholder = grounded ? "Ask about your text" : "Ask a question";
+  $("mode-model").disabled = current === "disabled";
+  $("task-field").hidden = !customModel();
+  $("starters").hidden = grounded || thread || ["error", "disabled", "offline"].includes(current);
+  $("source-starters").hidden = !grounded || thread || sourceBytes > 0;
+  $("new-session").hidden = !thread;
+  $("new-session").disabled = state.busy;
+
+  $("source-count").textContent = `${sourceBytes.toLocaleString()} / ${LIMITS.source.toLocaleString()} bytes`;
+  $("source-count").classList.toggle("over", sourceBytes > LIMITS.source);
+  // The count stays hidden until a limit is close, so short questions get a quiet composer.
+  const [used, limit, unit] = grounded ? [questionBytes, LIMITS.question, "bytes"] : [count, context ? Math.max(context - config.max_new_tokens, 0) : 0, "tokens"];
+  const near = limit > 0 && used > limit * 0.8;
+  $("token-count").textContent = near ? `${used.toLocaleString()} / ${limit.toLocaleString()} ${unit}` : "";
+  $("token-count").classList.toggle("over", near && used > limit);
+
   $("max-tokens-value").value = `${config.max_new_tokens} tokens`;
+  $("temperature-value").value = config.temperature.toFixed(1);
   $("top-p-value").value = config.top_p.toFixed(2);
   $("repetition-penalty-value").value = config.repetition_penalty.toFixed(2);
+  $("top-k").setAttribute("aria-invalid", String(!validK));
   $("stop-sequences").setAttribute("aria-invalid", String(!validStops));
-  $("generate").disabled = state.busy || !count || (grounded ? sourceOverflow : state.status?.state !== "ready" || overflow || !validK || !validStops || Boolean(state.status?.busy));
-  $("budget-note").textContent = grounded ? (sourceOverflow ? "Use at most 2,000 UTF-8 bytes for your question and 12,000 for reference text." : "Excerpts come only from your reference text. Missing evidence returns no excerpts.") : overflow
-    ? `Shorten your prompt: reserve ${config.max_new_tokens} tokens for the response.`
+
+  $("generate").disabled = state.busy || !count || current === "offline" || (grounded ? sourceOverflow || !sourceBytes : current !== "ready" || overflow || !validK || !validStops || busy);
+  $("generate").classList.toggle("busy", state.busy);
+  $("generate").setAttribute("aria-label", state.busy ? "Working on an answer" : grounded ? "Search" : "Send");
+
+  const problem = grounded ? "" : overflow ? `Shorten your question. The answer needs room for ${config.max_new_tokens} tokens.`
+    : !validK ? "Top K must be a whole number from 0 to 259. Change it in Settings."
     : !validStops ? "Stop sequences: use at most 4 entries in Settings, each at most 64 UTF-8 bytes."
-    : "Each prompt starts fresh. History is for your reference.";
-  $("budget-note").classList.toggle("over-budget", Boolean(overflow || sourceOverflow || (!grounded && !validStops)));
-  $("new-session").disabled = state.busy;
-  $("mobile-new").disabled = state.busy;
+    : "";
+  let note = "", error = false;
+  if (state.notice) ({ text: note, error } = state.notice);
+  else if (current === "offline") [note, error] = ["Can't reach Studio. Start it again with launch-studio.command, then reload this page.", true];
+  else if (sourceOverflow) [note, error] = [`Keep your text under ${LIMITS.source.toLocaleString()} bytes and your question under ${LIMITS.question.toLocaleString()}.`, true];
+  else if (grounded && count && !sourceBytes) note = "Paste the text you want to search first.";
+  else if (!grounded && ["error", "disabled"].includes(current)) [note, error] = ["The model couldn't load. Search my text still works, and the status button at the top shows why.", true];
+  else if (problem) [note, error] = [problem, true];
+  else if (!grounded && current === "loading") note = "Loading the model. The first start can take a minute.";
+  else if (!grounded && busy && !state.busy) note = "The model is answering another request. Try again in a moment.";
+  else if (state.busy && state.slow) note = "Still working. Longer answers take more time.";
+  else if (thread && !state.busy) note = "Each question is answered on its own, without the earlier ones.";
+  // Rewriting identical text would make some screen readers repeat it on every keystroke.
+  if ($("feedback").textContent !== note) $("feedback").textContent = note;
+  $("feedback").classList.toggle("error", error);
 }
 
-function feedback(message, error = false) {
-  $("feedback").textContent = message;
-  $("feedback").classList.toggle("error", error);
+function notify(text, error = false) {
+  state.notice = { text, error };
+  syncComposer();
+}
+
+function announce(message) {
+  $("announcer").textContent = "";
+  // Clearing first makes screen readers announce a message even when it repeats.
+  setTimeout(() => { $("announcer").textContent = message; }, 60);
 }
 
 function element(tag, className, text) {
@@ -84,160 +146,231 @@ function element(tag, className, text) {
   return node;
 }
 
-function renderRun(run, loading = false) {
-  $("intro").hidden = true;
-  $("starters").hidden = true;
-  const container = $("conversation");
-  container.hidden = false;
-  container.replaceChildren(element("div", "message-label", "YOUR PROMPT"), element("p", "user-prompt", run.prompt));
-  const header = element("div", "response-header");
-  const grounded = run.mode === "source_excerpts";
-  header.append(element("div", "message-label", grounded ? (loading ? "SEARCHING REFERENCE TEXT" : "RELEVANT SOURCE EXCERPTS") : (loading ? "GENERATING RESPONSE" : "MODEL RESPONSE")));
-  container.append(header);
-  if (loading) {
-    const skeleton = element("div", "response-text");
-    skeleton.setAttribute("aria-busy", "true");
-    skeleton.setAttribute("aria-label", grounded ? "Searching reference text" : "Generating response");
-    for (let i = 0; i < 3; i++) skeleton.append(element("div", "loading-line"));
-    container.append(skeleton);
-    return;
-  }
-  const response = run.result;
-  // Abstentions carry fallback text; show the empty state instead of copyable excerpts.
-  const hasText = grounded ? !response.abstained && Boolean(response.sources?.length) : Boolean(response.text?.trim());
-  container.append(element("pre", `response-text${hasText ? "" : " empty-response"}`, hasText ? response.text : grounded ? "No relevant excerpts found in your reference text." : response.finish_reason === "stop" ? "A stop sequence ended the response before any visible text. Clear Stop sequences in Settings and try again." : "The model returned no visible text. Try another prompt or a higher temperature; this checkpoint is still at an early training stage."));
-  if (hasText) {
-    const copy = element("button", "copy-button", grounded ? "Copy excerpts" : "Copy response");
-    copy.type = "button";
-    copy.addEventListener("click", async () => {
-      try { await navigator.clipboard.writeText(response.text); copy.textContent = "Copied"; }
-      catch { feedback("Copy unavailable. Select the response text to copy it manually.", true); }
-    });
-    header.append(copy);
-  }
-  if (grounded) {
-    container.append(element("p", "response-stats", response.abstained
-      ? "Insufficient evidence in the supplied text. Try a more specific question or add relevant material."
-      : "Quoted from your reference text. Relevance is estimated; these excerpts are not a verified answer."));
-    return;
-  }
-  const elapsed = Number(response.elapsed_seconds).toFixed(1);
-  container.append(element("p", "response-stats", `${response.generated_tokens} generated tokens · ${elapsed}s · ${labels[run.options.task_type]} · ${["eos", "stop"].includes(response.finish_reason) ? "End of response" : "Response limit reached"}`));
+function autosize() {
+  const prompt = $("prompt");
+  prompt.style.height = "auto";
+  prompt.style.overflowY = "hidden";
+  // An empty box keeps its one-row height; measuring a wrapped placeholder would stretch it.
+  if (!prompt.value) return;
+  prompt.style.height = `${Math.min(prompt.scrollHeight, 220)}px`;
+  if (prompt.scrollHeight > 220) prompt.style.overflowY = "auto";
 }
 
-function renderHistory() {
-  $("run-count").textContent = String(state.runs.length).padStart(2, "0");
-  $("history-list").replaceChildren();
-  if (!state.runs.length) $("history-list").append(element("p", "history-empty", "Your experiments will appear here."));
-  [...state.runs].reverse().forEach((run) => {
-    const button = element("button", `history-item${run.id === state.selected ? " active" : ""}`, run.prompt);
-    button.title = run.prompt;
-    button.disabled = state.busy;
-    button.addEventListener("click", () => {
-      state.selected = run.id;
-      $("prompt").value = run.prompt;
-      $("task-type").value = run.options.task_type;
-      $("response-mode").value = run.mode || "model";
-      $("source-text").value = run.source_text || "";
-      renderRun(run); renderHistory(); syncComposer(); feedback("Previous run. Edit the prompt to try again.");
-    });
-    $("history-list").append(button);
-  });
+function reveal(turn) {
+  // Long turns scroll to their start; short ones scroll the page to the bottom, above the composer.
+  const room = window.innerHeight - document.querySelector(".dock").offsetHeight - 72;
+  if (turn.offsetHeight > room) turn.scrollIntoView({ block: "start", behavior: motion() });
+  else window.scrollTo({ top: document.documentElement.scrollHeight, behavior: motion() });
 }
 
-function newSession() {
-  if (state.busy) return;
-  state.selected = null;
-  $("prompt").value = "";
-  $("source-text").value = "";
-  $("intro").hidden = false;
-  $("starters").hidden = false;
-  $("conversation").hidden = true;
-  feedback(""); renderHistory(); syncComposer(); $("prompt").focus();
+function addTurn(run) {
+  run.turn = element("article", "turn");
+  run.turn.append(element("p", "question", run.prompt));
+  const tag = run.grounded ? "Searched your text" : run.custom && run.options.task_type !== "language_generation" ? labels[run.options.task_type] : "";
+  if (tag) run.turn.append(element("p", "question-tag", tag));
+  run.answer = element("div", "answer");
+  const typing = element("div", "typing");
+  typing.append(element("span", "visually-hidden", "Working on an answer"), element("i"), element("i"), element("i"));
+  run.answer.append(typing);
+  run.turn.append(run.answer);
+  $("thread").append(run.turn);
 }
 
-async function pollStatus() {
-  try {
-    const response = await fetch("/api/status", { cache: "no-store" });
-    if (!response.ok) throw new Error("Could not connect to the local model.");
-    state.status = await response.json();
-    const { model, state: phase, error } = state.status;
-    $("connection").textContent = phase === "ready" ? "Local model ready" : phase === "disabled" ? "Reference search ready" : phase === "loading" ? "Loading model" : "Model unavailable";
-    $("connection").className = `connection ${["ready", "disabled"].includes(phase) ? "ready" : phase === "error" ? "error" : ""}`;
-    if (model) {
-      const size = model.parameters ? `${(model.parameters / 1e6).toFixed(1)}M` : "";
-      const context = model.context_window ? `${model.context_window.toLocaleString()} context` : "";
-      $("sidebar-detail").textContent = phase === "disabled" ? "Reference search only" : [size, model.device?.toUpperCase(), context].filter(Boolean).join(" · ") || "Loading checkpoint";
-      $("composer-model").textContent = `Cognition ${size}`;
-      const details = { Parameters: model.parameters?.toLocaleString(), Context: model.context_window ? `${model.context_window.toLocaleString()} byte tokens` : "Unknown", Device: model.device, Architecture: model.architecture, "Training iterations": model.training_steps ?? "Not recorded" };
-      $("model-details").replaceChildren(...Object.entries(details).map(([key, value]) => {
-        const row = element("div"); row.append(element("dt", "", key), element("dd", "", String(value ?? "Unknown"))); return row;
-      }));
+function copyButton(text, label) {
+  const button = element("button", "copy", "Copy");
+  button.type = "button";
+  button.setAttribute("aria-label", label);
+  button.addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      button.textContent = "Copied";
+      button.classList.add("done");
+      announce("Copied");
+      setTimeout(() => { button.textContent = "Copy"; button.classList.remove("done"); }, 1600);
+    } catch {
+      notify("Copying isn't available here. Select the text to copy it instead.", true);
     }
-    if (!sourceMode() && phase === "disabled") feedback(error || "Model generation is disabled. Choose Source excerpts, or restart the server without --sources-only to load a checkpoint.", true);
-    else if (!sourceMode() && phase === "error") feedback(error || "Checkpoint could not load. Check the server terminal.", true);
-    else if (!sourceMode() && phase === "loading" && !state.busy) feedback("Loading your checkpoint into memory. The first start can take a moment.");
-    else if (["Loading your checkpoint", "Cannot reach the local server"].some((prefix) => $("feedback").textContent.startsWith(prefix))) feedback("");
-  } catch {
-    state.status = null;
-    $("connection").textContent = "Disconnected";
-    $("connection").className = "connection error";
-    if (!state.busy) feedback("Cannot reach the local server. Start launch-studio.command, then refresh.", true);
+  });
+  return button;
+}
+
+function showResult(run, response) {
+  const meta = element("div", "answer-meta");
+  if (run.grounded) {
+    // Abstentions carry fallback text, so they show a note instead of copyable excerpts.
+    const sources = response.abstained ? [] : response.sources || [];
+    if (!sources.length) {
+      run.answer.replaceChildren(element("p", "answer-note", "Your text doesn't seem to answer this. Try a more specific question or paste more text."));
+      announce("No matching passages in your text.");
+      return;
+    }
+    const list = element("ol", "excerpts");
+    for (const source of sources) {
+      const item = element("li");
+      item.append(element("span", "cite", source.id), element("blockquote", "", source.text));
+      list.append(item);
+    }
+    meta.append(element("span", "", `${plural(sources.length, "passage")} quoted from your text`), copyButton(response.text, "Copy passages"));
+    run.answer.replaceChildren(list, meta);
+    announce(`Found ${plural(sources.length, "passage")}. ${sources.map((source) => source.text).join(" ")}`);
+    return;
   }
-  syncComposer();
-  setTimeout(pollStatus, state.status?.state === "loading" ? 1200 : 5000);
+  // Leading blank lines are noise; indentation on the first line is kept for code.
+  const text = String(response.text || "").replace(/^\n+/, "").trimEnd();
+  const code = run.custom && ["code_generation", "code_debugging"].includes(run.options.task_type);
+  const details = [plural(response.generated_tokens, "token"), `${Number(response.elapsed_seconds).toFixed(1)}s`];
+  if (response.finish_reason === "length") details.push("stopped at the length limit");
+  meta.append(element("span", "", details.join(" · ")));
+  if (text) {
+    meta.append(copyButton(text, "Copy answer"));
+    run.answer.replaceChildren(element("pre", code ? "answer-text code" : "answer-text", text), meta);
+    announce(text);
+    return;
+  }
+  const empty = response.finish_reason === "stop" ? "A stop sequence ended the response before any text. Clear Stop sequences in Settings and try again."
+    : "The model returned no text. Try rephrasing, or raise the temperature in Settings.";
+  run.answer.replaceChildren(element("p", "answer-note", empty), meta);
+  announce(empty);
+}
+
+async function post(path, payload) {
+  let response;
+  try {
+    response = await fetch(path, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
+  } catch {
+    throw new Error("Couldn't reach Studio. Check that it's still running, then try again.");
+  }
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(result.error || `Studio answered with an error (${response.status}). Try again.`);
+  return result;
 }
 
 $("prompt-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   if ($("generate").disabled) return;
-  const run = { id: Date.now(), prompt: $("prompt").value.trim(), options: settings(), mode: $("response-mode").value, source_text: sourceMode() ? $("source-text").value : "" };
-  const grounded = run.mode === "source_excerpts";
-  state.busy = true; syncComposer(); renderHistory(); renderRun(run, true);
-  $("generate").querySelector("span").textContent = grounded ? "Searching…" : "Generating…";
-  feedback(grounded ? "Searching your reference text. No model generation is used." : "Running on your machine. Longer responses take more time.");
+  const grounded = sourceMode();
+  const run = { prompt: $("prompt").value.trim(), options: settings(), grounded, custom: customModel(), source_text: grounded ? $("source-text").value : "" };
+  state.busy = true; state.slow = false; state.notice = null; state.runs += 1;
+  addTurn(run);
+  $("prompt").value = "";
+  autosize(); syncComposer(); reveal(run.turn);
+  const slow = setTimeout(() => { state.slow = true; syncComposer(); }, 8000);
   try {
     const payload = grounded ? { prompt: run.prompt, source_text: run.source_text } : { prompt: run.prompt, ...run.options };
-    const response = await fetch(grounded ? "/api/grounded" : "/api/generate", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
-    const result = await response.json();
-    if (!response.ok) throw new Error(result.error || "Generation failed. Try again.");
-    run.result = result; state.runs.push(run); state.selected = run.id;
-    renderRun(run); feedback(grounded ? "Reference search complete. Your text stays in this session." : "Run complete. Your prompt and response stay in this session.");
+    showResult(run, await post(grounded ? "/api/grounded" : "/api/generate", payload));
   } catch (error) {
-    $("conversation").hidden = true; $("intro").hidden = false; $("starters").hidden = false;
-    feedback(error.message || "Connection lost. Check the local server and try again.", true);
+    run.answer.replaceChildren(element("p", "answer-note error", error.message));
+    announce(error.message);
+    // Put the question back so it can be sent again, unless a new one is already being typed.
+    if (!$("prompt").value) { $("prompt").value = run.prompt; autosize(); }
   } finally {
-    state.busy = false;
+    clearTimeout(slow);
+    state.busy = false; state.slow = false;
     if (state.status) state.status.busy = false;
-    $("generate").querySelector("span").textContent = "Run prompt";
-    renderHistory(); syncComposer();
+    syncComposer(); reveal(run.turn);
+    if (!touch && [document.body, $("generate")].includes(document.activeElement)) $("prompt").focus();
   }
 });
 
-$("prompt").addEventListener("input", syncComposer);
-for (const id of ["response-mode", "source-text", "task-type", "temperature", "max-tokens", "top-k", "top-p", "repetition-penalty", "stop-sequences"]) $(id).addEventListener("input", syncComposer);
-$("stop-sequences").addEventListener("input", () => { state.stopEdited = true; });
-$("response-mode").addEventListener("change", () => {
-  if (!sourceMode() && state.status?.state === "disabled") {
-    feedback(state.status.error || "Model generation is disabled. Choose Source excerpts, or restart the server without --sources-only to load a checkpoint.", true);
-  } else if (sourceMode() && ["disabled", "error"].includes(state.status?.state)) {
-    feedback("Reference search is available without a model checkpoint.");
-  }
-});
-$("new-session").addEventListener("click", newSession);
-$("mobile-new").addEventListener("click", newSession);
-document.querySelectorAll("[data-prompt]").forEach((button) => button.addEventListener("click", () => {
-  $("response-mode").value = "model";
-  $("prompt").value = button.dataset.prompt; $("task-type").value = button.dataset.task;
-  syncComposer(); $("prompt").focus();
-}));
-for (const name of ["settings", "about"]) {
-  $(`${name}-open`).addEventListener("click", () => $(name).showModal());
-  $(name).querySelectorAll(".close-dialog").forEach((button) => button.addEventListener("click", () => $(name).close()));
+function newSession() {
+  if (state.busy) return;
+  state.runs = 0; state.notice = null;
+  $("thread").replaceChildren();
+  $("prompt").value = "";
+  autosize(); syncComposer();
+  window.scrollTo({ top: 0 });
+  if (!touch) $("prompt").focus();
 }
-document.addEventListener("keydown", (event) => {
-  if (document.querySelector("dialog[open]")) return;
-  if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); $("prompt-form").requestSubmit(); }
-  if (event.key.toLowerCase() === "n" && !event.metaKey && !event.ctrlKey && !event.altKey && !["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement.tagName) && !document.querySelector("dialog[open]")) newSession();
+
+async function pollStatus() {
+  try {
+    const response = await fetch("/api/status", { cache: "no-store" });
+    if (!response.ok) throw new Error(`Status request failed with ${response.status}.`);
+    state.status = await response.json();
+    state.offline = false;
+  } catch {
+    state.offline = true;
+  }
+  // A sources-only server has no model, so searching your text is the only mode that works.
+  if (phase() === "disabled" && !sourceMode()) $("mode-sources").checked = true;
+  renderStatus(); syncComposer();
+  setTimeout(pollStatus, phase() === "loading" ? 1200 : 5000);
+}
+
+function renderStatus() {
+  const current = phase();
+  const model = state.status?.model || {};
+  const names = { ready: model.name || "Model ready", loading: "Loading model", disabled: "Search only", error: "Model unavailable", offline: "Offline", connecting: "Connecting" };
+  $("status-dot").className = `dot ${current}`;
+  $("model-name").textContent = names[current] || "Model unavailable";
+  const size = model.parameters >= 1e9 ? `${(model.parameters / 1e9).toFixed(2)} billion` : model.parameters ? `${(model.parameters / 1e6).toFixed(1)} million` : null;
+  const details = {
+    Status: { ready: "Ready", loading: "Loading", disabled: "Search only, no model loaded", error: "Couldn't load", offline: "Can't reach the server", connecting: "Connecting" }[current],
+    Model: model.name, Checkpoint: model.checkpoint, Parameters: size,
+    Context: model.context_window ? `${model.context_window.toLocaleString()} ${customModel() ? "byte tokens" : "tokens"}` : null,
+    Device: model.device?.toUpperCase(), Architecture: model.architecture, "Training steps": model.training_steps?.toLocaleString(),
+    Error: current === "error" ? state.status?.error : null,
+  };
+  $("model-details").replaceChildren(...Object.entries(details).filter(([, value]) => value).map(([key, value]) => {
+    const row = element("div");
+    row.append(element("dt", "", key), element("dd", "", String(value)));
+    return row;
+  }));
+}
+
+$("prompt").addEventListener("input", () => { state.notice = null; autosize(); });
+window.addEventListener("resize", autosize);
+for (const id of ["prompt", "source-text", "task-type", "temperature", "max-tokens", "top-k", "top-p", "repetition-penalty", "stop-sequences"]) $(id).addEventListener("input", syncComposer);
+$("stop-sequences").addEventListener("input", () => { state.stopEdited = true; });
+for (const radio of document.querySelectorAll('input[name="mode"]')) radio.addEventListener("change", () => { state.notice = null; syncComposer(); });
+
+$("prompt").addEventListener("keydown", (event) => {
+  // Enter sends. Shift+Enter, IME composition (Safari flags it only by keyCode 229) and touch keyboards add a line break.
+  if (event.key !== "Enter" || event.shiftKey || event.metaKey || event.ctrlKey || event.isComposing || event.keyCode === 229 || touch) return;
+  event.preventDefault();
+  $("prompt-form").requestSubmit();
 });
-syncComposer(); pollStatus();
+document.addEventListener("keydown", (event) => {
+  if (document.querySelector("dialog[open]") || event.altKey) return;
+  if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); $("prompt-form").requestSubmit(); return; }
+  if (event.metaKey || event.ctrlKey || ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)) return;
+  if (event.key === "/") { event.preventDefault(); $("prompt").focus(); }
+  // preventDefault keeps the "n" out of the question box that newSession focuses.
+  else if (event.key.toLowerCase() === "n" && state.runs) { event.preventDefault(); newSession(); }
+});
+
+$("new-session").addEventListener("click", newSession);
+document.querySelector(".mark").addEventListener("click", (event) => { event.preventDefault(); newSession(); });
+document.querySelectorAll("[data-prompt]").forEach((button) => button.addEventListener("click", () => {
+  $("mode-model").checked = true;
+  $("task-type").value = "language_generation";
+  $("prompt").value = button.dataset.prompt;
+  autosize(); syncComposer();
+  if (!$("generate").disabled) $("prompt-form").requestSubmit();
+  else $("prompt").focus();
+}));
+$("source-example").addEventListener("click", () => {
+  $("source-text").value = EXAMPLE.source;
+  $("prompt").value = EXAMPLE.question;
+  autosize(); syncComposer();
+  if (!$("generate").disabled) $("prompt-form").requestSubmit();
+});
+$("reset-settings").addEventListener("click", () => {
+  for (const [id, value] of Object.entries(DEFAULTS)) $(id).value = value;
+  state.stopEdited = false;
+  $("stop-sequences").value = defaultStops($("task-type").value);
+  state.stopTask = $("task-type").value;
+  syncComposer();
+});
+for (const name of ["settings", "about"]) {
+  const dialog = $(name);
+  let pressed = false;
+  $(`${name}-open`).addEventListener("click", () => dialog.showModal());
+  dialog.querySelectorAll(".close-dialog").forEach((button) => button.addEventListener("click", () => dialog.close()));
+  // Close on a backdrop click, but not when a drag that started inside, on a slider say, ends outside.
+  dialog.addEventListener("pointerdown", (event) => { pressed = event.target === dialog; });
+  dialog.addEventListener("click", (event) => { if (pressed && event.target === dialog) dialog.close(); });
+}
+
+autosize(); renderStatus(); syncComposer(); pollStatus();
+if (!touch) $("prompt").focus();

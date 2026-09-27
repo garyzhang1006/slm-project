@@ -1,6 +1,6 @@
 # Results
 
-Collected from Kaggle kernel reports on 2026-09-26 21:26 by `compute/collect_results.py`. Regenerate it rather than editing by hand.
+Collected from Kaggle kernel reports on 2026-09-26 21:30 by `compute/collect_results.py`. Regenerate it rather than editing by hand.
 
 ## slm-160m pretraining
 

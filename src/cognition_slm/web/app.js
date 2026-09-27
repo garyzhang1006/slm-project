@@ -246,7 +246,7 @@ async function post(path, payload) {
     throw new Error("Couldn't reach Studio. Check that it's still running, then try again.");
   }
   const result = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(result.error || `Studio answered with an error (${response.status}). Try again.`);
+  if (!response.ok) throw Object.assign(new Error(result.error || `Studio answered with an error (${response.status}). Try again.`), { status: response.status });
   return result;
 }
 
@@ -254,7 +254,8 @@ $("prompt-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   if ($("generate").disabled) return;
   const grounded = sourceMode();
-  const run = { prompt: $("prompt").value.trim(), options: settings(), grounded, custom: customModel(), source_text: grounded ? $("source-text").value : "" };
+  // The server rejects control characters other than tab and line breaks, which pasted text sometimes carries.
+  const run = { prompt: $("prompt").value.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, " ").trim(), options: settings(), grounded, custom: customModel(), source_text: grounded ? $("source-text").value : "" };
   state.busy = true; state.slow = false; state.notice = null; state.runs += 1;
   addTurn(run);
   announce("Working on an answer");
@@ -267,6 +268,7 @@ $("prompt-form").addEventListener("submit", async (event) => {
     const payload = grounded ? { prompt: run.prompt, source_text: run.source_text } : { prompt: run.prompt, ...run.options };
     showResult(run, await post(grounded ? "/api/grounded" : "/api/generate", payload));
   } catch (error) {
+    run.status = error.status;
     run.answer.replaceChildren(element("p", "answer-note error", error.message));
     announce(error.message);
     // Put the question back so it can be sent again, unless a new one is already being typed.
@@ -274,7 +276,8 @@ $("prompt-form").addEventListener("submit", async (event) => {
   } finally {
     clearTimeout(slow);
     state.busy = false; state.slow = false;
-    if (state.status) state.status.busy = false;
+    // Searches never hold the model, and a 409 means another request still does.
+    if (state.status && !grounded && run.status !== 409) state.status.busy = false;
     syncComposer(); reveal(run.turn);
     if (!touch && [document.body, $("generate")].includes(document.activeElement)) $("prompt").focus();
   }
@@ -320,6 +323,10 @@ function renderStatus() {
     Device: model.device?.toUpperCase(), Architecture: model.architecture, "Training steps": model.training_steps?.toLocaleString(),
     Error: current === "error" ? state.status?.error : null,
   };
+  // Rebuilding on every poll would drop any text the user has selected in the About panel.
+  const shown = JSON.stringify(details);
+  if (shown === state.details) return;
+  state.details = shown;
   $("model-details").replaceChildren(...Object.entries(details).filter(([, value]) => value).map(([key, value]) => {
     const row = element("div");
     row.append(element("dt", "", key), element("dd", "", String(value)));
@@ -347,7 +354,12 @@ document.addEventListener("keydown", (event) => {
 });
 
 $("new-session").addEventListener("click", newSession);
-document.querySelector(".mark").addEventListener("click", (event) => { event.preventDefault(); newSession(); });
+document.querySelector(".mark").addEventListener("click", (event) => {
+  // Modified clicks keep their browser meaning, such as opening a new tab.
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  event.preventDefault();
+  newSession();
+});
 document.querySelectorAll("[data-prompt]").forEach((button) => button.addEventListener("click", () => {
   $("mode-model").checked = true;
   $("task-type").value = "language_generation";

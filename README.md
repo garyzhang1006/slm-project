@@ -56,7 +56,7 @@ if you only want to search your own text, you can skip the weights and pytorch e
 ./launch-studio.command --sources-only
 ```
 
-a few limits: pasted text and opened files are capped at 12,000 bytes and questions at 2,000 bytes, and the page never loads anything from the internet. the conversation stays in the tab when you refresh the page, and it's cleared when you close the tab or start a new conversation. model output is always shown as plain text and never run as code.
+a few limits: in search my text, pasted text and opened files are capped at 12,000 bytes and questions at 2,000 bytes. a question to the model has no fixed cap, but it and the answer length from the settings have to fit in the model's context window together. the page never loads anything from the internet. the conversation stays in the tab when you refresh the page, and it's cleared when you close the tab or start a new conversation. model output is always shown as plain text and never run as code.
 
 ## quick start
 

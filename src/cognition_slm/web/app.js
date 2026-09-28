@@ -246,6 +246,13 @@ function reveal(turn) {
   else window.scrollTo({ top: document.documentElement.scrollHeight, behavior: motion() });
 }
 
+// New content eases in from where it came from. The stylesheet's reduced-motion rule can't reach
+// script animations, so that preference is checked here.
+function arrive(node, from = { opacity: 0, transform: "translateY(4px)" }) {
+  if (!node || motion() === "auto") return;
+  node.animate([from, { opacity: 1, transform: "none" }], { duration: 240, easing: "cubic-bezier(0.22, 1, 0.36, 1)" });
+}
+
 // The jump button shows once the end of the conversation is out of view.
 function syncScrollButton() {
   const below = document.documentElement.scrollHeight - (window.scrollY + window.innerHeight);
@@ -326,16 +333,18 @@ function pager(run) {
   for (const [button, action, step, end] of [[previous, "previous", -1, 0], [next, "next", 1, run.answers.length - 1]]) {
     button.dataset.action = action;
     button.setAttribute("aria-disabled", String(run.shown === end));
-    button.addEventListener("click", () => show(run, run.shown + step));
+    button.addEventListener("click", () => show(run, run.shown + step, step));
   }
   group.append(previous, element("span", "", `${run.shown + 1} / ${run.answers.length}`), next);
   return group;
 }
 
-function show(run, index) {
+// The next try slides in from the right and the previous one from the left, while the arrows stay put.
+function show(run, index, step) {
   if (index < 0 || index >= run.answers.length || index === run.shown) return;
   run.shown = index;
   announce(`Answer ${index + 1} of ${run.answers.length}. ${redraw(run)}`);
+  arrive(run.answer.firstElementChild, { opacity: 0.2, transform: `translateX(${step * 8}px)` });
   saveThread();
 }
 
@@ -372,7 +381,11 @@ function settingsToggle(run, answer) {
   button.setAttribute("aria-label", `Settings used: ${name}`);
   button.setAttribute("aria-expanded", String(Boolean(answer.open)));
   button.append(icon("expand"));
-  button.addEventListener("click", () => { answer.open = !answer.open; redraw(run); });
+  button.addEventListener("click", () => {
+    answer.open = !answer.open;
+    redraw(run);
+    arrive(run.answer.querySelector(".answer-settings"), { opacity: 0, transform: "translateY(-4px)" });
+  });
   return button;
 }
 
@@ -492,6 +505,7 @@ async function ask(run, again = false) {
     // Searches never hold the model, and a 409 means another request still does.
     if (state.status && !grounded && answer.status !== 409) state.status.busy = false;
     announce(drawAnswer(run));
+    arrive(run.answer);
     // Leaving the page cancels the request; saving now would record that as a failure.
     if (!state.leaving) saveThread();
     syncComposer(); reveal(run.turn);

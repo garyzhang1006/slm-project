@@ -401,6 +401,15 @@ svg {
   overflow-wrap: anywhere;
 }
 
+mark {
+  padding: 0 2px;
+  border-radius: 4px;
+  background: var(--accent-soft);
+  color: inherit;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
 .answer-meta {
   display: flex;
   flex-wrap: wrap;

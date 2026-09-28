@@ -375,6 +375,20 @@ function settingsToggle(run, answer) {
   return button;
 }
 
+// Marks the words that matched the question. Offsets count code points, as Python strings do.
+function highlighted(text, spans) {
+  const quote = element("blockquote");
+  const characters = Array.from(text);
+  let at = 0;
+  for (const [start, end] of Array.isArray(spans) ? spans : []) {
+    if (!Number.isInteger(start) || !Number.isInteger(end) || start < at || end <= start || end > characters.length) continue;
+    quote.append(characters.slice(at, start).join(""), element("mark", "", characters.slice(start, end).join("")));
+    at = end;
+  }
+  quote.append(characters.slice(at).join(""));
+  return quote;
+}
+
 // Draws the answer a turn is showing and returns what a screen reader should hear about it.
 function drawAnswer(run) {
   const answer = run.answers[run.shown];
@@ -406,7 +420,7 @@ function showResult(run, answer) {
     const list = element("ol", "excerpts");
     for (const source of sources) {
       const item = element("li");
-      item.append(element("span", "cite", source.id), element("blockquote", "", source.text));
+      item.append(element("span", "cite", source.id), highlighted(source.text, source.matches));
       list.append(item);
     }
     run.answer.replaceChildren(list, answerMeta(run, `${plural(sources.length, "passage")} quoted from your text`, [copyButton(response.text, "Copy passages")]));

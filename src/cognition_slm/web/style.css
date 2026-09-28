@@ -532,7 +532,9 @@ mark {
   opacity: 1;
 }
 
-.action.done {
+/* The check stays green while the pointer is still over the button that was just clicked. */
+.action.done,
+.action.done:hover {
   color: var(--accent);
 }
 

@@ -243,8 +243,8 @@ function reveal(turn) {
   else window.scrollTo({ top: document.documentElement.scrollHeight, behavior: motion() });
 }
 
-function addTurn(run) {
-  run.turn = element("article", "turn");
+function addTurn(run, restored = false) {
+  run.turn = element("article", restored ? "turn restored" : "turn");
   const question = element("p", "question", run.prompt);
   question.tabIndex = -1;
   run.turn.append(question);
@@ -318,6 +318,7 @@ function show(run, index) {
   if (index < 0 || index >= run.answers.length || index === run.shown) return;
   run.shown = index;
   announce(`Answer ${index + 1} of ${run.answers.length}. ${redraw(run)}`);
+  saveThread();
 }
 
 // Drawing replaces the answer's buttons, so focus moves to the same button in the new drawing.
@@ -367,7 +368,7 @@ function drawAnswer(run) {
     return "Working on an answer";
   }
   if (answer.error) {
-    run.answer.replaceChildren(element("p", "answer-note error", answer.error), answerMeta(run, "", [retryButton(run)]));
+    run.answer.replaceChildren(element("p", answer.interrupted ? "answer-note" : "answer-note error", answer.error), answerMeta(run, "", [retryButton(run)]));
     return answer.error;
   }
   return showResult(run, answer);
@@ -451,6 +452,8 @@ async function ask(run, again = false) {
     // Searches never hold the model, and a 409 means another request still does.
     if (state.status && !grounded && answer.status !== 409) state.status.busy = false;
     announce(drawAnswer(run));
+    // Leaving the page cancels the request; saving now would record that as a failure.
+    if (!state.leaving) saveThread();
     syncComposer(); reveal(run.turn);
     if (again && [document.body, run.answer].includes(document.activeElement)) run.answer.querySelector('[data-action="retry"]')?.focus();
     else if (!touch && [document.body, $("generate")].includes(document.activeElement)) $("prompt").focus();
@@ -470,12 +473,45 @@ $("prompt-form").addEventListener("submit", (event) => {
   ask(runs.at(-1));
 });
 
+// The conversation lasts as long as the tab: a refresh keeps it, closing the tab clears it.
+function saveThread() {
+  const keep = ({ options, custom, code, response, error, status, interrupted }) => ({ options, custom, code, response, error, status, interrupted });
+  writeStore("sessionStorage", "studio-thread", {
+    mode: sourceMode() ? "sources" : "model", source: $("source-text").value, draft: $("prompt").value,
+    runs: runs.map(({ prompt, grounded, source_text, tag, answers, shown }) => ({ prompt, grounded, source_text, tag, shown, answers: answers.filter((answer) => !answer.pending).map(keep) })),
+  });
+}
+
+function restoreThread() {
+  const saved = readStore("sessionStorage", "studio-thread");
+  if (!saved || !Array.isArray(saved.runs)) return;
+  $(saved.mode === "sources" ? "mode-sources" : "mode-model").checked = true;
+  if (typeof saved.source === "string") $("source-text").value = saved.source;
+  if (typeof saved.draft === "string") $("prompt").value = saved.draft;
+  try {
+    for (const item of saved.runs) {
+      const answers = (item.answers || []).filter((answer) => typeof answer.error === "string" || (answer.response && typeof answer.response === "object"));
+      // A refresh while an answer was on its way loses that answer, and Try again asks for it again.
+      if (!answers.length) answers.push({ error: "The page was refreshed before this answer arrived.", interrupted: true });
+      const run = { prompt: String(item.prompt), grounded: item.grounded === true, source_text: String(item.source_text || ""), tag: String(item.tag || ""),
+        answers, shown: Math.min(Math.max(Number(item.shown) || 0, 0), answers.length - 1) };
+      runs.push(run);
+      addTurn(run, true);
+      drawAnswer(run);
+    }
+  } catch {
+    // A saved conversation that no longer draws is dropped rather than half shown.
+    runs.length = 0;
+    $("thread").replaceChildren();
+  }
+}
+
 function newSession() {
   if (state.busy) return;
   runs.length = 0; state.notice = null;
   $("thread").replaceChildren();
   $("prompt").value = "";
-  autosize(); syncComposer();
+  saveThread(); autosize(); syncComposer();
   window.scrollTo({ top: 0 });
   $(touch ? "intro-title" : "prompt").focus();
 }
@@ -592,6 +628,11 @@ for (const name of ["settings", "about"]) {
   dialog.addEventListener("click", (event) => { if (pressed && event.target === dialog) dialog.close(); });
 }
 
-applyTheme(savedTheme()); restoreSettings();
+// Typing and pasting are saved when the page goes away, rather than on every keystroke.
+window.addEventListener("pagehide", () => { state.leaving = true; saveThread(); });
+window.addEventListener("pageshow", () => { state.leaving = false; });
+document.addEventListener("visibilitychange", () => { if (document.hidden) saveThread(); });
+
+applyTheme(savedTheme()); restoreSettings(); restoreThread();
 autosize(); renderStatus(); syncComposer(); pollStatus();
 if (!touch) $("prompt").focus();

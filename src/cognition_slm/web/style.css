@@ -310,6 +310,11 @@ svg {
   animation: rise 0.2s ease-out;
 }
 
+/* Turns brought back after a refresh appear in place, without the arrival motion. */
+.turn.restored {
+  animation: none;
+}
+
 .question {
   align-self: flex-end;
   max-width: min(85%, 560px);

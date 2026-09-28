@@ -167,7 +167,7 @@ function syncComposer() {
   $("generate").classList.toggle("busy", state.busy);
   // Try again asks the model with the current settings, so it follows the send button's rules.
   state.canRetry = !state.busy && current === "ready" && !busy && validK && validStops;
-  for (const button of document.querySelectorAll('[data-action="retry"]')) button.disabled = !state.canRetry;
+  for (const button of document.querySelectorAll('[data-action="retry"]')) button.disabled = !retryAllowed(button.dataset.grounded === "true");
   $("generate").setAttribute("aria-label", state.busy ? "Working on an answer" : grounded ? "Search" : "Send");
 
   const problem = grounded ? "" : overflow ? "Shorten your question, or lower Answer length in Settings."
@@ -272,10 +272,16 @@ function copyButton(text, label) {
   return button;
 }
 
+// Searching needs only a running server; the model also has to be ready and free.
+function retryAllowed(grounded) {
+  return grounded ? !state.busy && phase() !== "offline" : Boolean(state.canRetry);
+}
+
 function retryButton(run) {
   const button = iconButton("retry", "Try again");
   button.dataset.action = "retry";
-  button.disabled = !state.canRetry;
+  button.dataset.grounded = String(run.grounded);
+  button.disabled = !retryAllowed(run.grounded);
   button.addEventListener("click", () => ask(run, true));
   return button;
 }
@@ -315,6 +321,15 @@ function actions(...buttons) {
   return group;
 }
 
+// The row under an answer: arrows between tries, a short summary, then the actions.
+function answerMeta(run, summary, buttons) {
+  const meta = element("div", "answer-meta");
+  if (run.answers.length > 1) meta.append(pager(run));
+  if (summary) meta.append(element("span", "", summary));
+  meta.append(actions(...buttons));
+  return meta;
+}
+
 // Draws the answer a turn is showing and returns what a screen reader should hear about it.
 function drawAnswer(run) {
   const answer = run.answers[run.shown];
@@ -325,7 +340,7 @@ function drawAnswer(run) {
     return "Working on an answer";
   }
   if (answer.error) {
-    run.answer.replaceChildren(element("p", "answer-note error", answer.error));
+    run.answer.replaceChildren(element("p", "answer-note error", answer.error), answerMeta(run, "", [retryButton(run)]));
     return answer.error;
   }
   return showResult(run, answer);
@@ -333,7 +348,6 @@ function drawAnswer(run) {
 
 function showResult(run, answer) {
   const response = answer.response;
-  const meta = element("div", "answer-meta");
   if (run.grounded) {
     // Abstentions carry fallback text, so they show a note instead of copyable excerpts.
     const sources = response.abstained ? [] : response.sources || [];
@@ -347,16 +361,14 @@ function showResult(run, answer) {
       item.append(element("span", "cite", source.id), element("blockquote", "", source.text));
       list.append(item);
     }
-    meta.append(element("span", "", `${plural(sources.length, "passage")} quoted from your text`), actions(copyButton(response.text, "Copy passages")));
-    run.answer.replaceChildren(list, meta);
+    run.answer.replaceChildren(list, answerMeta(run, `${plural(sources.length, "passage")} quoted from your text`, [copyButton(response.text, "Copy passages")]));
     return `Found ${plural(sources.length, "passage")}. ${sources.map((source) => source.text).join(" ")}`;
   }
   // Leading blank lines are noise; indentation on the first line is kept for code.
   const text = String(response.text || "").replace(/^\n+/, "").trimEnd();
   const details = [plural(response.generated_tokens, "token"), `${Number(response.elapsed_seconds).toFixed(1)}s`];
   if (response.finish_reason === "length") details.push("stopped at the length limit");
-  if (run.answers.length > 1) meta.append(pager(run));
-  meta.append(element("span", "", details.join(" · ")), actions(...(text ? [copyButton(text, "Copy answer")] : []), retryButton(run)));
+  const meta = answerMeta(run, details.join(" · "), [...(text ? [copyButton(text, "Copy answer")] : []), retryButton(run)]);
   if (text) {
     run.answer.replaceChildren(element("pre", answer.code ? "answer-text code" : "answer-text", text), meta);
     return text;
@@ -385,6 +397,8 @@ async function ask(run, again = false) {
   const grounded = run.grounded;
   const answer = { options: grounded ? null : settings(), pending: true };
   answer.code = !grounded && customModel() && CODE_TASKS.includes(answer.options.task_type);
+  // A failed try gives way to the new one instead of staying among the answers.
+  if (run.answers[run.shown]?.error) run.answers.splice(run.shown, 1);
   run.answers.push(answer);
   run.shown = run.answers.length - 1;
   state.busy = true; state.slow = false; state.notice = null;
@@ -401,8 +415,6 @@ async function ask(run, again = false) {
     answer.response = await post(grounded ? "/api/grounded" : "/api/generate", payload);
   } catch (error) {
     [answer.error, answer.status] = [error.message, error.status];
-    // Put the question back so it can be sent again, unless a new one is already being typed.
-    if (!$("prompt").value) { $("prompt").value = run.prompt; autosize(); }
   } finally {
     delete answer.pending;
     clearTimeout(slow);

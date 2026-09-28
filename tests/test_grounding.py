@@ -10,8 +10,14 @@ class GroundingTests(unittest.TestCase):
     def test_quotes_are_exact_and_deduplicated(self):
         passage = "The launch date is September 12."
         result = self.answer("What is the launch date?", passage + "\n\n" + passage)
-        self.assertEqual(result["sources"], [{"id": "S1", "text": passage}])
+        self.assertEqual(result["sources"], [{"id": "S1", "text": passage, "matches": [[4, 10], [11, 15]]}])
         self.assertEqual(result["text"], "[S1] " + passage)
+
+    def test_matches_count_code_points_so_studio_can_highlight_them(self):
+        passage = "\U0001F680 Launch dates moved. The launch is Monday."
+        spans = self.answer("When is the launch date?", passage)["sources"][0]["matches"]
+        self.assertEqual([passage[start:end] for start, end in spans], ["Launch", "dates", "launch"])
+        self.assertEqual(spans[0], [2, 8])
 
     def test_no_reference_or_overlap_abstains(self):
         for source in ("", "Bananas contain potassium."):

@@ -44,6 +44,11 @@ def _terms(text: str) -> set[str]:
     return {_stem(_IRREGULAR.get(word, word)) for word in words if word not in _STOP}
 
 
+def _matches(passage: str, query: set[str]) -> list[list[int]]:
+    """Start and end offsets, in code points, of the passage words that share a term with the question."""
+    return [[match.start(), match.end()] for match in _WORDS.finditer(passage) if _terms(match.group()) & query]
+
+
 def source_excerpts(request: dict) -> dict:
     """Return relevant quotes; lexical matches do not certify an answer as true."""
     if not isinstance(request, dict):
@@ -73,7 +78,7 @@ def source_excerpts(request: dict) -> dict:
         if query and overlap and len(overlap) / len(query) >= 0.6:
             ranked.append((len(overlap), len(overlap) / max(1, len(terms)), index, passage))
     ranked.sort(key=lambda item: (-item[0], -item[1], item[2]))
-    sources = [{"id": f"S{i + 1}", "text": item[3]} for i, item in enumerate(ranked[:3])]
+    sources = [{"id": f"S{i + 1}", "text": item[3], "matches": _matches(item[3], query)} for i, item in enumerate(ranked[:3])]
     return {
         "mode": "source_excerpts",
         "abstained": not sources,

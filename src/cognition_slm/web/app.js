@@ -201,6 +201,7 @@ function syncComposer() {
   // Rewriting identical text would make some screen readers repeat it on every keystroke.
   if ($("feedback").textContent !== note) $("feedback").textContent = note;
   $("feedback").classList.toggle("error", error);
+  syncScrollButton();
 }
 
 function notify(text, error = false) {
@@ -241,6 +242,12 @@ function reveal(turn) {
   const room = window.innerHeight - document.querySelector(".dock").offsetHeight - 72;
   if (turn.offsetHeight > room) turn.scrollIntoView({ block: "start", behavior: motion() });
   else window.scrollTo({ top: document.documentElement.scrollHeight, behavior: motion() });
+}
+
+// The jump button shows once the end of the conversation is out of view.
+function syncScrollButton() {
+  const below = document.documentElement.scrollHeight - (window.scrollY + window.innerHeight);
+  $("scroll-latest").hidden = !runs.length || below < 120;
 }
 
 function addTurn(run, restored = false) {
@@ -587,7 +594,7 @@ function renderStatus() {
 }
 
 $("prompt").addEventListener("input", () => { state.notice = null; autosize(); });
-window.addEventListener("resize", autosize);
+window.addEventListener("resize", () => { autosize(); syncScrollButton(); });
 for (const id of ["prompt", "source-text", "task-type", "temperature", "max-tokens", "top-k", "top-p", "repetition-penalty", "stop-sequences"]) $(id).addEventListener("input", syncComposer);
 $("stop-sequences").addEventListener("input", () => { state.stopEdited = true; });
 for (const radio of document.querySelectorAll('input[name="mode"]')) radio.addEventListener("change", () => { state.notice = null; syncComposer(); });
@@ -628,6 +635,12 @@ document.addEventListener("keydown", (event) => {
 });
 
 $("new-session").addEventListener("click", newSession);
+$("scroll-latest").addEventListener("click", () => {
+  window.scrollTo({ top: document.documentElement.scrollHeight, behavior: motion() });
+  // The button hides once the page is at the bottom, so focus moves on to the latest answer.
+  runs.at(-1)?.answer.focus({ preventScroll: true });
+});
+window.addEventListener("scroll", syncScrollButton, { passive: true });
 document.querySelector(".mark").addEventListener("click", (event) => {
   // Modified clicks keep their browser meaning, such as opening a new tab.
   if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;

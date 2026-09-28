@@ -584,6 +584,32 @@ svg {
   background: linear-gradient(to bottom, transparent, var(--bg) 20px);
 }
 
+.scroll-latest {
+  position: absolute;
+  top: -22px;
+  left: 50%;
+  translate: -50% 0;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: 1px solid var(--line-strong);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--muted);
+  box-shadow: 0 2px 6px var(--shadow-color);
+  animation: rise 0.15s ease-out;
+  transition: color 0.15s;
+}
+
+.scroll-latest:hover {
+  color: var(--ink);
+}
+
+.scroll-latest:focus-visible {
+  border-radius: 50%;
+}
+
 .composer {
   border: 1px solid var(--line-strong);
   border-radius: 20px;
@@ -1047,12 +1073,20 @@ dd {
   .has-thread .dock {
     position: static;
   }
+
+  .scroll-latest {
+    display: none;
+  }
 }
 
 /* With the pasted-text box open the composer is about 320px tall, so it needs more room to stay pinned. */
 @media (max-height: 760px) {
   .has-thread.searching .dock {
     position: static;
+  }
+
+  .searching .scroll-latest {
+    display: none;
   }
 }
 

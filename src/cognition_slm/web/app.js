@@ -1,7 +1,7 @@
 "use strict";
 
 const $ = (id) => document.getElementById(id);
-const state = { status: null, offline: false, busy: false, slow: false, notice: null, stopEdited: false, stopTask: "language_generation" };
+const state = { status: null, offline: false, busy: false, slow: false, notice: null, stopEdited: false, stopTask: "language_generation", started: false };
 // Every question asked in this tab with each answer it got, so a turn can be drawn again from data.
 const runs = [];
 const encoder = new TextEncoder();
@@ -143,6 +143,8 @@ function syncComposer() {
   const validStops = !config.stop_sequences || (config.stop_sequences.length <= 4 && config.stop_sequences.every((item) => encoder.encode(item).length <= 64));
   const busy = Boolean(state.status?.busy);
   const thread = runs.length > 0;
+  // Switching modes after the page has loaded eases the search box and the welcome text in.
+  const switched = state.started && grounded !== document.body.classList.contains("searching");
 
   document.body.classList.toggle("has-thread", thread);
   document.body.classList.toggle("searching", grounded);
@@ -150,6 +152,8 @@ function syncComposer() {
   $("thread").hidden = !thread;
   [$("intro-title").textContent, $("intro-text").textContent] = INTRO[grounded ? "sources" : "model"];
   $("source-panel").hidden = !grounded;
+  if (switched && grounded) arrive($("source-panel"), { opacity: 0, transform: "translateY(8px)" });
+  if (switched && !thread) for (const id of ["intro", "starters", "source-starters"]) arrive($(id), { opacity: 0, transform: "none" });
   $("prompt").placeholder = grounded ? "Ask about your text" : "Ask a question";
   $("mode-model").disabled = current === "disabled";
   $("task-field").hidden = !customModel();
@@ -828,4 +832,5 @@ $("shortcuts").hidden = touch;
 if (/Mac|iPhone|iPad/.test(navigator.platform)) for (const key of document.querySelectorAll(".modifier")) key.textContent = "\u2318";
 applyTheme(savedTheme()); restoreSettings(); restoreThread();
 autosize(); renderStatus(); syncComposer(); pollStatus();
+state.started = true;
 if (!touch) $("prompt").focus();

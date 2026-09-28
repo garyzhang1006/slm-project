@@ -210,6 +210,12 @@ class StudioAssetTests(unittest.TestCase):
         self.assertIn("const result = await response.json().catch(() => null);", script)
         self.assertIn("if (!result) throw new Error(", script)
 
+    def test_unsent_example_leaves_focus_in_the_question_box(self):
+        script = (self.web / "app.js").read_text()
+        # Filling in the example hides its button, so focus must move on when nothing is sent.
+        handler = script[script.index('$("source-example").addEventListener'):]
+        self.assertIn('else $("prompt").focus();', handler[:handler.index("});")])
+
     def test_script_ids_exist_in_page(self):
         html = (self.web / "index.html").read_text()
         script = (self.web / "app.js").read_text()

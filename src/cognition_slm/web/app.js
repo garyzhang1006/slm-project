@@ -853,6 +853,7 @@ $("source-example").addEventListener("click", () => {
   $("prompt").value = EXAMPLE.question;
   autosize(); syncComposer();
   if (!$("generate").disabled) $("prompt-form").requestSubmit();
+  else $("prompt").focus();
 });
 $("reset-settings").addEventListener("click", () => {
   for (const [id, value] of Object.entries(DEFAULTS)) $(id).value = value;

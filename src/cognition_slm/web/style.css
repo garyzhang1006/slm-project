@@ -1048,8 +1048,32 @@ input[type="range"] {
   font-weight: 500;
 }
 
+.sheet-section {
+  margin: 14px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+
 dl {
   margin: 4px 0 14px;
+}
+
+kbd {
+  display: inline-block;
+  min-width: 22px;
+  padding: 2px 6px;
+  border: 1px solid var(--line-strong);
+  border-bottom-width: 2px;
+  border-radius: 6px;
+  background: var(--subtle);
+  font: 12px/1.4 var(--mono);
+  text-align: center;
+}
+
+.shortcuts dd {
+  color: var(--muted);
+  font-size: 13px;
 }
 
 dl div {

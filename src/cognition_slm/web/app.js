@@ -713,6 +713,11 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); $("prompt-form").requestSubmit(); return; }
   if (event.metaKey || event.ctrlKey || ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)) return;
   if (event.key === "/") { event.preventDefault(); $("prompt").focus(); }
+  if (event.key === "?") {
+    event.preventDefault();
+    $("about").showModal();
+    $("shortcuts").scrollIntoView({ block: "nearest" });
+  }
 });
 
 $("new-session").addEventListener("click", newSession);
@@ -804,6 +809,9 @@ window.addEventListener("pagehide", () => { state.leaving = true; saveThread(); 
 window.addEventListener("pageshow", () => { state.leaving = false; });
 document.addEventListener("visibilitychange", () => { if (document.hidden) saveThread(); });
 
+// Phones have no keyboard to take shortcuts from, and Macs name the modifier differently.
+$("shortcuts").hidden = touch;
+if (/Mac|iPhone|iPad/.test(navigator.platform)) for (const key of document.querySelectorAll(".modifier")) key.textContent = "\u2318";
 applyTheme(savedTheme()); restoreSettings(); restoreThread();
 autosize(); renderStatus(); syncComposer(); pollStatus();
 if (!touch) $("prompt").focus();

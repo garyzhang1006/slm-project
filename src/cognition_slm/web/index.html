@@ -20,7 +20,7 @@
       <span>slm <small>studio</small></span>
     </a>
     <div class="bar-actions">
-      <button id="about-open" class="pill" type="button" aria-haspopup="dialog" title="About the model">
+      <button id="about-open" class="pill" type="button" aria-haspopup="dialog" title="About Studio and the model">
         <span id="status-dot" class="dot connecting" aria-hidden="true"></span>
         <span id="model-name">Connecting</span>
       </button>
@@ -183,13 +183,25 @@
 
   <dialog id="about" aria-labelledby="about-title">
     <div class="sheet-head">
-      <h2 id="about-title">About the model</h2>
+      <h2 id="about-title">About Studio</h2>
       <button class="icon-button close-dialog" type="button" aria-label="Close">
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg>
       </button>
     </div>
     <div class="sheet-body">
+      <h3 class="sheet-section">Model</h3>
       <dl id="model-details"></dl>
+      <section id="shortcuts" aria-labelledby="shortcuts-title">
+        <h3 id="shortcuts-title" class="sheet-section">Keyboard shortcuts</h3>
+        <dl class="shortcuts">
+          <div><dt>Send</dt><dd><kbd>Enter</kbd></dd></div>
+          <div><dt>New line</dt><dd><kbd>Shift</kbd> <kbd>Enter</kbd></dd></div>
+          <div><dt>Send from anywhere</dt><dd><kbd class="modifier">Ctrl</kbd> <kbd>Enter</kbd></dd></div>
+          <div><dt>Go to the question box</dt><dd><kbd>/</kbd></dd></div>
+          <div><dt>Bring back the last question</dt><dd><kbd>&uarr;</kbd> in an empty box</dd></div>
+          <div><dt>Show this list</dt><dd><kbd>?</kbd></dd></div>
+        </dl>
+      </section>
       <p class="hint">Your questions never leave this computer, and answers are shown as plain text and never run. Small models make mistakes, so check anything that matters.</p>
     </div>
   </dialog>

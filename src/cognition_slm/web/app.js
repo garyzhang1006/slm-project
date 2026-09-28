@@ -257,6 +257,14 @@ function arrive(node, from = { opacity: 0, transform: "translateY(4px)" }) {
   node.animate([from, { opacity: 1, transform: "none" }], { duration: 240, easing: "cubic-bezier(0.22, 1, 0.36, 1)" });
 }
 
+// Tabbing to a button under the pinned composer scrolls it into view above the composer, however tall
+// pasted text has made it. A composer that scrolls with the page, on short screens, covers nothing.
+function syncDock() {
+  const dock = document.querySelector(".dock");
+  const pinned = getComputedStyle(dock).position === "sticky";
+  document.documentElement.style.setProperty("--dock-height", `${pinned ? dock.offsetHeight : 0}px`);
+}
+
 // The jump button shows once the end of the conversation is out of view.
 function syncScrollButton() {
   const below = document.documentElement.scrollHeight - (window.scrollY + window.innerHeight);
@@ -710,7 +718,8 @@ function renderStatus() {
 }
 
 $("prompt").addEventListener("input", () => { state.notice = null; autosize(); });
-window.addEventListener("resize", () => { autosize(); syncScrollButton(); });
+window.addEventListener("resize", () => { autosize(); syncScrollButton(); syncDock(); });
+new ResizeObserver(syncDock).observe(document.querySelector(".dock"));
 for (const id of ["prompt", "source-text", "task-type", "temperature", "max-tokens", "top-k", "top-p", "repetition-penalty", "stop-sequences"]) $(id).addEventListener("input", syncComposer);
 $("stop-sequences").addEventListener("input", () => { state.stopEdited = true; });
 for (const radio of document.querySelectorAll('input[name="mode"]')) radio.addEventListener("change", () => { state.notice = null; syncComposer(); });

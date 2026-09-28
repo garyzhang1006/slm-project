@@ -45,7 +45,8 @@
 
 html {
   -webkit-text-size-adjust: 100%;
-  scroll-padding: 72px 0 200px;
+  /* app.js keeps --dock-height at the pinned composer's height, so focus scrolls clear of it. */
+  scroll-padding: 72px 0 calc(var(--dock-height, 0px) + 16px);
 }
 
 body {

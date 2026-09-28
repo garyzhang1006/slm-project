@@ -245,9 +245,13 @@ function reveal(turn) {
 
 function addTurn(run, restored = false) {
   run.turn = element("article", restored ? "turn restored" : "turn");
-  const question = element("p", "question", run.prompt);
-  question.tabIndex = -1;
-  run.turn.append(question);
+  const row = element("div", "question-row");
+  const edit = iconButton("edit", "Edit question");
+  edit.addEventListener("click", () => reuse(run));
+  run.question = element("p", "question", run.prompt);
+  run.question.tabIndex = -1;
+  row.append(edit, run.question);
+  run.turn.append(row);
   if (run.tag) run.turn.append(element("p", "question-tag", run.tag));
   run.answer = element("div", "answer");
   run.answer.tabIndex = -1;
@@ -442,7 +446,7 @@ async function ask(run, again = false) {
   // The button just used disappears while the answer loads, so focus waits on the answer itself.
   if (again) run.answer.focus({ preventScroll: true });
   // Touch screens: the chip or button just used may have disappeared, so hand focus to the new question.
-  else if (touch) run.turn.firstChild.focus({ preventScroll: true });
+  else if (touch) run.question.focus({ preventScroll: true });
   syncComposer(); reveal(run.turn);
   const slow = setTimeout(() => { state.slow = true; syncComposer(); }, 8000);
   try {
@@ -519,6 +523,18 @@ function newSession() {
   saveThread(); autosize(); syncComposer();
   window.scrollTo({ top: 0 });
   $(touch ? "intro-title" : "prompt").focus();
+}
+
+// Puts an earlier question back in the box, in the mode it was asked in, ready to change and send.
+function reuse(run) {
+  if (run.grounded || !$("mode-model").disabled) $(run.grounded ? "mode-sources" : "mode-model").checked = true;
+  // Pasted text is only filled in when the box is empty, so newer text is never replaced.
+  if (run.grounded && !$("source-text").value) $("source-text").value = run.source_text;
+  $("prompt").value = run.prompt;
+  state.notice = null;
+  autosize(); syncComposer();
+  $("prompt").focus();
+  $("prompt").setSelectionRange(run.prompt.length, run.prompt.length);
 }
 
 async function pollStatus() {

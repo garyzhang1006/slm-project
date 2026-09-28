@@ -315,8 +315,14 @@ svg {
   animation: none;
 }
 
+.question-row {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
 .question {
-  align-self: flex-end;
   max-width: min(85%, 560px);
   margin: 0;
   padding: 9px 16px;
@@ -510,8 +516,19 @@ svg {
   color: var(--accent);
 }
 
+/* Edit stays out of the way until the question is pointed at or focused. */
+.turn .question-row .action {
+  opacity: 0;
+}
+
+.turn .question-row:hover .action,
+.turn .question-row:focus-within .action {
+  opacity: 1;
+}
+
 @media (hover: none) {
-  .action {
+  .action,
+  .turn .question-row .action {
     opacity: 1;
   }
 }

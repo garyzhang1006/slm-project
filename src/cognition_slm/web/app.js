@@ -372,7 +372,10 @@ function drawAnswer(run) {
   const answer = run.answers[run.shown];
   if (answer.pending) {
     const typing = element("div", "typing");
-    typing.append(element("span", "visually-hidden", "Working on an answer"), element("i"), element("i"), element("i"));
+    const elapsed = element("span", "elapsed");
+    // The running count is for sighted users; screen readers already heard that an answer is on its way.
+    elapsed.setAttribute("aria-hidden", "true");
+    typing.append(element("span", "visually-hidden", "Working on an answer"), element("i"), element("i"), element("i"), elapsed);
     run.answer.replaceChildren(typing);
     return "Working on an answer";
   }
@@ -449,6 +452,11 @@ async function ask(run, again = false) {
   else if (touch) run.question.focus({ preventScroll: true });
   syncComposer(); reveal(run.turn);
   const slow = setTimeout(() => { state.slow = true; syncComposer(); }, 8000);
+  const started = performance.now();
+  const clock = setInterval(() => {
+    const elapsed = run.answer.querySelector(".elapsed");
+    if (elapsed) elapsed.textContent = `${Math.floor((performance.now() - started) / 1000)}s`;
+  }, 1000);
   try {
     const payload = grounded ? { prompt: run.prompt, source_text: run.source_text } : { prompt: run.prompt, ...answer.options };
     answer.response = await post(grounded ? "/api/grounded" : "/api/generate", payload);
@@ -456,7 +464,7 @@ async function ask(run, again = false) {
     [answer.error, answer.status] = [error.message, error.status];
   } finally {
     delete answer.pending;
-    clearTimeout(slow);
+    clearTimeout(slow); clearInterval(clock);
     state.busy = false; state.slow = false;
     // Searches never hold the model, and a 409 means another request still does.
     if (state.status && !grounded && answer.status !== 409) state.status.busy = false;

@@ -290,8 +290,13 @@ function retryAllowed(grounded) {
   return grounded ? !state.busy && phase() !== "offline" : Boolean(state.canRetry);
 }
 
-function retryButton(run) {
+function retryButton(run, labelled = false) {
   const button = iconButton("retry", "Try again");
+  // After a failure, Try again is the way forward, so it gets words as well as an icon.
+  if (labelled) {
+    button.classList.add("labelled");
+    button.append(element("span", "", "Try again"));
+  }
   button.dataset.action = "retry";
   button.dataset.grounded = String(run.grounded);
   button.disabled = !retryAllowed(run.grounded);
@@ -368,7 +373,7 @@ function drawAnswer(run) {
     return "Working on an answer";
   }
   if (answer.error) {
-    run.answer.replaceChildren(element("p", answer.interrupted ? "answer-note" : "answer-note error", answer.error), answerMeta(run, "", [retryButton(run)]));
+    run.answer.replaceChildren(element("p", answer.interrupted ? "answer-note" : "answer-note error", answer.error), answerMeta(run, "", [retryButton(run, true)]));
     return answer.error;
   }
   return showResult(run, answer);

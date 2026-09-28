@@ -9,6 +9,12 @@ const labels = Object.fromEntries([...$("task-type").options].map((option) => [o
 // Same limits as grounding.py.
 const LIMITS = { source: 12000, question: 2000 };
 const DEFAULTS = { "max-tokens": "64", temperature: "0.3", "task-type": "language_generation", "top-k": "40", "top-p": "0.9", "repetition-penalty": "1" };
+// Temperature 0 decodes greedily, so Steady repeats itself; Balanced is the default sampling.
+const PRESETS = {
+  steady: { temperature: 0, "top-p": 0.9, "top-k": 40, "repetition-penalty": 1 },
+  balanced: { temperature: 0.3, "top-p": 0.9, "top-k": 40, "repetition-penalty": 1 },
+  varied: { temperature: 0.9, "top-p": 0.95, "top-k": 0, "repetition-penalty": 1.1 },
+};
 const INTRO = {
   model: ["What would you like to know?", "Ask a short question. Everything runs on your computer, and answers can be wrong."],
   sources: ["Search your own text", "Paste some text and ask about it. Studio quotes the passages that use the words in your question."],
@@ -105,6 +111,9 @@ function syncComposer() {
   $("top-p-value").value = config.top_p.toFixed(2);
   $("repetition-penalty-value").value = config.repetition_penalty.toFixed(2);
   $("top-k").setAttribute("aria-invalid", String(!validK));
+  // Moving any sampling control off a preset leaves no preset selected.
+  const preset = validK && Object.keys(PRESETS).find((name) => Object.entries(PRESETS[name]).every(([id, value]) => Math.abs(Number($(id).value) - value) < 1e-9));
+  for (const radio of document.querySelectorAll('input[name="preset"]')) radio.checked = radio.value === preset;
   $("stop-sequences").setAttribute("aria-invalid", String(!validStops));
 
   $("generate").disabled = state.busy || !count || current === "offline" || (grounded ? sourceOverflow || !sourceBytes : current !== "ready" || overflow || !validK || !validStops || busy);
@@ -339,6 +348,10 @@ window.addEventListener("resize", autosize);
 for (const id of ["prompt", "source-text", "task-type", "temperature", "max-tokens", "top-k", "top-p", "repetition-penalty", "stop-sequences"]) $(id).addEventListener("input", syncComposer);
 $("stop-sequences").addEventListener("input", () => { state.stopEdited = true; });
 for (const radio of document.querySelectorAll('input[name="mode"]')) radio.addEventListener("change", () => { state.notice = null; syncComposer(); });
+for (const radio of document.querySelectorAll('input[name="preset"]')) radio.addEventListener("change", () => {
+  for (const [id, value] of Object.entries(PRESETS[radio.value])) $(id).value = String(value);
+  syncComposer();
+});
 
 $("prompt").addEventListener("keydown", (event) => {
   // Enter sends. Shift+Enter, IME composition (Safari flags it only by keyCode 229) and touch keyboards add a line break.

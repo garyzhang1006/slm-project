@@ -720,12 +720,6 @@ dialog::backdrop {
   padding: 0 22px 12px;
 }
 
-.sheet-note {
-  margin: 0 0 4px;
-  font-size: 13px;
-  color: var(--muted);
-}
-
 .field {
   padding: 14px 0;
   border-bottom: 1px solid var(--line);
@@ -742,7 +736,10 @@ dialog::backdrop {
   gap: 12px;
 }
 
-.field label {
+/* Direct children only, so the labels inside a segmented control keep their own style. */
+.field > label,
+.field-row > label,
+.field-row > .label {
   display: block;
   font-size: 14px;
   font-weight: 500;

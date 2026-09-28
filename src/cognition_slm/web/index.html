@@ -92,7 +92,20 @@
       </button>
     </div>
     <div class="sheet-body">
-      <p class="sheet-note">These change how the model answers. Searching your own text ignores them.</p>
+      <div class="field">
+        <div class="field-row">
+          <span id="preset-label" class="label">Preset</span>
+          <div class="segmented" role="radiogroup" aria-labelledby="preset-label" aria-describedby="preset-hint">
+            <input type="radio" name="preset" id="preset-steady" value="steady">
+            <label for="preset-steady">Steady</label>
+            <input type="radio" name="preset" id="preset-balanced" value="balanced" checked>
+            <label for="preset-balanced">Balanced</label>
+            <input type="radio" name="preset" id="preset-varied" value="varied">
+            <label for="preset-varied">Varied</label>
+          </div>
+        </div>
+        <p id="preset-hint" class="hint">Steady gives the same answer each time and Varied changes it more between tries. Search my text ignores these settings.</p>
+      </div>
       <div class="field">
         <div class="field-row"><label for="max-tokens">Answer length</label><output id="max-tokens-value" for="max-tokens" aria-live="off">64 tokens</output></div>
         <input id="max-tokens" type="range" min="16" max="512" step="16" value="64">

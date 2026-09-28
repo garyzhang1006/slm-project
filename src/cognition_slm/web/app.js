@@ -165,6 +165,9 @@ function syncComposer() {
 
   $("generate").disabled = state.busy || !count || current === "offline" || (grounded ? sourceOverflow || !sourceBytes : current !== "ready" || overflow || !validK || !validStops || busy);
   $("generate").classList.toggle("busy", state.busy);
+  // Try again asks the model with the current settings, so it follows the send button's rules.
+  state.canRetry = !state.busy && current === "ready" && !busy && validK && validStops;
+  for (const button of document.querySelectorAll('[data-action="retry"]')) button.disabled = !state.canRetry;
   $("generate").setAttribute("aria-label", state.busy ? "Working on an answer" : grounded ? "Search" : "Send");
 
   const problem = grounded ? "" : overflow ? "Shorten your question, or lower Answer length in Settings."
@@ -216,6 +219,11 @@ function autosize() {
 }
 
 function reveal(turn) {
+  // An earlier turn only needs to be in view; the latest one also brings the page to the bottom.
+  if (turn !== $("thread").lastElementChild) {
+    turn.scrollIntoView({ block: "nearest", behavior: motion() });
+    return;
+  }
   // Long turns scroll to their start; short ones scroll the page to the bottom, above the composer.
   const room = window.innerHeight - document.querySelector(".dock").offsetHeight - 72;
   if (turn.offsetHeight > room) turn.scrollIntoView({ block: "start", behavior: motion() });
@@ -229,6 +237,7 @@ function addTurn(run) {
   run.turn.append(question);
   if (run.tag) run.turn.append(element("p", "question-tag", run.tag));
   run.answer = element("div", "answer");
+  run.answer.tabIndex = -1;
   run.turn.append(run.answer);
   $("thread").append(run.turn);
 }
@@ -261,6 +270,43 @@ function copyButton(text, label) {
     }
   });
   return button;
+}
+
+function retryButton(run) {
+  const button = iconButton("retry", "Try again");
+  button.dataset.action = "retry";
+  button.disabled = !state.canRetry;
+  button.addEventListener("click", () => ask(run, true));
+  return button;
+}
+
+// Each try is kept, and the arrows flip between them.
+function pager(run) {
+  const group = element("div", "pager");
+  const previous = iconButton("previous", "Previous answer");
+  const next = iconButton("next", "Next answer");
+  // aria-disabled instead of disabled, so focus stays on an arrow that reaches the end.
+  for (const [button, action, step, end] of [[previous, "previous", -1, 0], [next, "next", 1, run.answers.length - 1]]) {
+    button.dataset.action = action;
+    button.setAttribute("aria-disabled", String(run.shown === end));
+    button.addEventListener("click", () => show(run, run.shown + step));
+  }
+  group.append(previous, element("span", "", `${run.shown + 1} / ${run.answers.length}`), next);
+  return group;
+}
+
+function show(run, index) {
+  if (index < 0 || index >= run.answers.length || index === run.shown) return;
+  run.shown = index;
+  announce(`Answer ${index + 1} of ${run.answers.length}. ${redraw(run)}`);
+}
+
+// Drawing replaces the answer's buttons, so focus moves to the same button in the new drawing.
+function redraw(run) {
+  const action = run.answer.contains(document.activeElement) ? document.activeElement.dataset.action : null;
+  const message = drawAnswer(run);
+  if (action) run.answer.querySelector(`[data-action="${action}"]`)?.focus();
+  return message;
 }
 
 function actions(...buttons) {
@@ -309,9 +355,9 @@ function showResult(run, answer) {
   const text = String(response.text || "").replace(/^\n+/, "").trimEnd();
   const details = [plural(response.generated_tokens, "token"), `${Number(response.elapsed_seconds).toFixed(1)}s`];
   if (response.finish_reason === "length") details.push("stopped at the length limit");
-  meta.append(element("span", "", details.join(" · ")));
+  if (run.answers.length > 1) meta.append(pager(run));
+  meta.append(element("span", "", details.join(" · ")), actions(...(text ? [copyButton(text, "Copy answer")] : []), retryButton(run)));
   if (text) {
-    meta.append(actions(copyButton(text, "Copy answer")));
     run.answer.replaceChildren(element("pre", answer.code ? "answer-text code" : "answer-text", text), meta);
     return text;
   }
@@ -334,7 +380,8 @@ async function post(path, payload) {
 }
 
 // Asks for one more answer to a turn with the current settings, and shows it when it arrives.
-async function ask(run) {
+async function ask(run, again = false) {
+  if (state.busy) return;
   const grounded = run.grounded;
   const answer = { options: grounded ? null : settings(), pending: true };
   answer.code = !grounded && customModel() && CODE_TASKS.includes(answer.options.task_type);
@@ -343,8 +390,10 @@ async function ask(run) {
   state.busy = true; state.slow = false; state.notice = null;
   if (!run.turn) addTurn(run);
   announce(drawAnswer(run));
+  // The button just used disappears while the answer loads, so focus waits on the answer itself.
+  if (again) run.answer.focus({ preventScroll: true });
   // Touch screens: the chip or button just used may have disappeared, so hand focus to the new question.
-  if (touch) run.turn.firstChild.focus({ preventScroll: true });
+  else if (touch) run.turn.firstChild.focus({ preventScroll: true });
   syncComposer(); reveal(run.turn);
   const slow = setTimeout(() => { state.slow = true; syncComposer(); }, 8000);
   try {
@@ -362,7 +411,8 @@ async function ask(run) {
     if (state.status && !grounded && answer.status !== 409) state.status.busy = false;
     announce(drawAnswer(run));
     syncComposer(); reveal(run.turn);
-    if (!touch && [document.body, $("generate")].includes(document.activeElement)) $("prompt").focus();
+    if (again && [document.body, run.answer].includes(document.activeElement)) run.answer.querySelector('[data-action="retry"]')?.focus();
+    else if (!touch && [document.body, $("generate")].includes(document.activeElement)) $("prompt").focus();
   }
 }
 

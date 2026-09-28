@@ -274,7 +274,8 @@ svg {
 }
 
 .intro h1:focus,
-.question:focus {
+.question:focus,
+.answer:focus {
   outline: none;
 }
 
@@ -430,9 +431,31 @@ svg {
   opacity: 1;
 }
 
-.action:hover {
+.action:hover:not(:disabled, [aria-disabled="true"]) {
   background: var(--hover);
   color: var(--ink);
+}
+
+.action:disabled,
+.action[aria-disabled="true"] {
+  cursor: default;
+}
+
+.action:disabled svg,
+.action[aria-disabled="true"] svg {
+  opacity: 0.35;
+}
+
+.pager {
+  display: flex;
+  align-items: center;
+  margin-left: -6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.pager .action {
+  width: 24px;
+  opacity: 1;
 }
 
 .action.done {
@@ -446,7 +469,8 @@ svg {
 }
 
 @media (pointer: coarse) {
-  .action {
+  .action,
+  .pager .action {
     width: 40px;
     height: 40px;
   }

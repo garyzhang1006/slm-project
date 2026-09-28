@@ -1,7 +1,9 @@
 "use strict";
 
 const $ = (id) => document.getElementById(id);
-const state = { status: null, offline: false, busy: false, slow: false, notice: null, runs: 0, stopEdited: false, stopTask: "language_generation" };
+const state = { status: null, offline: false, busy: false, slow: false, notice: null, stopEdited: false, stopTask: "language_generation" };
+// Every question asked in this tab with each answer it got, so a turn can be drawn again from data.
+const runs = [];
 const encoder = new TextEncoder();
 const bytes = (text) => encoder.encode(text).length;
 const plural = (count, noun) => `${Number(count).toLocaleString()} ${noun}${count === 1 ? "" : "s"}`;
@@ -24,6 +26,7 @@ const EXAMPLE = {
   question: "How many books can members borrow?",
 };
 const THEMES = ["system", "light", "dark"];
+const CODE_TASKS = ["code_generation", "code_debugging"];
 // Touch keyboards have no Shift+Enter, so there Enter adds a line break and the arrow button sends.
 const touch = matchMedia("(pointer: coarse)").matches;
 const motion = () => (matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth");
@@ -126,7 +129,7 @@ function syncComposer() {
   const validK = Number.isInteger(config.top_k) && config.top_k >= 0 && config.top_k <= 259;
   const validStops = !config.stop_sequences || (config.stop_sequences.length <= 4 && config.stop_sequences.every((item) => encoder.encode(item).length <= 64));
   const busy = Boolean(state.status?.busy);
-  const thread = state.runs > 0;
+  const thread = runs.length > 0;
 
   document.body.classList.toggle("has-thread", thread);
   document.body.classList.toggle("searching", grounded);
@@ -224,12 +227,8 @@ function addTurn(run) {
   const question = element("p", "question", run.prompt);
   question.tabIndex = -1;
   run.turn.append(question);
-  const tag = run.grounded ? "Searched your text" : run.custom && run.options.task_type !== "language_generation" ? labels[run.options.task_type] : "";
-  if (tag) run.turn.append(element("p", "question-tag", tag));
+  if (run.tag) run.turn.append(element("p", "question-tag", run.tag));
   run.answer = element("div", "answer");
-  const typing = element("div", "typing");
-  typing.append(element("span", "visually-hidden", "Working on an answer"), element("i"), element("i"), element("i"));
-  run.answer.append(typing);
   run.turn.append(run.answer);
   $("thread").append(run.turn);
 }
@@ -252,15 +251,31 @@ function copyButton(text, label) {
   return button;
 }
 
-function showResult(run, response) {
+// Draws the answer a turn is showing and returns what a screen reader should hear about it.
+function drawAnswer(run) {
+  const answer = run.answers[run.shown];
+  if (answer.pending) {
+    const typing = element("div", "typing");
+    typing.append(element("span", "visually-hidden", "Working on an answer"), element("i"), element("i"), element("i"));
+    run.answer.replaceChildren(typing);
+    return "Working on an answer";
+  }
+  if (answer.error) {
+    run.answer.replaceChildren(element("p", "answer-note error", answer.error));
+    return answer.error;
+  }
+  return showResult(run, answer);
+}
+
+function showResult(run, answer) {
+  const response = answer.response;
   const meta = element("div", "answer-meta");
   if (run.grounded) {
     // Abstentions carry fallback text, so they show a note instead of copyable excerpts.
     const sources = response.abstained ? [] : response.sources || [];
     if (!sources.length) {
       run.answer.replaceChildren(element("p", "answer-note", "No passage in your text uses enough of the words in your question. Try fewer words, or words from your text."));
-      announce("No matching passages in your text.");
-      return;
+      return "No matching passages in your text.";
     }
     const list = element("ol", "excerpts");
     for (const source of sources) {
@@ -270,25 +285,22 @@ function showResult(run, response) {
     }
     meta.append(element("span", "", `${plural(sources.length, "passage")} quoted from your text`), copyButton(response.text, "Copy passages"));
     run.answer.replaceChildren(list, meta);
-    announce(`Found ${plural(sources.length, "passage")}. ${sources.map((source) => source.text).join(" ")}`);
-    return;
+    return `Found ${plural(sources.length, "passage")}. ${sources.map((source) => source.text).join(" ")}`;
   }
   // Leading blank lines are noise; indentation on the first line is kept for code.
   const text = String(response.text || "").replace(/^\n+/, "").trimEnd();
-  const code = run.custom && ["code_generation", "code_debugging"].includes(run.options.task_type);
   const details = [plural(response.generated_tokens, "token"), `${Number(response.elapsed_seconds).toFixed(1)}s`];
   if (response.finish_reason === "length") details.push("stopped at the length limit");
   meta.append(element("span", "", details.join(" · ")));
   if (text) {
     meta.append(copyButton(text, "Copy answer"));
-    run.answer.replaceChildren(element("pre", code ? "answer-text code" : "answer-text", text), meta);
-    announce(text);
-    return;
+    run.answer.replaceChildren(element("pre", answer.code ? "answer-text code" : "answer-text", text), meta);
+    return text;
   }
   const empty = response.finish_reason === "stop" ? "A stop sequence ended the response before any text. Clear Stop sequences in Settings, under Advanced, and try again."
     : "The model returned no text. Try rephrasing, or raise the temperature in Settings.";
   run.answer.replaceChildren(element("p", "answer-note", empty), meta);
-  announce(empty);
+  return empty;
 }
 
 async function post(path, payload) {
@@ -303,42 +315,55 @@ async function post(path, payload) {
   return result;
 }
 
-$("prompt-form").addEventListener("submit", async (event) => {
-  event.preventDefault();
-  if ($("generate").disabled) return;
-  const grounded = sourceMode();
-  // The server rejects control characters other than tab and line breaks, which pasted text sometimes carries.
-  const run = { prompt: $("prompt").value.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, " ").trim(), options: settings(), grounded, custom: customModel(), source_text: grounded ? $("source-text").value : "" };
-  state.busy = true; state.slow = false; state.notice = null; state.runs += 1;
-  addTurn(run);
-  announce("Working on an answer");
+// Asks for one more answer to a turn with the current settings, and shows it when it arrives.
+async function ask(run) {
+  const grounded = run.grounded;
+  const answer = { options: grounded ? null : settings(), pending: true };
+  answer.code = !grounded && customModel() && CODE_TASKS.includes(answer.options.task_type);
+  run.answers.push(answer);
+  run.shown = run.answers.length - 1;
+  state.busy = true; state.slow = false; state.notice = null;
+  if (!run.turn) addTurn(run);
+  announce(drawAnswer(run));
   // Touch screens: the chip or button just used may have disappeared, so hand focus to the new question.
   if (touch) run.turn.firstChild.focus({ preventScroll: true });
-  $("prompt").value = "";
-  autosize(); syncComposer(); reveal(run.turn);
+  syncComposer(); reveal(run.turn);
   const slow = setTimeout(() => { state.slow = true; syncComposer(); }, 8000);
   try {
-    const payload = grounded ? { prompt: run.prompt, source_text: run.source_text } : { prompt: run.prompt, ...run.options };
-    showResult(run, await post(grounded ? "/api/grounded" : "/api/generate", payload));
+    const payload = grounded ? { prompt: run.prompt, source_text: run.source_text } : { prompt: run.prompt, ...answer.options };
+    answer.response = await post(grounded ? "/api/grounded" : "/api/generate", payload);
   } catch (error) {
-    run.status = error.status;
-    run.answer.replaceChildren(element("p", "answer-note error", error.message));
-    announce(error.message);
+    [answer.error, answer.status] = [error.message, error.status];
     // Put the question back so it can be sent again, unless a new one is already being typed.
     if (!$("prompt").value) { $("prompt").value = run.prompt; autosize(); }
   } finally {
+    delete answer.pending;
     clearTimeout(slow);
     state.busy = false; state.slow = false;
     // Searches never hold the model, and a 409 means another request still does.
-    if (state.status && !grounded && run.status !== 409) state.status.busy = false;
+    if (state.status && !grounded && answer.status !== 409) state.status.busy = false;
+    announce(drawAnswer(run));
     syncComposer(); reveal(run.turn);
     if (!touch && [document.body, $("generate")].includes(document.activeElement)) $("prompt").focus();
   }
+}
+
+$("prompt-form").addEventListener("submit", (event) => {
+  event.preventDefault();
+  if ($("generate").disabled) return;
+  const grounded = sourceMode();
+  const task = $("task-type").value;
+  // The server rejects control characters other than tab and line breaks, which pasted text sometimes carries.
+  runs.push({ prompt: $("prompt").value.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, " ").trim(), grounded, source_text: grounded ? $("source-text").value : "",
+    tag: grounded ? "Searched your text" : customModel() && task !== "language_generation" ? labels[task] : "", answers: [], shown: 0 });
+  $("prompt").value = "";
+  autosize();
+  ask(runs.at(-1));
 });
 
 function newSession() {
   if (state.busy) return;
-  state.runs = 0; state.notice = null;
+  runs.length = 0; state.notice = null;
   $("thread").replaceChildren();
   $("prompt").value = "";
   autosize(); syncComposer();

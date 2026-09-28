@@ -20,7 +20,7 @@ const PRESETS = {
 const FIELDS = { temperature: "temperature", "top-p": "top_p", "top-k": "top_k", "repetition-penalty": "repetition_penalty" };
 const INTRO = {
   model: ["What would you like to know?", "Ask a short question. Everything runs on your computer, and answers can be wrong."],
-  sources: ["Search your own text", "Paste some text and ask about it. Studio quotes the passages that use the words in your question."],
+  sources: ["Search your own text", "Paste some text or drop in a text file, then ask about it. Studio quotes the passages that use the words in your question."],
 };
 const EXAMPLE = {
   source: "The Riverside Library is open from 9 am to 8 pm on weekdays and from 10 am to 4 pm on Saturdays. It is closed on Sundays and public holidays.\n\nMembers can borrow up to 12 books at a time for three weeks. Laptops can be borrowed for one day and must be returned to the front desk.\n\nPrinting costs 10 cents per page.",
@@ -540,6 +540,30 @@ function newSession() {
   $(touch ? "intro-title" : "prompt").focus();
 }
 
+// Loads a text file into Search my text, from Open a file or a drop anywhere on the page.
+async function openFile(file) {
+  if (!file) return;
+  const textual = file.type.startsWith("text/") || file.type === "application/json" || /\.(txt|md|markdown|csv|json|log)$/i.test(file.name);
+  if (!textual) return notify("Studio can only search plain text files, such as .txt or .md.", true);
+  const tooBig = `${file.name} is longer than ${LIMITS.source.toLocaleString()} bytes, the most Search my text takes. Paste the part you need instead.`;
+  // Reading is skipped for anything far over the limit; line endings are counted once they are normalized.
+  if (file.size > LIMITS.source * 4) return notify(tooBig, true);
+  let text;
+  try {
+    text = (await file.text()).replace(/\r\n?/g, "\n");
+  } catch {
+    return notify(`Couldn't read ${file.name}. Try opening it again.`, true);
+  }
+  if (text.includes("\u0000")) return notify(`${file.name} doesn't look like plain text.`, true);
+  if (bytes(text) > LIMITS.source) return notify(tooBig, true);
+  $("mode-sources").checked = true;
+  $("source-text").value = text;
+  state.notice = null;
+  syncComposer();
+  $("prompt").focus();
+  announce(`Opened ${file.name}.`);
+}
+
 // Puts an earlier question back in the box, in the mode it was asked in, ready to change and send.
 function reuse(run) {
   if (run.grounded || !$("mode-model").disabled) $(run.grounded ? "mode-sources" : "mode-model").checked = true;
@@ -635,6 +659,37 @@ document.addEventListener("keydown", (event) => {
 });
 
 $("new-session").addEventListener("click", newSession);
+$("source-open").addEventListener("click", () => $("source-file").click());
+$("source-file").addEventListener("change", () => {
+  openFile($("source-file").files[0]);
+  // Clearing lets the same file be picked again after it changes on disk.
+  $("source-file").value = "";
+});
+// A file dropped anywhere is searched instead of replacing the page, which is what the browser would do.
+const carriesFiles = (event) => [...(event.dataTransfer?.types || [])].includes("Files");
+let dragDepth = 0;
+document.addEventListener("dragenter", (event) => {
+  if (!carriesFiles(event)) return;
+  dragDepth += 1;
+  document.body.classList.add("dragging");
+});
+document.addEventListener("dragleave", (event) => {
+  if (!carriesFiles(event) || --dragDepth > 0) return;
+  dragDepth = 0;
+  document.body.classList.remove("dragging");
+});
+document.addEventListener("dragover", (event) => {
+  if (!carriesFiles(event)) return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect = "copy";
+});
+document.addEventListener("drop", (event) => {
+  if (!carriesFiles(event)) return;
+  event.preventDefault();
+  dragDepth = 0;
+  document.body.classList.remove("dragging");
+  openFile(event.dataTransfer.files[0]);
+});
 $("scroll-latest").addEventListener("click", () => {
   window.scrollTo({ top: document.documentElement.scrollHeight, behavior: motion() });
   // The button hides once the page is at the bottom, so focus moves on to the latest answer.

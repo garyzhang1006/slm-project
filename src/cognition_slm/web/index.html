@@ -49,9 +49,13 @@
         <div id="source-panel" class="source" hidden>
           <div class="source-head">
             <label for="source-text">Text to search</label>
-            <span id="source-count">0 / 12,000 bytes</span>
+            <div class="source-tools">
+              <span id="source-count">0 / 12,000 bytes</span>
+              <button id="source-open" class="text-button" type="button">Open a file</button>
+            </div>
+            <input id="source-file" type="file" accept=".txt,.md,.markdown,.csv,.json,.log,text/plain,text/markdown,text/csv,application/json" hidden>
           </div>
-          <textarea id="source-text" rows="4" placeholder="Paste notes, documentation or an article" spellcheck="false"></textarea>
+          <textarea id="source-text" rows="4" placeholder="Paste notes, documentation or an article, or drop a text file" spellcheck="false"></textarea>
         </div>
         <label class="visually-hidden" for="prompt">Your question</label>
         <textarea id="prompt" rows="1" placeholder="Ask a question" spellcheck="false" aria-describedby="feedback" required></textarea>

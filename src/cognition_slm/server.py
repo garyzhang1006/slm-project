@@ -276,7 +276,7 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
                 self._json(200, source_excerpts(request))
                 return
             validate_request(request)
-        except (ValueError, UnicodeError, TimeoutError) as exc:
+        except (ValueError, UnicodeError, TimeoutError, RecursionError) as exc:
             self._json(400, {"error": str(exc)})
             return
         runtime = self.server.runtime

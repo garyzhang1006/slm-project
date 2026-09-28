@@ -309,6 +309,17 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.request(body="x" * (MAX_BODY_BYTES + 1), headers=headers)[0], 413)
         self.runtime.generate.assert_not_called()
 
+    def test_deeply_nested_json_is_rejected(self):
+        # Before Python 3.14, json.loads raises RecursionError on deep nesting instead of ValueError.
+        headers = {"Content-Type": "application/json"}
+        body = "[" * 20000 + "]" * 20000
+        self.assertEqual(self.request(body=body, headers=headers)[0], 400)
+        parser = SimpleNamespace(loads=Mock(side_effect=RecursionError("maximum recursion depth exceeded")),
+                                 dumps=json.dumps)
+        with patch("cognition_slm.server.json", parser):
+            self.assertEqual(self.request(body=body, headers=headers)[0], 400)
+        self.runtime.generate.assert_not_called()
+
     def test_unknown_and_traversal_paths(self):
         for path in ("/api/unknown", "/../server.py", "/%2e%2e/server.py"):
             self.assertEqual(self.request("GET", path)[0], 404)

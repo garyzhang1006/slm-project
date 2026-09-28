@@ -581,6 +581,7 @@ svg {
   border-radius: 20px;
   background: var(--surface);
   box-shadow: var(--shadow);
+  cursor: text;
   transition: border-color 0.15s;
 }
 
@@ -616,6 +617,7 @@ svg {
 
 .source {
   margin: 10px 10px 0;
+  cursor: auto;
   padding: 10px 12px;
   border-radius: 12px;
   background: var(--subtle);

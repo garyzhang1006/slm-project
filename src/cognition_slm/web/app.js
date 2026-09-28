@@ -608,6 +608,10 @@ $("prompt").addEventListener("keydown", (event) => {
   event.preventDefault();
   $("prompt-form").requestSubmit();
 });
+// A click on the composer's empty space lands in the question box, but never takes focus from a control or a text selection.
+$("prompt-form").addEventListener("click", (event) => {
+  if (!event.target.closest("button, input, textarea, label, select, .source") && !String(getSelection())) $("prompt").focus();
+});
 document.addEventListener("keydown", (event) => {
   if (document.querySelector("dialog[open]") || event.altKey) return;
   if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); $("prompt-form").requestSubmit(); return; }

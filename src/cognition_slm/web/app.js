@@ -217,7 +217,8 @@ function syncComposer() {
   // Rewriting identical text would make some screen readers repeat it on every keystroke.
   if ($("feedback").textContent !== note) $("feedback").textContent = note;
   $("feedback").classList.toggle("error", error);
-  syncScrollButton();
+  // Starting or clearing a conversation pins or unpins the composer without always resizing it.
+  syncScrollButton(); syncDock();
 }
 
 function notify(text, error = false) {
@@ -729,7 +730,8 @@ function renderStatus() {
 
 $("prompt").addEventListener("input", () => { state.notice = null; autosize(); });
 window.addEventListener("resize", () => { autosize(); syncScrollButton(); syncDock(); });
-new ResizeObserver(syncDock).observe(document.querySelector(".dock"));
+// Dragging the pasted-text box taller changes the composer without any other event.
+new ResizeObserver(syncDock).observe(document.querySelector(".dock"), { box: "border-box" });
 for (const id of ["prompt", "source-text", "task-type", "temperature", "max-tokens", "top-k", "top-p", "repetition-penalty", "stop-sequences"]) $(id).addEventListener("input", syncComposer);
 $("stop-sequences").addEventListener("input", () => { state.stopEdited = true; });
 for (const radio of document.querySelectorAll('input[name="mode"]')) radio.addEventListener("change", () => { state.notice = null; syncComposer(); });

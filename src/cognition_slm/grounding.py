@@ -7,6 +7,9 @@ import re
 MAX_SOURCE_BYTES = 12_000
 MAX_PROMPT_BYTES = 2_000
 _WORDS = re.compile(r"[a-z0-9]+(?:'[a-z]+)?", re.IGNORECASE)
+# Highlights take runs of any letters or digits from the raw passage, so a word that casefolding
+# changes (Straße, café) stays whole and _terms judges it the way ranking does.
+_RUNS = re.compile(r"[^\W_]+(?:'[^\W_]+)?")
 _STOP = frozenset("a an the is are was were be been being do does did can could would should will shall may might what which who whom whose when where why how i you he she it we they me us him them my your his her its our their of to in on at by for from with about and or but as that this these those please tell explain answer question according source passage text".split())
 # Past forms map to the base verb before suffix stripping. Ambiguous forms (saw, found, left, felt, rose) are left out.
 _IRREGULAR = {form: base for base, forms in (
@@ -47,7 +50,7 @@ def _terms(text: str) -> set[str]:
 def _matches(passage: str, query: set[str]) -> list[list[int]]:
     """Start and end offsets, in code points, of the passage words that share a term with the question."""
     # Curly apostrophes are swapped one for one, as _terms does, so a word like can’t stays whole and offsets hold.
-    words = _WORDS.finditer(passage.replace("\u2019", "'"))
+    words = _RUNS.finditer(passage.replace("\u2019", "'"))
     return [[match.start(), match.end()] for match in words if _terms(match.group()) & query]
 
 

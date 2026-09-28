@@ -24,6 +24,11 @@ class GroundingTests(unittest.TestCase):
         spans = self.answer("Why can't members print?", passage)["sources"][0]["matches"]
         self.assertEqual([passage[start:end] for start, end in spans], ["Members", "can\u2019t", "print"])
 
+    def test_matches_cover_words_that_casefolding_changes(self):
+        passage = "The Straße length and the café menu."
+        spans = self.answer("strasse length cafe menu", passage)["sources"][0]["matches"]
+        self.assertEqual([passage[start:end] for start, end in spans], ["Straße", "length", "café", "menu"])
+
     def test_no_reference_or_overlap_abstains(self):
         for source in ("", "Bananas contain potassium."):
             self.assertTrue(self.answer("Where is Paris?", source)["abstained"])

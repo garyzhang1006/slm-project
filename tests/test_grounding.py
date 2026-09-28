@@ -19,6 +19,11 @@ class GroundingTests(unittest.TestCase):
         self.assertEqual([passage[start:end] for start, end in spans], ["Launch", "dates", "launch"])
         self.assertEqual(spans[0], [2, 8])
 
+    def test_matches_include_words_with_curly_apostrophes(self):
+        passage = "Members can\u2019t print on Sundays."
+        spans = self.answer("Why can't members print?", passage)["sources"][0]["matches"]
+        self.assertEqual([passage[start:end] for start, end in spans], ["Members", "can\u2019t", "print"])
+
     def test_no_reference_or_overlap_abstains(self):
         for source in ("", "Bananas contain potassium."):
             self.assertTrue(self.answer("Where is Paris?", source)["abstained"])

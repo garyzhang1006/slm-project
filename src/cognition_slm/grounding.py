@@ -46,7 +46,9 @@ def _terms(text: str) -> set[str]:
 
 def _matches(passage: str, query: set[str]) -> list[list[int]]:
     """Start and end offsets, in code points, of the passage words that share a term with the question."""
-    return [[match.start(), match.end()] for match in _WORDS.finditer(passage) if _terms(match.group()) & query]
+    # Curly apostrophes are swapped one for one, as _terms does, so a word like can’t stays whole and offsets hold.
+    words = _WORDS.finditer(passage.replace("\u2019", "'"))
+    return [[match.start(), match.end()] for match in words if _terms(match.group()) & query]
 
 
 def source_excerpts(request: dict) -> dict:

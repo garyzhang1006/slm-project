@@ -597,6 +597,12 @@ for (const radio of document.querySelectorAll('input[name="preset"]')) radio.add
 });
 
 $("prompt").addEventListener("keydown", (event) => {
+  // Up in an empty box brings back the last question, as in a terminal.
+  if (event.key === "ArrowUp" && !$("prompt").value && runs.length && !event.shiftKey && !event.altKey && !event.metaKey && !event.ctrlKey) {
+    event.preventDefault();
+    reuse(runs.at(-1));
+    return;
+  }
   // Enter sends. Shift+Enter, IME composition (Safari flags it only by keyCode 229) and touch keyboards add a line break.
   if (event.key !== "Enter" || event.shiftKey || event.metaKey || event.ctrlKey || event.isComposing || event.keyCode === 229 || touch) return;
   event.preventDefault();

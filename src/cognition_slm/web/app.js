@@ -17,6 +17,7 @@ const PRESETS = {
   balanced: { temperature: 0.3, "top-p": 0.9, "top-k": 40, "repetition-penalty": 1 },
   varied: { temperature: 0.9, "top-p": 0.95, "top-k": 0, "repetition-penalty": 1.1 },
 };
+const FIELDS = { temperature: "temperature", "top-p": "top_p", "top-k": "top_k", "repetition-penalty": "repetition_penalty" };
 const INTRO = {
   model: ["What would you like to know?", "Ask a short question. Everything runs on your computer, and answers can be wrong."],
   sources: ["Search your own text", "Paste some text and ask about it. Studio quotes the passages that use the words in your question."],
@@ -93,6 +94,18 @@ function settings() {
     stop_sequences: stops.length ? stops : undefined };
 }
 
+// The preset whose sampling values all match these request options, if any.
+function presetFor(options) {
+  return Object.keys(PRESETS).find((name) => Object.entries(PRESETS[name]).every(([id, value]) => Math.abs(options[FIELDS[id]] - value) < 1e-9));
+}
+
+function describeSettings(options, custom) {
+  const stops = options.stop_sequences?.map((item) => item.replace(/\n/g, "\\n").replace(/\t/g, "\\t")).join(", ");
+  return [...(custom ? [`Task type ${labels[options.task_type]}`] : []), `Temperature ${options.temperature.toFixed(1)}`,
+    `Top P ${options.top_p.toFixed(2)}`, `Top K ${options.top_k}`, `Repetition penalty ${options.repetition_penalty.toFixed(2)}`,
+    `Up to ${plural(options.max_new_tokens, "token")}`, stops ? `Stops at ${stops}` : "No stop sequences"].join(" · ");
+}
+
 function promptTokens() {
   const prompt = $("prompt").value.trim();
   if (!prompt) return 0;
@@ -159,7 +172,7 @@ function syncComposer() {
   $("repetition-penalty-value").value = config.repetition_penalty.toFixed(2);
   $("top-k").setAttribute("aria-invalid", String(!validK));
   // Moving any sampling control off a preset leaves no preset selected.
-  const preset = validK && Object.keys(PRESETS).find((name) => Object.entries(PRESETS[name]).every(([id, value]) => Math.abs(Number($(id).value) - value) < 1e-9));
+  const preset = presetFor(config);
   for (const radio of document.querySelectorAll('input[name="preset"]')) radio.checked = radio.value === preset;
   $("stop-sequences").setAttribute("aria-invalid", String(!validStops));
 
@@ -322,12 +335,26 @@ function actions(...buttons) {
 }
 
 // The row under an answer: arrows between tries, a short summary, then the actions.
-function answerMeta(run, summary, buttons) {
+function answerMeta(run, summary, buttons, ...extra) {
   const meta = element("div", "answer-meta");
   if (run.answers.length > 1) meta.append(pager(run));
   if (summary) meta.append(element("span", "", summary));
-  meta.append(actions(...buttons));
+  meta.append(...extra, actions(...buttons));
   return meta;
+}
+
+// Tries can use different settings, so each answer can show the ones it was made with.
+function settingsToggle(run, answer) {
+  const preset = presetFor(answer.options);
+  const name = preset ? document.querySelector(`label[for="preset-${preset}"]`).textContent : "Custom";
+  const button = element("button", "settings-used", name);
+  button.type = "button";
+  button.dataset.action = "settings";
+  button.setAttribute("aria-label", `Settings used: ${name}`);
+  button.setAttribute("aria-expanded", String(Boolean(answer.open)));
+  button.append(icon("expand"));
+  button.addEventListener("click", () => { answer.open = !answer.open; redraw(run); });
+  return button;
 }
 
 // Draws the answer a turn is showing and returns what a screen reader should hear about it.
@@ -368,14 +395,15 @@ function showResult(run, answer) {
   const text = String(response.text || "").replace(/^\n+/, "").trimEnd();
   const details = [plural(response.generated_tokens, "token"), `${Number(response.elapsed_seconds).toFixed(1)}s`];
   if (response.finish_reason === "length") details.push("stopped at the length limit");
-  const meta = answerMeta(run, details.join(" · "), [...(text ? [copyButton(text, "Copy answer")] : []), retryButton(run)]);
+  const meta = answerMeta(run, details.join(" · "), [...(text ? [copyButton(text, "Copy answer")] : []), retryButton(run)], settingsToggle(run, answer));
+  const used = answer.open ? [element("p", "answer-settings", describeSettings(answer.options, answer.custom))] : [];
   if (text) {
-    run.answer.replaceChildren(element("pre", answer.code ? "answer-text code" : "answer-text", text), meta);
+    run.answer.replaceChildren(element("pre", answer.code ? "answer-text code" : "answer-text", text), meta, ...used);
     return text;
   }
   const empty = response.finish_reason === "stop" ? "A stop sequence ended the response before any text. Clear Stop sequences in Settings, under Advanced, and try again."
     : "The model returned no text. Try rephrasing, or raise the temperature in Settings.";
-  run.answer.replaceChildren(element("p", "answer-note", empty), meta);
+  run.answer.replaceChildren(element("p", "answer-note", empty), meta, ...used);
   return empty;
 }
 
@@ -396,7 +424,8 @@ async function ask(run, again = false) {
   if (state.busy) return;
   const grounded = run.grounded;
   const answer = { options: grounded ? null : settings(), pending: true };
-  answer.code = !grounded && customModel() && CODE_TASKS.includes(answer.options.task_type);
+  answer.custom = !grounded && customModel();
+  answer.code = answer.custom && CODE_TASKS.includes(answer.options.task_type);
   // A failed try gives way to the new one instead of staying among the answers.
   if (run.answers[run.shown]?.error) run.answers.splice(run.shown, 1);
   run.answers.push(answer);

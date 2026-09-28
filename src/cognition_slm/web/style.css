@@ -446,6 +446,38 @@ svg {
   opacity: 0.35;
 }
 
+.settings-used {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin: 0 -4px;
+  padding: 2px 4px;
+  border-radius: 6px;
+  color: var(--faint);
+  font-size: inherit;
+}
+
+.settings-used:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+
+.settings-used svg {
+  width: 14px;
+  height: 14px;
+  transition: transform 0.15s;
+}
+
+.settings-used[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.answer-settings {
+  margin: 2px 0 0;
+  font-size: 12.5px;
+  color: var(--muted);
+}
+
 .pager {
   display: flex;
   align-items: center;

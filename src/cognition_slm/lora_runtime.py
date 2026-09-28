@@ -78,8 +78,6 @@ class LoraRuntime(ModelRuntime):
     def generate(self, request: dict) -> dict:
         import torch
 
-        from .generate import strip_stop_sequence
-
         options, record = validate_request(request)
         prompt_ids = self.prompt_ids(record.prompt)
         window = self.metadata.get("context_window") or 0
@@ -104,9 +102,10 @@ class LoraRuntime(ModelRuntime):
         text = self.tokenizer.decode(new_ids, skip_special_tokens=True)
         finish_reason = "eos" if new_ids and new_ids[-1] == self.tokenizer.eos_token_id else "length"
         if finish_reason == "length" and options["stop_sequences"]:
-            stripped = strip_stop_sequence(text, options["stop_sequences"])
-            if stripped != text:
-                text, finish_reason = stripped, "stop"
+            # stop_strings also fires when the final token runs past the stop string, so cut at its first occurrence.
+            found = [index for index in (text.find(item) for item in options["stop_sequences"]) if index >= 0]
+            if found:
+                text, finish_reason = text[: min(found)], "stop"
         return {
             "text": text,
             "elapsed_seconds": round(time.perf_counter() - started, 3),

@@ -84,6 +84,12 @@ class LoraRuntimeTests(unittest.TestCase):
         self.assertEqual(loaded.model.settings["stop_strings"], ["\n\n"])
         self.assertEqual((result["text"], result["finish_reason"]), ("yes", "stop"))
 
+    def test_stop_sequence_inside_the_final_token_is_cut(self):
+        # stop_strings also fires when the last token runs past the stop, like a "\n  " token for stop "\n".
+        loaded = runtime([ord(character) for character in "yes\n  "])
+        result = loaded.generate({"prompt": "Go", "stop_sequences": ["\n"], "max_new_tokens": 8})
+        self.assertEqual((result["text"], result["finish_reason"]), ("yes", "stop"))
+
     def test_context_window_is_enforced(self):
         with self.assertRaisesRegex(ValueError, "exceeds context window"):
             runtime([EOS], window=10).generate({"prompt": "hello there", "max_new_tokens": 5})

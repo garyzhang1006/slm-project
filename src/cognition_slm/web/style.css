@@ -14,6 +14,8 @@
   --faint: light-dark(#73736d, #8a8a84);
   --line: light-dark(#e8e8e4, #2a2a28);
   --line-strong: light-dark(#d5d5cf, #3b3b38);
+  /* Outlines the chosen option in a segmented control at 3:1 against its track, so the choice doesn't rest on a faint fill. */
+  --line-selected: light-dark(#8a8a84, #70706b);
   --accent: light-dark(#2f6b58, #7dc2a8);
   --accent-soft: light-dark(#e3eee8, #1f2f29);
   --warn: light-dark(#b7791f, #e2b659);
@@ -780,7 +782,7 @@ mark {
 .segmented input:checked + label {
   background: var(--raised);
   color: var(--ink);
-  box-shadow: 0 1px 2px rgb(0 0 0 / 10%);
+  box-shadow: inset 0 0 0 1px var(--line-selected), 0 1px 2px rgb(0 0 0 / 10%);
 }
 
 .segmented input:focus-visible + label {

@@ -38,11 +38,13 @@ studio is a small web page for asking the model questions on your own computer.
 
 the launcher starts a local server and opens [http://127.0.0.1:8766](http://127.0.0.1:8766) in your browser. the first launch uses `uv` to build a python 3.13 environment called `.venv-ui-py313`, and later launches reuse it. leave the terminal window open while you use studio, and press control-c there to stop it.
 
-type a question and press enter, and the answer shows up under it. each question is answered on its own, so the model never sees your earlier questions. the button at the top right shows which model is loaded and whether it's ready, and clicking it shows the model's size, context window and device. the sliders button next to it opens the settings. the defaults are made for short answers: temperature 0.3, top-p 0.9 and at most 64 new tokens. top-k, repetition penalty and stop sequences are under advanced.
+type a question and press enter, and the answer shows up under it. each question is answered on its own, so the model never sees your earlier questions. the button at the top right shows which model is loaded and whether it's ready, and clicking it shows the model's size, context window and device. the sliders button at the far right opens the settings. steady, balanced and varied at the top set the sampling options for you: steady gives the same answer every time, and varied changes more between tries. balanced is the default and is made for short answers, with temperature 0.3, top-p 0.9 and at most 64 new tokens. top-k, repetition penalty and stop sequences are under advanced. the settings also have a light and dark theme switch, and studio remembers your choices the next time you open it.
 
-the "search my text" switch under the question box doesn't use the model at all. you paste some text, ask a question, and studio shows up to three passages from your text that answer it, each tagged like `S1`. if nothing in your text matches, it says so instead of making something up.
+under each answer there's a row of small buttons. copy puts the answer on your clipboard, and try again asks the same question with your current settings. every try is kept, and the arrows next to the answer count flip between them. the preset name next to the stats shows which settings made that answer, and clicking it lists them. try again also shows up when a request fails. pointing at a question shows a pencil button that puts the question back in the box so you can change it and ask again, and pressing the up arrow in an empty box does the same for your last question. while an answer is on its way, a counter shows how many seconds it has taken so far.
 
-enter sends and shift+enter starts a new line, and `/` jumps to the question box. the pencil button at the top starts a new conversation.
+the "search my text" switch under the question box doesn't use the model at all. you paste some text, or open a text file or drag one onto the page, then ask a question, and studio shows up to three passages from your text that answer it, each tagged like `S1`. the words that matched your question are highlighted. if nothing in your text matches, it says so instead of making something up.
+
+enter sends and shift+enter starts a new line. `/` jumps to the question box, and `?` lists every keyboard shortcut. the download button at the top saves the conversation as a markdown file, and the pencil button next to it starts a new conversation. if you scroll up in a long conversation, an arrow above the question box takes you back down to the newest answer.
 
 by default studio loads `artifacts/slm-500m-language-quality.pt` and checks that it has exactly 499,524,075 parameters. the weights aren't stored in git, so download them from kaggle first. to load a different checkpoint, run `./launch-studio.command --checkpoint /path/to/model.pt`. if port 8766 is already in use, add `--port 8767`.
 
@@ -54,7 +56,7 @@ if you only want to search your own text, you can skip the weights and pytorch e
 ./launch-studio.command --sources-only
 ```
 
-a few limits: pasted text is capped at 12,000 bytes and questions at 2,000 bytes, and the page never loads anything from the internet. the conversation stays in the tab when you refresh the page, and it's cleared when you close the tab or start a new conversation. model output is always shown as plain text and never run as code.
+a few limits: pasted text and opened files are capped at 12,000 bytes and questions at 2,000 bytes, and the page never loads anything from the internet. the conversation stays in the tab when you refresh the page, and it's cleared when you close the tab or start a new conversation. model output is always shown as plain text and never run as code.
 
 ## quick start
 

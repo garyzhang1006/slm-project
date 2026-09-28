@@ -160,6 +160,7 @@ function syncComposer() {
 
   $("source-count").textContent = `${sourceBytes.toLocaleString()} / ${LIMITS.source.toLocaleString()} bytes`;
   $("source-count").classList.toggle("over", sourceBytes > LIMITS.source);
+  $("source-clear").hidden = !sourceBytes;
   // The count stays hidden until a limit is close, so short questions get a quiet composer.
   const [used, limit, unit] = grounded ? [questionBytes, LIMITS.question, "bytes"] : [count, context ? Math.max(context - config.max_new_tokens, 0) : 0, "tokens"];
   const near = limit > 0 && used > limit * 0.8;
@@ -660,6 +661,12 @@ document.addEventListener("keydown", (event) => {
 
 $("new-session").addEventListener("click", newSession);
 $("source-open").addEventListener("click", () => $("source-file").click());
+$("source-clear").addEventListener("click", () => {
+  $("source-text").value = "";
+  syncComposer();
+  // The button hides once the text is gone, so focus moves to the empty box.
+  $("source-text").focus();
+});
 $("source-file").addEventListener("change", () => {
   openFile($("source-file").files[0]);
   // Clearing lets the same file be picked again after it changes on disk.

@@ -29,7 +29,7 @@ studio is a small web page for asking the model questions on your own computer.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/studio-dark.png">
-  <img src="docs/studio-light.png" alt="studio with two questions and their answers, and the question box at the bottom" width="720">
+  <img src="docs/studio-light.png" alt="studio showing a search of pasted text with the matching words highlighted, a short answer from the model, and the question box at the bottom" width="720">
 </picture>
 
 ```bash

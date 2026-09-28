@@ -485,11 +485,13 @@ async function ask(run, again = false) {
   run.shown = run.answers.length - 1;
   state.busy = true; state.slow = false; state.notice = null;
   if (!run.turn) addTurn(run);
-  announce(drawAnswer(run));
+  const waiting = drawAnswer(run);
   // The button just used disappears while the answer loads, so focus waits on the answer itself.
+  // A screen reader reads the focused answer, which already says one is on its way, so it isn't announced twice.
   if (again) run.answer.focus({ preventScroll: true });
   // Touch screens: the chip or button just used may have disappeared, so hand focus to the new question.
   else if (touch) run.question.focus({ preventScroll: true });
+  if (!again) announce(waiting);
   syncComposer(); reveal(run.turn);
   const slow = setTimeout(() => { state.slow = true; syncComposer(); }, 8000);
   const started = performance.now();

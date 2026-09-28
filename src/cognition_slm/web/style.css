@@ -2,46 +2,35 @@
 
 :root {
   color-scheme: light dark;
-  --bg: #fbfbfa;
-  --surface: #ffffff;
-  --subtle: #f3f3f1;
-  --raised: #ffffff;
-  --hover: #ececea;
-  --ink: #1b1b19;
-  --on-ink: #ffffff;
-  --muted: #676762;
-  --faint: #73736d;
-  --line: #e8e8e4;
-  --line-strong: #d5d5cf;
-  --accent: #2f6b58;
-  --accent-soft: #e3eee8;
-  --warn: #b7791f;
-  --danger: #b42318;
-  --shadow: 0 1px 2px rgb(20 20 18 / 4%), 0 10px 30px rgb(20 20 18 / 6%);
+  /* Each color is light-dark(light, dark), so a forced theme only has to change color-scheme. */
+  --bg: light-dark(#fbfbfa, #131312);
+  --surface: light-dark(#ffffff, #1b1b1a);
+  --subtle: light-dark(#f3f3f1, #232321);
+  --raised: light-dark(#ffffff, #3a3a37);
+  --hover: light-dark(#ececea, #2b2b29);
+  --ink: light-dark(#1b1b19, #ecece8);
+  --on-ink: light-dark(#ffffff, #131312);
+  --muted: light-dark(#676762, #a3a39d);
+  --faint: light-dark(#73736d, #8a8a84);
+  --line: light-dark(#e8e8e4, #2a2a28);
+  --line-strong: light-dark(#d5d5cf, #3b3b38);
+  --accent: light-dark(#2f6b58, #7dc2a8);
+  --accent-soft: light-dark(#e3eee8, #1f2f29);
+  --warn: light-dark(#b7791f, #e2b659);
+  --danger: light-dark(#b42318, #ff8b80);
+  --shadow-color: light-dark(rgb(20 20 18 / 6%), rgb(0 0 0 / 35%));
+  --shadow: 0 1px 2px var(--shadow-color), 0 4px 8px var(--shadow-color);
   --sans: ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   --measure: 720px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #131312;
-    --surface: #1b1b1a;
-    --subtle: #232321;
-    --raised: #3a3a37;
-    --hover: #2b2b29;
-    --ink: #ecece8;
-    --on-ink: #131312;
-    --muted: #a3a39d;
-    --faint: #8a8a84;
-    --line: #2a2a28;
-    --line-strong: #3b3b38;
-    --accent: #7dc2a8;
-    --accent-soft: #1f2f29;
-    --warn: #e2b659;
-    --danger: #ff8b80;
-    --shadow: 0 1px 2px rgb(0 0 0 / 30%), 0 10px 30px rgb(0 0 0 / 35%);
-  }
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 *,

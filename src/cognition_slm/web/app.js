@@ -233,22 +233,40 @@ function addTurn(run) {
   $("thread").append(run.turn);
 }
 
-function copyButton(text, label) {
-  const button = element("button", "copy", "Copy");
+// Icons live in a template in index.html, so markup stays out of the script.
+function icon(name) {
+  return $("icons").content.querySelector(`[data-icon="${name}"]`).cloneNode(true);
+}
+
+function iconButton(name, label) {
+  const button = element("button", "action");
   button.type = "button";
+  button.title = label;
   button.setAttribute("aria-label", label);
+  button.append(icon(name));
+  return button;
+}
+
+function copyButton(text, label) {
+  const button = iconButton("copy", label);
   button.addEventListener("click", async () => {
     try {
       await navigator.clipboard.writeText(text);
-      button.textContent = "Copied";
+      button.replaceChildren(icon("check"));
       button.classList.add("done");
       announce("Copied");
-      setTimeout(() => { button.textContent = "Copy"; button.classList.remove("done"); }, 1600);
+      setTimeout(() => { button.replaceChildren(icon("copy")); button.classList.remove("done"); }, 1600);
     } catch {
       notify("Copying isn't available here. Select the text to copy it instead.", true);
     }
   });
   return button;
+}
+
+function actions(...buttons) {
+  const group = element("div", "actions");
+  group.append(...buttons);
+  return group;
 }
 
 // Draws the answer a turn is showing and returns what a screen reader should hear about it.
@@ -283,7 +301,7 @@ function showResult(run, answer) {
       item.append(element("span", "cite", source.id), element("blockquote", "", source.text));
       list.append(item);
     }
-    meta.append(element("span", "", `${plural(sources.length, "passage")} quoted from your text`), copyButton(response.text, "Copy passages"));
+    meta.append(element("span", "", `${plural(sources.length, "passage")} quoted from your text`), actions(copyButton(response.text, "Copy passages")));
     run.answer.replaceChildren(list, meta);
     return `Found ${plural(sources.length, "passage")}. ${sources.map((source) => source.text).join(" ")}`;
   }
@@ -293,7 +311,7 @@ function showResult(run, answer) {
   if (response.finish_reason === "length") details.push("stopped at the length limit");
   meta.append(element("span", "", details.join(" · ")));
   if (text) {
-    meta.append(copyButton(text, "Copy answer"));
+    meta.append(actions(copyButton(text, "Copy answer")));
     run.answer.replaceChildren(element("pre", answer.code ? "answer-text code" : "answer-text", text), meta);
     return text;
   }

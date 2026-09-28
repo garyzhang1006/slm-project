@@ -400,30 +400,55 @@ svg {
   color: var(--faint);
 }
 
-.copy {
-  margin-left: -6px;
-  padding: 3px 6px;
-  border-radius: 6px;
-  color: var(--muted);
-  font-size: 12.5px;
-  opacity: 0;
-  transition: opacity 0.15s, background 0.15s;
+.actions {
+  display: flex;
+  gap: 2px;
+  margin-left: -4px;
 }
 
-.turn:hover .copy,
-.copy:focus-visible,
-.copy.done {
+.action {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity 0.15s, background 0.15s, color 0.15s;
+}
+
+.action svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* The latest answer always shows its actions; earlier ones show them on hover or focus. */
+.turn:last-child .action,
+.turn:hover .action,
+.turn:focus-within .action,
+.action.done {
   opacity: 1;
 }
 
-.copy:hover {
+.action:hover {
   background: var(--hover);
   color: var(--ink);
 }
 
+.action.done {
+  color: var(--accent);
+}
+
 @media (hover: none) {
-  .copy {
+  .action {
     opacity: 1;
+  }
+}
+
+@media (pointer: coarse) {
+  .action {
+    width: 40px;
+    height: 40px;
   }
 }
 

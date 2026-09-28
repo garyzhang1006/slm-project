@@ -221,8 +221,16 @@ class StudioAssetTests(unittest.TestCase):
         script = (self.web / "app.js").read_text()
         # The dialogs are also looked up as $(name) and $(`${name}-open`).
         ids = set(re.findall(r'\$\("([a-z-]+)"\)', script)) | {"settings", "settings-open", "about", "about-open"}
+        # Template lookups: $(`theme-${theme}`) at startup, $(`keys-${value}`) and label[for="preset-${preset}"].
+        themes = re.findall(r'"([a-z]+)"', re.search(r"const THEMES = \[([^\]]*)\]", script).group(1))
+        presets = re.findall(r"^  ([a-z]+): \{ temperature", script, re.M)
+        self.assertTrue(themes and presets)
+        ids |= {f"theme-{name}" for name in themes} | {f"preset-{name}" for name in presets} | {"keys-on", "keys-off"}
         for element_id in sorted(ids):
             self.assertIn(f'id="{element_id}"', html)
+        # Every answer draws icons cloned by name from the page's template.
+        for name in sorted(set(re.findall(r'icon(?:Button)?\("([a-z-]+)"', script))):
+            self.assertIn(f'data-icon="{name}"', html)
 
     def test_page_loads_only_same_origin_assets(self):
         html = (self.web / "index.html").read_text()

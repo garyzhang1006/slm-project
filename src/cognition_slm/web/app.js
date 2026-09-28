@@ -54,6 +54,23 @@ function applyTheme(theme) {
   }
 }
 
+// Answer settings carry over to the next visit; Reset answer settings brings back the defaults.
+function saveSettings() {
+  const values = Object.fromEntries([...Object.keys(DEFAULTS), "stop-sequences"].map((id) => [id, $(id).value]));
+  writeStore("localStorage", "studio-settings", { ...values, stopEdited: state.stopEdited });
+}
+
+function restoreSettings() {
+  const saved = readStore("localStorage", "studio-settings");
+  if (!saved || typeof saved !== "object") return;
+  for (const id of [...Object.keys(DEFAULTS), "stop-sequences"]) {
+    // A task type from an older page may no longer exist, and a select would then show nothing.
+    if (typeof saved[id] === "string" && (id !== "task-type" || saved[id] in labels)) $(id).value = saved[id];
+  }
+  state.stopEdited = saved.stopEdited === true;
+  state.stopTask = $("task-type").value;
+}
+
 // A newline stop keeps short answers to one line; multi-line tasks such as code start without one.
 const defaultStops = (task) => (task === "language_generation" ? "\\n" : "");
 
@@ -427,8 +444,10 @@ $("reset-settings").addEventListener("click", () => {
   state.stopEdited = false;
   $("stop-sequences").value = defaultStops($("task-type").value);
   state.stopTask = $("task-type").value;
-  syncComposer();
+  syncComposer(); saveSettings();
 });
+// Change events arrive after a preset has filled in its values, and after a slider is let go.
+for (const type of ["input", "change"]) $("settings").addEventListener(type, saveSettings);
 for (const name of ["settings", "about"]) {
   const dialog = $(name);
   let pressed = false;
@@ -439,6 +458,6 @@ for (const name of ["settings", "about"]) {
   dialog.addEventListener("click", (event) => { if (pressed && event.target === dialog) dialog.close(); });
 }
 
-applyTheme(savedTheme());
+applyTheme(savedTheme()); restoreSettings();
 autosize(); renderStatus(); syncComposer(); pollStatus();
 if (!touch) $("prompt").focus();

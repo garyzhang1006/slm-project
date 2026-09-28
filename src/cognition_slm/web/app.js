@@ -479,8 +479,8 @@ async function ask(run, again = false) {
   const answer = { options: grounded ? null : settings(), pending: true };
   answer.custom = !grounded && customModel();
   answer.code = answer.custom && CODE_TASKS.includes(answer.options.task_type);
-  // A failed try gives way to the new one instead of staying among the answers.
-  if (run.answers[run.shown]?.error) run.answers.splice(run.shown, 1);
+  // Failed tries give way to the new one instead of staying among the answers, wherever they sit.
+  run.answers = run.answers.filter((earlier) => !earlier.error);
   run.answers.push(answer);
   run.shown = run.answers.length - 1;
   state.busy = true; state.slow = false; state.notice = null;

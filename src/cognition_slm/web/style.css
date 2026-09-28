@@ -364,6 +364,15 @@ svg {
   color: var(--muted);
 }
 
+/* The conversation, and the box it's typed in, read a step larger than the controls around them. */
+.question,
+.answer-text,
+.answer-note,
+.excerpts blockquote,
+#prompt {
+  font-size: 16px;
+}
+
 .answer-note.error {
   color: var(--danger);
 }

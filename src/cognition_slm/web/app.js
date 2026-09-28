@@ -486,8 +486,10 @@ async function post(path, payload) {
   } catch {
     throw new Error("Couldn't reach Studio. Check that it's still running, then try again.");
   }
-  const result = await response.json().catch(() => ({}));
-  if (!response.ok) throw Object.assign(new Error(result.error || `Studio answered with an error (${response.status}). Try again.`), { status: response.status });
+  const result = await response.json().catch(() => null);
+  if (!response.ok) throw Object.assign(new Error(result?.error || `Studio answered with an error (${response.status}). Try again.`), { status: response.status });
+  // A body cut off partway would otherwise be drawn, and saved, as an empty answer.
+  if (!result) throw new Error("Studio's answer arrived incomplete. Try again.");
   return result;
 }
 

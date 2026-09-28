@@ -204,6 +204,12 @@ class StudioAssetTests(unittest.TestCase):
         self.assertLess(script.index(clear), script.index('for (const id of ["prompt", "source-text"'))
         self.assertIn("if (phase() !== before) state.notice = null;", script)
 
+    def test_unreadable_answer_is_an_error(self):
+        script = (self.web / "app.js").read_text()
+        # A 200 whose body can't be parsed must not be drawn and saved as an empty answer.
+        self.assertIn("const result = await response.json().catch(() => null);", script)
+        self.assertIn("if (!result) throw new Error(", script)
+
     def test_script_ids_exist_in_page(self):
         html = (self.web / "index.html").read_text()
         script = (self.web / "app.js").read_text()

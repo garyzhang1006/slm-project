@@ -174,6 +174,18 @@
           </div>
         </div>
       </div>
+      <div id="keys-field" class="field">
+        <div class="field-row">
+          <span id="keys-label" class="label">Single-key shortcuts</span>
+          <div class="segmented" role="radiogroup" aria-labelledby="keys-label" aria-describedby="keys-hint">
+            <input type="radio" name="keys" id="keys-on" value="on" checked>
+            <label for="keys-on">On</label>
+            <input type="radio" name="keys" id="keys-off" value="off">
+            <label for="keys-off">Off</label>
+          </div>
+        </div>
+        <p id="keys-hint" class="hint"><kbd>/</kbd> goes to the question box and <kbd>?</kbd> opens the list of shortcuts. Turn them off if speech or switch software types those keys by accident.</p>
+      </div>
     </div>
     <div class="sheet-foot">
       <button id="reset-settings" class="text-button" type="button">Reset answer settings</button>
@@ -197,9 +209,9 @@
           <div><dt>Send</dt><dd><kbd>Enter</kbd></dd></div>
           <div><dt>New line</dt><dd><kbd>Shift</kbd> <kbd>Enter</kbd></dd></div>
           <div><dt>Send from anywhere</dt><dd><kbd class="modifier">Ctrl</kbd> <kbd>Enter</kbd></dd></div>
-          <div><dt>Go to the question box</dt><dd><kbd>/</kbd></dd></div>
+          <div class="single-key"><dt>Go to the question box</dt><dd><kbd>/</kbd></dd></div>
           <div><dt>Bring back the last question</dt><dd><kbd>&uarr;</kbd> in an empty box</dd></div>
-          <div><dt>Show this list</dt><dd><kbd>?</kbd></dd></div>
+          <div class="single-key"><dt>Show this list</dt><dd><kbd>?</kbd></dd></div>
         </dl>
       </section>
       <p class="hint">Your questions never leave this computer, and answers are shown as plain text and never run. Small models make mistakes, so check anything that matters.</p>

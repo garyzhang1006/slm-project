@@ -945,6 +945,11 @@ dialog::backdrop {
   border-bottom: 0;
 }
 
+/* Touch screens hide the shortcut setting, which leaves the field before it last in line. */
+.field:has(+ .field[hidden]:last-child) {
+  border-bottom: 0;
+}
+
 .field-row {
   display: flex;
   align-items: baseline;

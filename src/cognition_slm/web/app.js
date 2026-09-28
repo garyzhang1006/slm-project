@@ -59,6 +59,16 @@ function applyTheme(theme) {
 }
 
 // Answer settings carry over to the next visit; Reset answer settings brings back the defaults.
+// Single-key shortcuts can be turned off, for speech or switch software that types / or ? by accident.
+function savedKeys() {
+  return readStore("localStorage", "studio-shortcuts") === "off" ? "off" : "on";
+}
+
+function applyKeys(value) {
+  $(`keys-${value}`).checked = true;
+  for (const row of document.querySelectorAll(".single-key")) row.hidden = value === "off";
+}
+
 function saveSettings() {
   const values = Object.fromEntries([...Object.keys(DEFAULTS), "stop-sequences"].map((id) => [id, $(id).value]));
   writeStore("localStorage", "studio-settings", { ...values, stopEdited: state.stopEdited });
@@ -727,9 +737,14 @@ for (const radio of document.querySelectorAll('input[name="theme"]')) radio.addE
   applyTheme(radio.value);
   writeStore("localStorage", "studio-theme", radio.value);
 });
-// Other Studio tabs pick up a theme change right away.
+for (const radio of document.querySelectorAll('input[name="keys"]')) radio.addEventListener("change", () => {
+  applyKeys(radio.value);
+  writeStore("localStorage", "studio-shortcuts", radio.value);
+});
+// Other Studio tabs pick up a theme or shortcut change right away.
 window.addEventListener("storage", (event) => {
   if (event.key === "studio-theme") applyTheme(savedTheme());
+  if (event.key === "studio-shortcuts") applyKeys(savedKeys());
 });
 for (const radio of document.querySelectorAll('input[name="preset"]')) radio.addEventListener("change", () => {
   for (const [id, value] of Object.entries(PRESETS[radio.value])) $(id).value = String(value);
@@ -756,6 +771,7 @@ document.addEventListener("keydown", (event) => {
   if (document.querySelector("dialog[open]") || event.altKey) return;
   if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) { event.preventDefault(); $("prompt-form").requestSubmit(); return; }
   if (event.metaKey || event.ctrlKey || ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName)) return;
+  if (touch || !$("keys-on").checked) return;
   if (event.key === "/") { event.preventDefault(); $("prompt").focus(); }
   if (event.key === "?") {
     event.preventDefault();
@@ -855,8 +871,9 @@ document.addEventListener("visibilitychange", () => { if (document.hidden) saveT
 
 // Phones have no keyboard to take shortcuts from, and Macs name the modifier differently.
 $("shortcuts").hidden = touch;
+$("keys-field").hidden = touch;
 if (/Mac|iPhone|iPad/.test(navigator.platform)) for (const key of document.querySelectorAll(".modifier")) key.textContent = "\u2318";
-applyTheme(savedTheme()); restoreSettings(); restoreThread();
+applyTheme(savedTheme()); applyKeys(savedKeys()); restoreSettings(); restoreThread();
 autosize(); renderStatus(); syncComposer(); pollStatus();
 state.started = true;
 if (!touch) $("prompt").focus();

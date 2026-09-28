@@ -577,6 +577,20 @@ function newSession() {
 }
 
 // A Markdown copy of the conversation, with the settings behind each answer, for notes or a results log.
+// The fence a Markdown answer leaves open, if any. Answers cut off at a stop sequence or the length limit
+// often end inside a code block, which would turn the rest of a downloaded file into code.
+function openFence(text) {
+  let open = null;
+  for (const line of text.split("\n")) {
+    const [, marks, rest] = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/) || [];
+    if (!marks) continue;
+    // Backtick fences can't carry backticks after them, and a closing fence is at least as long as the opening one.
+    if (!open) open = marks[0] === "`" && rest.includes("`") ? null : marks;
+    else if (marks[0] === open[0] && marks.length >= open.length && !rest.trim()) open = null;
+  }
+  return open;
+}
+
 function transcript() {
   const model = state.status?.model?.name;
   const lines = ["# slm studio", "", `${model ? `${model}, saved` : "Saved"} ${new Date().toLocaleString()}`];
@@ -598,7 +612,8 @@ function transcript() {
         const text = String(response.text || "").replace(/^\n+/, "").trimEnd();
         // A fence longer than any backtick run inside the answer keeps code intact.
         const fence = "`".repeat(Math.max(3, ...(text.match(/`+/g) || []).map((ticks) => ticks.length + 1)));
-        add(...(!text ? ["*No text.*"] : answer.code ? [fence, text, fence] : [text]), "");
+        const dangling = openFence(text);
+        add(...(!text ? ["*No text.*"] : answer.code ? [fence, text, fence] : dangling ? [text, dangling] : [text]), "");
         add(`*${plural(response.generated_tokens, "token")} · ${Number(response.elapsed_seconds).toFixed(1)}s · ${describeSettings(answer.options, answer.custom)}*`, "");
       }
     });

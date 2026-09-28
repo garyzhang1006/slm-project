@@ -150,9 +150,22 @@
           <p id="stop-hint" class="hint">Up to 4, separated by commas or new lines, each at most 64 UTF-8 bytes. Type \n for a line break. Language generation starts with \n so answers stay one line; leave it empty to run to the length limit.</p>
         </div>
       </details>
+      <div class="field">
+        <div class="field-row">
+          <span id="theme-label" class="label">Theme</span>
+          <div class="segmented" role="radiogroup" aria-labelledby="theme-label">
+            <input type="radio" name="theme" id="theme-system" value="system" checked>
+            <label for="theme-system">System</label>
+            <input type="radio" name="theme" id="theme-light" value="light">
+            <label for="theme-light">Light</label>
+            <input type="radio" name="theme" id="theme-dark" value="dark">
+            <label for="theme-dark">Dark</label>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="sheet-foot">
-      <button id="reset-settings" class="text-button" type="button">Reset to defaults</button>
+      <button id="reset-settings" class="text-button" type="button">Reset answer settings</button>
       <button class="primary close-dialog" type="button">Done</button>
     </div>
   </dialog>

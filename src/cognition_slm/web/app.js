@@ -23,9 +23,36 @@ const EXAMPLE = {
   source: "The Riverside Library is open from 9 am to 8 pm on weekdays and from 10 am to 4 pm on Saturdays. It is closed on Sundays and public holidays.\n\nMembers can borrow up to 12 books at a time for three weeks. Laptops can be borrowed for one day and must be returned to the front desk.\n\nPrinting costs 10 cents per page.",
   question: "How many books can members borrow?",
 };
+const THEMES = ["system", "light", "dark"];
 // Touch keyboards have no Shift+Enter, so there Enter adds a line break and the arrow button sends.
 const touch = matchMedia("(pointer: coarse)").matches;
 const motion = () => (matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth");
+
+// Storage can be switched off, for example in private windows, so reads and writes are allowed to fail.
+function readStore(area, key) {
+  try { return JSON.parse(window[area].getItem(key)); } catch { return null; }
+}
+
+function writeStore(area, key, value) {
+  try { window[area].setItem(key, JSON.stringify(value)); } catch { /* Studio works without storage. */ }
+}
+
+function savedTheme() {
+  const theme = readStore("localStorage", "studio-theme");
+  return THEMES.includes(theme) ? theme : "system";
+}
+
+function applyTheme(theme) {
+  if (theme === "system") delete document.documentElement.dataset.theme;
+  else document.documentElement.dataset.theme = theme;
+  $(`theme-${theme}`).checked = true;
+  // The browser's own bar follows the page, including a theme picked here instead of the system one.
+  const background = getComputedStyle(document.body).backgroundColor;
+  for (const meta of document.querySelectorAll('meta[name="theme-color"]')) {
+    meta.dataset.system ??= meta.content;
+    meta.content = theme === "system" ? meta.dataset.system : background;
+  }
+}
 
 // A newline stop keeps short answers to one line; multi-line tasks such as code start without one.
 const defaultStops = (task) => (task === "language_generation" ? "\\n" : "");
@@ -348,6 +375,14 @@ window.addEventListener("resize", autosize);
 for (const id of ["prompt", "source-text", "task-type", "temperature", "max-tokens", "top-k", "top-p", "repetition-penalty", "stop-sequences"]) $(id).addEventListener("input", syncComposer);
 $("stop-sequences").addEventListener("input", () => { state.stopEdited = true; });
 for (const radio of document.querySelectorAll('input[name="mode"]')) radio.addEventListener("change", () => { state.notice = null; syncComposer(); });
+for (const radio of document.querySelectorAll('input[name="theme"]')) radio.addEventListener("change", () => {
+  applyTheme(radio.value);
+  writeStore("localStorage", "studio-theme", radio.value);
+});
+// Other Studio tabs pick up a theme change right away.
+window.addEventListener("storage", (event) => {
+  if (event.key === "studio-theme") applyTheme(savedTheme());
+});
 for (const radio of document.querySelectorAll('input[name="preset"]')) radio.addEventListener("change", () => {
   for (const [id, value] of Object.entries(PRESETS[radio.value])) $(id).value = String(value);
   syncComposer();
@@ -404,5 +439,6 @@ for (const name of ["settings", "about"]) {
   dialog.addEventListener("click", (event) => { if (pressed && event.target === dialog) dialog.close(); });
 }
 
+applyTheme(savedTheme());
 autosize(); renderStatus(); syncComposer(); pollStatus();
 if (!touch) $("prompt").focus();

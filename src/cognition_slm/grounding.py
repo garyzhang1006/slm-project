@@ -7,7 +7,7 @@ import re
 MAX_SOURCE_BYTES = 12_000
 MAX_PROMPT_BYTES = 2_000
 _WORDS = re.compile(r"[a-z0-9]+(?:'[a-z]+)?", re.IGNORECASE)
-_STOP = frozenset("a an the is are was were be been being do does did can could would should will shall may might what which who whom whose when where why how i you he she it we they me my your his her its our their of to in on at by for from with about and or but as that this these those please tell explain answer question according source passage text".split())
+_STOP = frozenset("a an the is are was were be been being do does did can could would should will shall may might what which who whom whose when where why how i you he she it we they me us him them my your his her its our their of to in on at by for from with about and or but as that this these those please tell explain answer question according source passage text".split())
 # Past forms map to the base verb before suffix stripping. Ambiguous forms (saw, found, left, felt, rose) are left out.
 _IRREGULAR = {form: base for base, forms in (
     ("become", "became"), ("begin", "began begun"), ("break", "broke broken"), ("bring", "brought"),

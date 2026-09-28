@@ -31,6 +31,11 @@ class GroundingTests(unittest.TestCase):
     def test_generic_question_abstains(self):
         self.assertTrue(self.answer("What is it?", "It is a train.")["abstained"])
 
+    def test_object_pronouns_are_not_topics(self):
+        # Stemmed, "us" and "them" would match "use" and "theme".
+        self.assertTrue(self.answer("Can you tell us?", "Use the side door.")["abstained"])
+        self.assertTrue(self.answer("Can you tell them?", "The theme is blue.")["abstained"])
+
     def test_partial_topic_match_abstains(self):
         self.assertTrue(self.answer("Explain solar panel battery storage", "Solar panels collect light.")["abstained"])
 

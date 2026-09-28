@@ -197,6 +197,13 @@ class StudioAssetTests(unittest.TestCase):
         # Source-excerpt requests carry only the prompt and reference text.
         self.assertIn("grounded ? { prompt: run.prompt, source_text: run.source_text }", script)
 
+    def test_notices_clear_when_their_cause_changes(self):
+        script = (self.web / "app.js").read_text()
+        clear = '$("source-text").addEventListener("input", () => { state.notice = null; });'
+        # Registered before syncComposer, so the redraw after a paste no longer shows the old notice.
+        self.assertLess(script.index(clear), script.index('for (const id of ["prompt", "source-text"'))
+        self.assertIn("if (phase() !== before) state.notice = null;", script)
+
     def test_script_ids_exist_in_page(self):
         html = (self.web / "index.html").read_text()
         script = (self.web / "app.js").read_text()

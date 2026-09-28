@@ -688,6 +688,7 @@ function reuse(run) {
 }
 
 async function pollStatus() {
+  const before = phase();
   try {
     const response = await fetch("/api/status", { cache: "no-store" });
     if (!response.ok) throw new Error(`Status request failed with ${response.status}.`);
@@ -696,6 +697,8 @@ async function pollStatus() {
   } catch {
     state.offline = true;
   }
+  // A notice from before the server stopped or came back would hide the message about that change.
+  if (phase() !== before) state.notice = null;
   // A sources-only server has no model, so searching your text is the only mode that works.
   if (phase() === "disabled" && !sourceMode()) $("mode-sources").checked = true;
   renderStatus(); syncComposer();
@@ -729,6 +732,8 @@ function renderStatus() {
 }
 
 $("prompt").addEventListener("input", () => { state.notice = null; autosize(); });
+// A notice about a file or earlier text no longer applies once the text to search changes.
+$("source-text").addEventListener("input", () => { state.notice = null; });
 window.addEventListener("resize", () => { autosize(); syncScrollButton(); syncDock(); });
 // Dragging the pasted-text box taller changes the composer without any other event.
 new ResizeObserver(syncDock).observe(document.querySelector(".dock"), { box: "border-box" });

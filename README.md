@@ -44,7 +44,7 @@ under each answer there's a row of small buttons. copy puts the answer on your c
 
 the "search my text" switch under the question box doesn't use the model at all. you paste some text, or open a text file or drag one onto the page, then ask a question, and studio shows up to three passages from your text that answer it, each tagged like `S1`. the words that matched your question are highlighted. if nothing in your text matches, it says so instead of making something up.
 
-enter sends and shift+enter starts a new line. `/` jumps to the question box, and `?` lists every keyboard shortcut. the download button at the top saves the conversation as a markdown file, and the pencil button next to it starts a new conversation. if you scroll up in a long conversation, an arrow above the question box takes you back down to the newest answer.
+enter sends and shift+enter starts a new line. `/` jumps to the question box and `?` lists every keyboard shortcut, and you can turn those two off in the settings if they get in the way. the download button at the top saves the conversation as a markdown file, and the pencil button next to it starts a new conversation. if you scroll up in a long conversation, an arrow above the question box takes you back down to the newest answer.
 
 by default studio loads `artifacts/slm-500m-language-quality.pt` and checks that it has exactly 499,524,075 parameters. the weights aren't stored in git, so download them from kaggle first. to load a different checkpoint, run `./launch-studio.command --checkpoint /path/to/model.pt`. if port 8766 is already in use, add `--port 8767`.
 

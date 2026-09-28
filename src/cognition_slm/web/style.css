@@ -1204,6 +1204,12 @@ dd {
     max-width: 92%;
   }
 
+  /* Tokens and timing move under the buttons, so the buttons keep to one line. */
+  .answer-meta:has(.settings-used) > span {
+    order: 1;
+    flex-basis: 100%;
+  }
+
   .composer {
     border-radius: 18px;
   }

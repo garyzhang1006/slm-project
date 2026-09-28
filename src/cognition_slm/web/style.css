@@ -1233,3 +1233,13 @@ dd {
     display: none;
   }
 }
+
+/* Phones zoom the whole page into a text field set under 16px when it's tapped. */
+@media (pointer: coarse) {
+  .composer #source-text,
+  #task-type,
+  #top-k,
+  #stop-sequences {
+    font-size: 16px;
+  }
+}

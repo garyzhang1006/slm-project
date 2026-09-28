@@ -156,6 +156,7 @@ function syncComposer() {
   $("starters").hidden = grounded || thread || ["error", "disabled", "offline"].includes(current);
   $("source-starters").hidden = !grounded || thread || sourceBytes > 0;
   $("new-session").hidden = !thread;
+  $("download").hidden = !thread;
   $("new-session").disabled = state.busy;
 
   $("source-count").textContent = `${sourceBytes.toLocaleString()} / ${LIMITS.source.toLocaleString()} bytes`;
@@ -555,6 +556,47 @@ function newSession() {
   $(touch ? "intro-title" : "prompt").focus();
 }
 
+// A Markdown copy of the conversation, with the settings behind each answer, for notes or a results log.
+function transcript() {
+  const model = state.status?.model?.name;
+  const lines = ["# slm studio", "", `${model ? `${model}, saved` : "Saved"} ${new Date().toLocaleString()}`];
+  // Blank lines only separate blocks, so a block never adds a second one; text inside an answer is left as it is.
+  const add = (...items) => { for (const item of items) if (item !== "" || lines.at(-1) !== "") lines.push(item); };
+  for (const run of runs) {
+    add("", `## ${run.prompt.replace(/\s+/g, " ")}`, "");
+    if (run.tag) add(`*${run.tag}*`, "");
+    const answers = run.answers.filter((answer) => !answer.pending);
+    answers.forEach((answer, index) => {
+      if (answers.length > 1) add(`**Answer ${index + 1} of ${answers.length}**`, "");
+      const response = answer.response;
+      if (answer.error) add(`*${answer.error}*`, "");
+      else if (run.grounded) {
+        const sources = response.abstained ? [] : response.sources || [];
+        if (!sources.length) add("*No passage in the text matched the question.*", "");
+        for (const source of sources) add(`> **${source.id}** ${source.text.replace(/\n/g, "\n> ")}`, "");
+      } else {
+        const text = String(response.text || "").replace(/^\n+/, "").trimEnd();
+        // A fence longer than any backtick run inside the answer keeps code intact.
+        const fence = "`".repeat(Math.max(3, ...(text.match(/`+/g) || []).map((ticks) => ticks.length + 1)));
+        add(...(!text ? ["*No text.*"] : answer.code ? [fence, text, fence] : [text]), "");
+        add(`*${plural(response.generated_tokens, "token")} · ${Number(response.elapsed_seconds).toFixed(1)}s · ${describeSettings(answer.options, answer.custom)}*`, "");
+      }
+    });
+  }
+  return `${lines.join("\n").trimEnd()}\n`;
+}
+
+function download() {
+  const now = new Date();
+  const pad = (number) => String(number).padStart(2, "0");
+  const name = `slm-studio-${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}-${pad(now.getHours())}${pad(now.getMinutes())}.md`;
+  const url = URL.createObjectURL(new Blob([transcript()], { type: "text/markdown" }));
+  Object.assign(element("a"), { href: url, download: name }).click();
+  // The click starts the download before the next task, so the address can be released then.
+  setTimeout(() => URL.revokeObjectURL(url));
+  announce(`Downloaded ${name}.`);
+}
+
 // Loads a text file into Search my text, from Open a file or a drop anywhere on the page.
 async function openFile(file) {
   if (!file) return;
@@ -674,6 +716,7 @@ document.addEventListener("keydown", (event) => {
 });
 
 $("new-session").addEventListener("click", newSession);
+$("download").addEventListener("click", download);
 $("source-open").addEventListener("click", () => $("source-file").click());
 $("source-clear").addEventListener("click", () => {
   $("source-text").value = "";

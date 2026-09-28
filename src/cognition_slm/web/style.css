@@ -412,11 +412,13 @@ svg {
   overflow-wrap: anywhere;
 }
 
+/* The soft fill is too faint to rely on in bright light, so matched words are also bold, as in search results. */
 mark {
   padding: 0 2px;
   border-radius: 4px;
   background: var(--accent-soft);
   color: inherit;
+  font-weight: 600;
   box-decoration-break: clone;
   -webkit-box-decoration-break: clone;
 }

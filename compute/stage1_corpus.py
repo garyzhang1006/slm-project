@@ -164,8 +164,11 @@ def next_source(train_bytes: dict[str, int], shares: dict[str, float]) -> str:
 
 
 def resilient_rows(open_stream, retries: int = 5, wait_seconds: float = 30.0):
-    """Yield rows from open_stream(skip), reopening past the consumed rows after a network error."""
-    consumed, failures = 0, 0
+    """Yield rows from open_stream(skip), reopening past the consumed rows after a network error.
+
+    retries caps consecutive errors with no rows in between, so scattered blips over hours do not add up.
+    """
+    consumed, failures, failed_at = 0, 0, -1
     while True:
         try:
             for row in open_stream(consumed):
@@ -174,7 +177,8 @@ def resilient_rows(open_stream, retries: int = 5, wait_seconds: float = 30.0):
             return
         # Hub streaming surfaces requests, aiohttp and fsspec errors with no common base class.
         except Exception as exc:
-            failures += 1
+            failures = failures + 1 if consumed == failed_at else 1
+            failed_at = consumed
             if failures > retries:
                 raise RuntimeError(f"Stream failed {failures} times after {consumed} rows: {exc}") from exc
             print(f"Stream error after {consumed} rows ({exc}); reopening in {wait_seconds}s", flush=True)

@@ -96,6 +96,16 @@ class CorpusHelperTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "failed 3 times"):
             list(corpus.resilient_rows(broken, retries=2, wait_seconds=0))
 
+    def test_resilient_rows_only_counts_errors_without_progress(self):
+        # A multi-hour stream sees scattered blips; each reopen that yields rows resets the retry budget.
+        def flaky(skip):
+            if skip >= 12:
+                return
+            yield from range(skip, skip + 2)
+            raise ConnectionError("blip")
+
+        self.assertEqual(list(corpus.resilient_rows(flaky, retries=2, wait_seconds=0)), list(range(12)))
+
     def test_writer_dedupes_caps_eval_and_writes_loadable_jsonl(self):
         stems = corpus.holdout_stems(HOLDOUT_PROMPTS)
         source = "roneneldan/TinyStories"

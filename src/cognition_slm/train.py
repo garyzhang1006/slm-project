@@ -717,6 +717,11 @@ def main() -> None:
     for flag, path in (("--eval-data", args.eval_data), ("--pretrain-eval-text", args.pretrain_eval_text)):
         if path and Path(path).resolve() == train_path:
             parser.error(f"{flag} must be different from the training data")
+    out_path = Path(args.out).resolve()
+    for flag in ("--data", "--pretrain-text", "--eval-data", "--pretrain-eval-text"):
+        path = getattr(args, flag[2:].replace("-", "_"))
+        if path and Path(path).resolve() == out_path:
+            parser.error(f"--out must not be the {flag} file, or the first checkpoint save would replace that data")
     print(json.dumps(train(args), indent=2))
 
 

@@ -249,6 +249,25 @@ class TrainingIntegrationTests(unittest.TestCase):
         self.assertEqual(raised.exception.code, 2)
         self.assertIn("--allow-data-change requires --resume", stderr.getvalue())
 
+    def test_out_must_not_overwrite_input_data(self):
+        import contextlib
+        import io
+        import sys
+        from unittest.mock import patch
+        from cognition_slm.train import main
+
+        held_out = self.root / "eval.jsonl"
+        held_out.write_text(self.data.read_text())
+        for argv in (["train", "--data", str(self.data), "--out", str(self.data)],
+                     ["train", "--data", str(self.data), "--eval-data", str(held_out), "--out", str(held_out)]):
+            with self.subTest(argv=argv[3:]), contextlib.redirect_stderr(io.StringIO()) as stderr, \
+                    patch.object(sys, "argv", argv), patch("cognition_slm.train.train") as run:
+                with self.assertRaises(SystemExit) as raised:
+                    main()
+                self.assertEqual(raised.exception.code, 2)
+                self.assertIn("--out must not be", stderr.getvalue())
+                run.assert_not_called()
+
     def test_accumulation_matches_combined_batch_with_unequal_lengths(self):
         import torch
         from cognition_slm.train import train

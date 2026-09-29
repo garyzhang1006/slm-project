@@ -148,6 +148,8 @@ def main() -> None:
     parser.add_argument("--eval", dest="eval_path")
     parser.add_argument("--report")
     args = parser.parse_args()
+    if args.report and Path(args.report).resolve() in {Path(path).resolve() for path in (args.train, args.eval_path) if path}:
+        parser.error("--report must differ from --train and --eval, or writing it would replace that data")
     reports = [audit_dataset(args.train)]
     overlap_errors: list[str] = []
     if args.eval_path:

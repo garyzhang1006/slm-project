@@ -444,16 +444,17 @@ SORT_WORDS = ("cherry", "grape", "lemon", "mango", "olive", "peach", "plum", "ki
               "river", "cloud", "forest", "desert", "island", "violin", "drum", "flute", "piano", "guitar")
 STORY_NAMES = ("Alice", "Ivan", "Chen", "Sofia", "Amir", "Beth", "Diego", "Kira")
 STORY_ITEMS = ("stickers", "crayons", "shells", "buttons", "cookies", "balloons")
-# Reading passages use names, objects and places absent from data/everyday_eval.json and the holdout.
+# Reading passages use names, objects and places absent from data/everyday_eval.json and the holdout, and
+# sentence shapes and prefixes that differ from its reading passages, so that category still tests transfer.
 READING_NAMES = ("Nadia", "Oscar", "Rosa", "Kenji", "Fatima", "Pablo", "Ingrid", "Mateo", "Aisha", "Jonas",
                  "Clara", "Bruno", "Leila", "Ravi", "Elena", "Theo", "Mira", "Samir", "Hazel", "Arjun")
-READING_PREFIXES = ("Read this: ", "Passage: ", "Story: ", "")
+READING_PREFIXES = ("Text: ", "Read carefully. ", "Here is a note: ", "")
 READING_COLORS = ("red", "blue", "green", "yellow", "black", "white", "brown", "gray")
-READING_THINGS = ("bike", "umbrella", "scarf", "backpack", "mug", "tent", "lamp", "wagon")
+READING_THINGS = ("bike", "umbrella", "scarf", "backpack", "mug", "chair", "lamp", "wagon")
 READING_OBJECTS = ("book", "ball", "cup", "hat", "map", "watch", "comb", "towel")
 READING_PLACES = ("garage", "kitchen", "car", "basket", "closet", "garden", "bathroom", "attic")
-READING_PAIRS = (("cups", "plates"), ("stamps", "coins"), ("ducks", "geese"), ("pencils", "erasers"),
-                 ("shirts", "socks"), ("cows", "goats"), ("spoons", "forks"), ("marbles", "dice"))
+READING_PAIRS = (("cups", "plates"), ("stamps", "coins"), ("books", "magazines"), ("pencils", "erasers"),
+                 ("shirts", "socks"), ("candles", "matches"), ("spoons", "forks"), ("marbles", "dice"))
 READING_PLACES_TO_GO = ("the pool", "music class", "the library", "soccer practice", "art class", "the park")
 READING_CITIES = ("Leeds", "Porto", "Lyon", "Osaka", "Perth", "Denver", "Munich", "Seville")
 READING_FOODS = ("rice", "soup", "bread", "cheese", "salad", "juice", "yogurt", "pasta")
@@ -464,17 +465,19 @@ READING_ROUTINES = (("washed the dishes", "fed the cat", "read a book"),
 READING_REASONS = (("cold", "put on a sweater"), ("tired", "went to bed early"), ("hungry", "made a sandwich"),
                    ("thirsty", "drank some water"), ("late", "ran to the bus stop"))
 READING_CHORES = ("painted the fence", "washed the car", "fixed the sink", "mowed the lawn", "baked the bread")
-# (setup without the fact, the same setup with it, question, answer slot) for passages that may leave a
-# detail out. The model should give the detail when the passage states it and say so when it does not.
+# (setup without the fact, the same setup with it, question, answer) for passages that may leave a detail
+# out. The model should give the detail when the passage states it and say so when it does not.
 READING_GAPS = (
-    ("{a} has a brother.", "{a} has a brother named {b}.", "What is the name of {a}'s brother?", "{b}"),
+    ("{a} sits next to a new classmate.", "{a} sits next to a new classmate named {b}.",
+     "What is the classmate's name?", "{b}"),
     ("{a} bought a lamp.", "{a} bought a {color} lamp.", "What color is the lamp?", "{color}"),
     ("{a} is reading a book.", "{a} is reading a book with {n} chapters.",
      "How many chapters does the book have?", "{n}"),
-    ("{a} has a dog.", "{a} has a dog that is {n} years old.", "How old is the dog?", "{n}"),
+    ("{a} takes the ferry in the morning.", "{a} takes the ferry at {n} in the morning.",
+     "What time does {a} take the ferry?", "{n} o'clock"),
     ("{a} planted some trees in the garden.", "{a} planted {n} trees in the garden.",
      "How many trees did {a} plant?", "{n}"),
-    ("{a} moved to a new city.", "{a} moved to {city}.", "Which city did {a} move to?", "{city}"),
+    ("{a} moved last year.", "{a} moved to {city} last year.", "Where does {a} live now?", "{city}"),
 )
 NOT_STATED = "I don't know. The story does not say."
 LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -763,38 +766,44 @@ def reading_rows() -> list[dict]:
         a, b, c = names[i], names[(i + 7) % len(names)], names[(i + 13) % len(names)]
         first, second = READING_COLORS[i], READING_COLORS[(i + 3) % len(READING_COLORS)]
         thing = READING_THINGS[i]
-        passage = f"{a}'s {thing} is {first}, and {b}'s {thing} is {second}."
-        add(i, passage, f"What color is {b}'s {thing}?", second, f"color:{i}")
-        add(i + 1, passage, f"What color is {a}'s {thing}?", first, f"color:{i}")
+        passage = f"There is a {first} {thing} by the door and a {second} {thing} by the window."
+        add(i, passage, f"What color is the {thing} by the window?", second, f"color:{i}")
+        add(i + 1, passage, f"What color is the {thing} by the door?", first, f"color:{i}")
         near, far = READING_OBJECTS[i], READING_OBJECTS[(i + 5) % len(READING_OBJECTS)]
         here, there = READING_PLACES[i], READING_PLACES[(i + 2) % len(READING_PLACES)]
         passage = f"{b} left the {near} in the {here} and the {far} in the {there}."
         add(i, passage, f"Where is the {far}?", f"in the {there}", f"place:{i}")
         add(i + 2, passage, f"Where is the {near}?", f"in the {here}", f"place:{i}")
         (few, many), n1, n2 = READING_PAIRS[i], 2 + i % 5, 3 + (i * 3) % 6
-        passage = f"{c} has {NUMBER_WORDS[n1]} {few} and {NUMBER_WORDS[n2]} {many}."
-        add(i, passage, f"How many {many} does {c} have?", str(n2), f"count:{i}")
-        add(i + 3, passage, f"How many {few} does {c} have?", str(n1), f"count:{i}")
+        passage = f"A box holds {NUMBER_WORDS[n1]} {few} and {NUMBER_WORDS[n2]} {many}."
+        add(i, passage, f"How many {many} are in the box?", str(n2), f"count:{i}")
+        add(i + 3, passage, f"How many {few} are in the box?", str(n1), f"count:{i}")
         early, late = DAYS[i % 7], DAYS[(i + 3) % 7]
         go_first, go_later = READING_PLACES_TO_GO[i % 6], READING_PLACES_TO_GO[(i + 2) % 6]
         passage = f"On {early}, {a} goes to {go_first}. On {late}, {a} goes to {go_later}."
+        # Both questions for both days, so neither answer is always the second one mentioned.
         add(i, passage, f"When does {a} go to {go_later}?", late, f"week:{i}")
-        add(i + 1, passage, f"Where does {a} go on {early}?", go_first, f"week:{i}")
-        passage = f"In a race, {a} finished before {b}, and {b} finished before {c}."
-        add(i, passage, "Who finished last?", c, f"race:{i}")
-        add(i + 2, passage, "Who finished first?", a, f"race:{i}")
+        add(i + 1, passage, f"When does {a} go to {go_first}?", early, f"week:{i}")
+        add(i + 2, passage, f"Where does {a} go on {early}?", go_first, f"week:{i}")
+        add(i + 3, passage, f"Where does {a} go on {late}?", go_later, f"week:{i}")
+        passage = f"{a}, {b} and {c} ran a race. {b} came first and {c} came last."
+        add(i, passage, "Who came second?", a, f"race:{i}")
+        add(i + 2, passage, "Who came last?", c, f"race:{i}")
         home, work = READING_CITIES[i], READING_CITIES[(i + 3) % len(READING_CITIES)]
         passage = f"{c} lives in {home} and works in {work}."
         add(i, passage, f"Where does {c} work?", work, f"city:{i}")
         add(i + 3, passage, f"Where does {c} live?", home, f"city:{i}")
         have, also, missing = (READING_FOODS[(i + step) % len(READING_FOODS)] for step in (0, 1, 2))
-        passage = f"In {b}'s lunch box there is {have} and {also}, but there is no {missing}."
-        add(i, passage, f"Is there {missing} in the lunch box?", "no", f"lunch:{i}")
-        add(i + 1, passage, f"Is there {also} in the lunch box?", "yes", f"lunch:{i}")
-        opens, closes = 7 + i % 3, 4 + i % 4
-        passage = f"The bakery is open from {opens} in the morning until {closes} in the afternoon."
-        add(i, passage, "What time does the bakery close?", f"{closes} o'clock", f"hours:{i}")
-        add(i + 2, passage, "What time does the bakery open?", f"{opens} o'clock", f"hours:{i}")
+        passage = f"{b}'s shopping list says {have} and {also}."
+        add(i, passage, f"Is {missing} on the list?", "no", f"list:{i}")
+        add(i + 1, passage, f"Is {also} on the list?", "yes", f"list:{i}")
+        items, fewer = STORY_ITEMS[i % len(STORY_ITEMS)], 2 + i % 5
+        more = fewer + 1 + i % 3
+        # The name with more comes first in half the passages.
+        counts = (more, fewer) if i % 2 == 0 else (fewer, more)
+        passage = f"{a} has {NUMBER_WORDS[counts[0]]} {items} and {c} has {NUMBER_WORDS[counts[1]]} {items}."
+        add(i, passage, f"Who has more {items}?", a if i % 2 == 0 else c, f"more:{i}")
+        add(i + 2, passage, f"Who has fewer {items}?", c if i % 2 == 0 else a, f"more:{i}")
         worker, helper = READING_CHORES[i % 5], READING_CHORES[(i + 2) % 5]
         passage = f"{a} {worker}, and {c} {helper}."
         add(i, passage, f"Who {helper}?", c, f"chore:{i}")
@@ -809,12 +818,12 @@ def reading_rows() -> list[dict]:
         add(i + 2, f"{a} was {state}, so {a} {action}.", f"Why did {a} {_base_verb(action)}?",
             f"because {a} was {state}", f"reason:{i}")
     for i in range(24):
-        without, stated, question, slot = READING_GAPS[i % len(READING_GAPS)]
+        without, stated, question, answer = READING_GAPS[i % len(READING_GAPS)]
         fill = {"a": names[(i * 7 + 1) % len(names)], "b": names[(i * 7 + 4) % len(names)],
                 "color": READING_COLORS[i % len(READING_COLORS)], "n": str(3 + (i * 5) % 9),
                 "city": READING_CITIES[(i + 1) % len(READING_CITIES)]}
         text = {key: value if key != "n" else NUMBER_WORDS[int(value)] for key, value in fill.items()}
-        add(i, _fill(stated, text), _fill(question, fill), fill[slot.strip("{}")], f"gap:{i}")
+        add(i, _fill(stated, text), _fill(question, fill), _fill(answer, fill), f"gap:{i}")
         add(i + 1, _fill(without, fill), _fill(question, fill), NOT_STATED, f"gap:{i}", "unknown")
     return rows
 

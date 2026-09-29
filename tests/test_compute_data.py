@@ -230,6 +230,8 @@ class ShortFactTests(unittest.TestCase):
         eval_names = set(re.findall(r"[A-Z][a-z]+", " ".join(row["prompt"] for row in everyday)
                                     + " ".join(HOLDOUT_PROMPTS)))
         self.assertFalse(set(short_facts.READING_NAMES) & eval_names)
+        # The everyday reading rows use these prefixes; keeping them out keeps that category a transfer test.
+        self.assertFalse([row["prompt"] for row in rows if row["prompt"].startswith(("Read this:", "Passage:", "Story:"))])
         categories = {}
         for row in rows:
             categories.setdefault(row["group"], set()).add(row["category"])
@@ -239,9 +241,8 @@ class ShortFactTests(unittest.TestCase):
             if row["answer"] in ("yes", "no"):
                 continue
             answer = row["answer"].removeprefix("because ").removeprefix("in the ").removesuffix(" o'clock")
-            if answer.isdigit() and not row["answer"].endswith("o'clock"):
-                answer = short_facts.NUMBER_WORDS[int(answer)]
-            self.assertIn(answer, row["prompt"], row)
+            spellings = (answer, short_facts.NUMBER_WORDS[int(answer)]) if answer.isdigit() else (answer,)
+            self.assertTrue(any(spelling in row["prompt"] for spelling in spellings), row)
         # Every passage that leaves a detail out has a twin that states it.
         self.assertTrue(all("english" in found for found in categories.values()))
         self.assertGreater(sum("unknown" in found for found in categories.values()), 20)

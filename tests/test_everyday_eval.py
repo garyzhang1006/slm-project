@@ -1,5 +1,6 @@
 import importlib
 import json
+import re
 from pathlib import Path
 import sys
 import unittest
@@ -110,6 +111,21 @@ class EverydayEvalTests(unittest.TestCase):
                 if key in index:
                     clashes.append((row["id"], row["prompt"], *index[key]))
                     break
+        self.assertEqual(clashes, [])
+
+    def test_no_shared_question_sentence_with_short_facts(self):
+        # Reading passages differ in their names, so compare question sentences with names masked, which
+        # catches "Which city did Mira move to?" copying "Which city did Omar move to?".
+        def questions(prompt: str) -> set[str]:
+            names = {name.casefold() for name in re.findall(r"(?<=[a-z,] )[A-Z][a-z]+", prompt)}
+            names |= {name + "s" for name in names}
+            return {" ".join("#" if token in names else token
+                             for token in self.module.normalize_answer(question).split())
+                    for question in re.findall(r"[^.?!:]*\?", prompt)}
+
+        asked = {key: row["id"] for row in self.rows for key in questions(row["prompt"])}
+        clashes = sorted({(asked[key], row["prompt"]) for row in self.facts
+                          for key in questions(row["prompt"]) if key in asked})
         self.assertEqual(clashes, [])
 
 

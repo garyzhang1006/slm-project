@@ -231,7 +231,8 @@ class ShortFactTests(unittest.TestCase):
                                     + " ".join(HOLDOUT_PROMPTS)))
         self.assertFalse(set(short_facts.READING_NAMES) & eval_names)
         # The everyday reading rows use these prefixes; keeping them out keeps that category a transfer test.
-        self.assertFalse([row["prompt"] for row in rows if row["prompt"].startswith(("Read this:", "Passage:", "Story:"))])
+        eval_prefixes = ("Read this:", "Passage:", "Story:")
+        self.assertFalse([row["prompt"] for row in rows if row["prompt"].startswith(eval_prefixes)])
         categories = {}
         for row in rows:
             categories.setdefault(row["group"], set()).add(row["category"])

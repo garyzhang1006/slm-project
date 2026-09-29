@@ -144,6 +144,21 @@ class DataAndAuditTests(unittest.TestCase):
                     self.assertFalse(report.ok)
                     self.assertIn(name, report.errors[0])
 
+    def test_audit_scans_every_text_field_for_secrets(self):
+        record = {"id": "r1", "prompt": "Say hi.", "answer": "Hi.", "task_type": "language_generation",
+                  "confidence": 0.5, "error_category": "none", "source": "test", "license": "CC0-1.0"}
+        token = "ghp_" + "A" * 36
+        with tempfile.TemporaryDirectory() as directory:
+            for field in ("id", "source", "license"):
+                with self.subTest(field=field):
+                    path = Path(directory) / f"{field}.jsonl"
+                    path.write_text(json.dumps({**record, field: f"x {token}"}) + "\n", encoding="utf-8")
+                    report = audit_dataset(path)
+                    self.assertEqual(len(report.errors), 1, report.errors)
+                    self.assertIn(f":1:{field}: possible secret", report.errors[0])
+                    # Errors name the line, so a secret in the id is not copied into the report.
+                    self.assertNotIn(token, report.errors[0])
+
     def test_encoding_uses_the_model_label_sets(self):
         example = validate_record({"id": "chat", "prompt": "Say hi.", "answer": "Hi.", "task_type": "language_generation",
                                    "confidence": 0.5, "error_category": "none", "source": "test", "license": "CC0-1.0"})

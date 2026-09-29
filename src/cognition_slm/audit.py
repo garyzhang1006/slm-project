@@ -43,12 +43,12 @@ class AuditReport:
         }
 
 
-def _scan_text(report: AuditReport, record_id: str, text: str, field: str) -> None:
+def _scan_text(report: AuditReport, location: str, text: str, field: str) -> None:
     for pattern in SECRET_PATTERNS:
         if pattern.search(text):
-            report.errors.append(f"{record_id}:{field}: possible secret pattern {pattern.pattern}")
+            report.errors.append(f"{location}:{field}: possible secret pattern {pattern.pattern}")
     if INJECTION_PATTERN.search(text):
-        report.warnings.append(f"{record_id}:{field}: prompt-injection-like text detected")
+        report.warnings.append(f"{location}:{field}: prompt-injection-like text detected")
 
 
 def audit_dataset(path: str | Path) -> AuditReport:
@@ -74,8 +74,9 @@ def audit_dataset(path: str | Path) -> AuditReport:
                     f"{path}:{line_number}: hidden-reasoning fields present: {', '.join(hidden)}"
                 )
             record_id = str(raw.get("id", f"line-{line_number}"))
-            _scan_text(report, record_id, str(raw.get("prompt", "")), "prompt")
-            _scan_text(report, record_id, str(raw.get("answer", "")), "answer")
+            # Every text field ships in the data bundle, and the line number stands in for an id that may be the secret.
+            for name in ("id", "prompt", "answer", "source", "license"):
+                _scan_text(report, f"{path}:{line_number}", str(raw.get(name, "")), name)
             if str(raw.get("source", "")).lower() in {"unknown", ""}:
                 report.errors.append(f"{record_id}: source is missing or unknown")
             if str(raw.get("license", "")).lower() in {"unknown", ""}:

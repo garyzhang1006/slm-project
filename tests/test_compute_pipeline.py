@@ -101,11 +101,26 @@ class DecisionTests(unittest.TestCase):
         statuses["slm-160m-sft"] = "complete"
         stale = decide(statuses, {**reports, ("slm-160m-sft", "sft_report.json"): {"pretrain_session": 2}})
         self.assertEqual((stale["kind"], stale["stage"]), ("push", "sft"))
-        reports[("slm-160m-sft", "sft_report.json")] = {"pretrain_session": 3}
+        reports[("slm-160m-sft", "sft_report.json")] = {"pretrain_session": 3, "sha256": "sft3"}
         self.assertEqual(decide(statuses, reports)["stage"], "eval")
         statuses["slm-160m-eval"] = "running"
         self.assertEqual(decide(statuses, reports)["kind"], "wait")
         statuses["slm-160m-eval"] = "complete"
+        reports[("slm-160m-eval", "eval_report.json")] = {"sha256": "sft3"}
+        self.assertEqual(decide(statuses, reports)["kind"], "done")
+
+    def test_eval_reruns_when_sft_was_pushed_again(self):
+        statuses = {"slm-160m-corpus": "complete", "slm-160m-pretrain-1": "complete", "slm-lora-baseline": "complete",
+                    "slm-distill-data": "complete", "slm-160m-sft": "complete", "slm-160m-eval": "complete"}
+        reports = {("slm-160m-pretrain-1", "pretrain_session_1.json"): DONE,
+                   ("slm-lora-baseline", "lora_report.json"): LORA_DONE, **FRESH_FOLLOW_UPS,
+                   ("slm-160m-sft", "sft_report.json"): {"pretrain_session": 1, "sha256": "new"},
+                   ("slm-160m-eval", "eval_report.json"): {"sha256": "old"}}
+        result = decide(statuses, reports)
+        self.assertEqual((result["kind"], result["stage"]), ("push", "eval"))
+        del reports[("slm-160m-eval", "eval_report.json")]
+        self.assertEqual(decide(statuses, reports)["kind"], "wait")
+        reports[("slm-160m-eval", "eval_report.json")] = {"sha256": "new"}
         self.assertEqual(decide(statuses, reports)["kind"], "done")
 
 

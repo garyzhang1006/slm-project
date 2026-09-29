@@ -126,6 +126,12 @@ def next_action(status, report, quota_hours: float) -> dict:
         return push_if_quota("eval", quota_hours, "sft finished")
     if evaluation != "complete":
         return action("stop", f"eval ended as {evaluation}; read its log before retrying")
+    eval_report = report(stage_slug("eval"), "eval_report.json")
+    if eval_report is None:
+        return unreadable("eval_report.json", "eval")
+    # A re-pushed sft replaces the checkpoint, so an eval that finished earlier scored the old one.
+    if eval_report.get("sha256") != sft_report.get("sha256"):
+        return push_if_quota("eval", quota_hours, "eval scored an older sft checkpoint")
     return action("done", "eval finished; read eval_report.json from the eval kernel output")
 
 

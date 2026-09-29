@@ -2,6 +2,7 @@ import importlib.util
 import json
 from pathlib import Path
 import re
+import sys
 import tempfile
 import unittest
 from unittest import mock
@@ -192,6 +193,26 @@ class LoraBaselineTests(unittest.TestCase):
                 {"prompt": "What is it called when water freezes?", "answer": "Ice."}]
         kept, dropped = self.module.drop_holdout_overlap(rows, holdout)
         self.assertEqual((kept, dropped), (rows[3:], 3))
+
+    def test_everyday_eval_copies_are_dropped_too(self):
+        screened = self.module.screened_rows(ROOT)
+        counts = [len(json.loads((ROOT / name).read_text())["rows"])
+                  for name in ("data/simple_questions_holdout.json", "data/everyday_eval.json")]
+        self.assertEqual(len(screened), sum(counts))
+        rows = [{"prompt": "Which planet is closest to the sun?", "answer": "Mercury"},
+                {"prompt": "Quiz time. Which planet is closest to the sun? One word.", "answer": "Mercury"},
+                {"prompt": "Which planet is famous for its bright rings?", "answer": "Saturn"}]
+        kept, dropped = self.module.drop_holdout_overlap(rows, screened)
+        self.assertEqual((kept, dropped), (rows[2:], 2))
+
+    def test_project_rows_survive_the_trainer_screen(self):
+        if str(ROOT) not in sys.path:
+            sys.path.insert(0, str(ROOT))
+        from compute import short_facts
+
+        rows = short_facts.short_fact_rows()
+        kept = {row["prompt"] for row in self.module.drop_holdout_overlap(rows, self.module.screened_rows(ROOT))[0]}
+        self.assertEqual([row["prompt"] for row in rows if row["prompt"] not in kept], [])
 
     def test_encode_tokenizes_rendered_template(self):
         test = self

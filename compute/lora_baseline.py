@@ -49,6 +49,8 @@ ENGLISH_PROBES = (
     "What is my name?",
 )
 IGNORE_INDEX = -100
+HOLDOUT_FILE = "data/simple_questions_holdout.json"
+EVERYDAY_FILE = "data/everyday_eval.json"
 # 16 prompts of under 100 tokens plus 64 new tokens fit a 16 GB T4 next to the fp32 360M model.
 GENERATION_BATCH_SIZE = 16
 
@@ -111,6 +113,12 @@ def load_sft_rows(path: Path) -> list[dict]:
     if not rows:
         raise ValueError(f"{path} holds no rows")
     return rows
+
+
+def screened_rows(root: Path) -> list[dict]:
+    """Rows of both eval files. Stage 3 screens against both, and so does this trainer, so a stale or
+    hand-built sft_train cannot leak everyday_eval questions into the adapter."""
+    return [row for name in (HOLDOUT_FILE, EVERYDAY_FILE) for row in json.loads((root / name).read_text())["rows"]]
 
 
 def drop_holdout_overlap(rows: list[dict], holdout_rows: list[dict]) -> tuple[list[dict], int]:
@@ -332,11 +340,12 @@ def main(argv: list[str] | None = None) -> None:
         raise RuntimeError("CUDA is required for the LoRA baseline; enable the T4 accelerator")
     random.seed(args.seed)
     torch.manual_seed(args.seed)
-    holdout_path = root / "data/simple_questions_holdout.json"
+    holdout_path = root / HOLDOUT_FILE
     holdout = json.loads(holdout_path.read_text())["rows"]
+    screened = screened_rows(root)
     train_path, eval_path = find_input("sft_train.jsonl"), find_input("sft_eval.jsonl")
-    train_rows, dropped_train = drop_holdout_overlap(load_sft_rows(train_path), holdout)
-    eval_rows, dropped_eval = drop_holdout_overlap(load_sft_rows(eval_path), holdout)
+    train_rows, dropped_train = drop_holdout_overlap(load_sft_rows(train_path), screened)
+    eval_rows, dropped_eval = drop_holdout_overlap(load_sft_rows(eval_path), screened)
     artifacts = root / "artifacts"
     artifacts.mkdir(exist_ok=True)
     destination = root / "lora_report.json"
@@ -348,7 +357,7 @@ def main(argv: list[str] | None = None) -> None:
                            "dropped_holdout_overlap": dropped_train},
                  "eval": {"path": str(eval_path), "sha256": digest(eval_path), "rows": len(eval_rows),
                           "dropped_holdout_overlap": dropped_eval}},
-        "holdout_sha256": digest(holdout_path),
+        "holdout_sha256": digest(holdout_path), "everyday_eval_sha256": digest(root / EVERYDAY_FILE),
         "pass_gate": (f"Holdout exact matches above the custom checkpoint's {PREVIOUS_CUSTOM_CORRECT}/24; "
                       "unknown-category rows still need manual review"),
     }

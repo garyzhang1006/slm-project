@@ -76,14 +76,14 @@ def prepare(output: Path, owner: str, slug: str, runner: str) -> None:
         "machine_shape": "NvidiaTeslaT4",
         "enable_internet": runner in {"kaggle_english_run.py", "kaggle_qa_run.py", "kaggle_long_run.py"},
         "dataset_sources": [], "competition_sources": [],
-        "kernel_sources": (["garyzhang11111/slm-500m-broad-qa-pilot"]
-                           if runner == "kaggle_elementary_run.py" else ["garyzhang11111/slm-500m-efficient-continuation"]
-                           if runner in {"kaggle_simple_questions_audit.py", "kaggle_short_qa_pilot.py", "kaggle_broad_qa_pilot.py"} else ["garyzhang11111/slm-500m-long-training"]
-                           if efficient else ["garyzhang11111/slm-500m-answer-training"]
+        "kernel_sources": ([f"{owner}/slm-500m-broad-qa-pilot"]
+                           if runner == "kaggle_elementary_run.py" else [f"{owner}/slm-500m-efficient-continuation"]
+                           if runner in {"kaggle_simple_questions_audit.py", "kaggle_short_qa_pilot.py", "kaggle_broad_qa_pilot.py"} else [f"{owner}/slm-500m-long-training"]
+                           if efficient else [f"{owner}/slm-500m-answer-training"]
                            if runner == "kaggle_long_run.py" else
-                           ["garyzhang11111/slm-500m-english-corpus"]
+                           [f"{owner}/slm-500m-english-corpus"]
                            if runner == "kaggle_qa_run.py" else
-                           ["garyzhang11111/slm-500m-english-code-quality-v2"]
+                           [f"{owner}/slm-500m-english-code-quality-v2"]
                            if runner == "kaggle_english_run.py" else []),
     }, indent=2) + "\n")
     print(json.dumps({"output": str(output), "source_files": len(files), "kernel": f"{owner}/{slug}"}))

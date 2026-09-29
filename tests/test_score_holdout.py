@@ -34,6 +34,10 @@ class ScoreHoldoutTests(unittest.TestCase):
         self.assertEqual(normalize("40 - 15 = 25, or 3-4"), "40 15 25 or 3 4")
         subtraction = {"id": "m", "category": "arithmetic", "expected_rubric": "25"}
         self.assertEqual(self.module.score_answer(subtraction, "-25"), {"exact": False, "contains": False})
+        self.assertEqual(normalize("1,000 meters, or 2,500,000"), "1000 meters or 2500000")
+        self.assertEqual(normalize("1,2, 3"), "1 2 3")
+        thousand = {"id": "k", "category": "counting_time", "expected_rubric": "1000"}
+        self.assertEqual(self.module.score_answer(thousand, "1,000"), {"exact": True, "contains": True})
 
     def test_exact_and_whole_token_contains(self):
         row = {"id": "x", "category": "math", "expected_rubric": "3"}

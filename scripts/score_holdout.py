@@ -24,10 +24,12 @@ _TENS = {word: 10 * index for index, word in enumerate(
     "twenty thirty forty fifty sixty seventy eighty ninety".split(), start=2)}
 # A minus sign counts only when no word or digit comes right before it, so "3-4" stays two numbers.
 _TOKENS = re.compile(r"(?:(?<!\w)-)?\d+(?:\.\d+)?|[^\W\d_]+")
+_GROUPED = re.compile(r"\b\d{1,3}(?:,\d{3})+\b")
 
 
 def normalize_answer(text: str) -> str:
     """Casefold, drop punctuation, collapse whitespace and spell numbers below 100 as digits."""
+    text = _GROUPED.sub(lambda match: match.group().replace(",", ""), text)  # "1,000" is one number
     tokens = _TOKENS.findall(text.casefold().replace("'", "").replace("’", ""))
     result = []
     for token in tokens:

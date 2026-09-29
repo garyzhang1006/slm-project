@@ -647,13 +647,15 @@ def fact_rows() -> list[dict]:
     # A bare question gets the short answer, matching the "short, direct reply" system prompt the LoRA
     # trains under; a full sentence only when the prompt asks for one. Training the bare question to a
     # sentence taught the adapter to wrap everyday answers ("Snow is white.") where one word was wanted.
+    # The sentence restates the first phrasing only ("A triangle has 3 sides." does not answer "A triangle
+    # has how many corners?"), so only that phrasing gets the full-sentence row.
     rows = []
     for index, (word, sentence, phrasings) in enumerate(FACTS):
         for phrasing in phrasings:
             rows.append(_row(phrasing, word, "fact", f"fact:{index}"))
             suffix = " Reply with the number." if word.isdigit() else " Reply with one word."
             rows.append(_row(phrasing + suffix, word, "fact", f"fact:{index}"))
-            rows.append(_row(phrasing + SENTENCE_CUE, sentence, "fact", f"fact:{index}"))
+        rows.append(_row(phrasings[0] + SENTENCE_CUE, sentence, "fact", f"fact:{index}"))
     return rows
 
 

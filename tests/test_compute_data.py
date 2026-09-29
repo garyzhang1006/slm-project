@@ -202,6 +202,10 @@ class ShortFactTests(unittest.TestCase):
         asked = [prompt for prompt, answer in answers.items() if answer in sentences]
         self.assertTrue(asked)
         self.assertTrue(all(prompt.endswith(short_facts.SENTENCE_CUE) for prompt in asked))
+        # Only the phrasing each sentence answers gets it.
+        self.assertNotIn("A triangle has how many corners? Answer in a full sentence.", answers)
+        self.assertEqual(answers["How many sides does a triangle have? Answer in a full sentence."],
+                         "A triangle has 3 sides.")
 
     def test_yes_no_rows_are_balanced_and_all_kept(self):
         rows = short_facts.yes_no_rows()

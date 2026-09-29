@@ -63,9 +63,12 @@ class MergeDistillTests(unittest.TestCase):
             evaluation = self.write(root / "eval.jsonl", ["Where do bees live?"])
             distill = self.write(root / "distill.jsonl", ["why is GRASS green?", "Where do bees live?",
                                                           "How do birds fly?", "How do birds fly?"])
+            (root / "distill_manifest.json").write_text(json.dumps({"teacher": {"adapter_sha256": "abc"}}))
             output = root / "merged.jsonl"
             stats = stage4_sft.merge_distill(train, evaluation, [distill], output)
             self.assertEqual((stats["added"], stats["skipped_duplicate"]), (1, 3))
+            # run_pipeline compares this with the current adapter to decide whether sft is stale.
+            self.assertEqual(stats["teacher_adapter_sha256"], "abc")
             prompts = [json.loads(line)["prompt"] for line in output.read_text().splitlines()]
             self.assertEqual(prompts, ["Why is grass green?", "How do birds fly?"])
 

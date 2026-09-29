@@ -102,7 +102,8 @@ def next_action(status, report, quota_hours: float) -> dict:
         return action("stop", f"pretrain session {last} report status is {session_report.get('status')!r}")
 
     # sft attaches the distilled answers; lora_action builds them from the current adapter.
-    if not follow_up_fresh(status, report, "distill_data", current_adapter(status, report)):
+    adapter = current_adapter(status, report)
+    if not follow_up_fresh(status, report, "distill_data", adapter):
         return action("wait", "sft waits for distill_data built from the current LoRA adapter", needs="lora")
 
     sft = status(stage_slug("sft"))
@@ -118,6 +119,9 @@ def next_action(status, report, quota_hours: float) -> dict:
     if sft_report.get("pretrain_session") != last:
         return push_if_quota("sft", quota_hours, f"sft was built on pretrain session "
                              f"{sft_report.get('pretrain_session')}, not {last}", pretrain_session=last)
+    if dig(sft_report, ("distill", "teacher_adapter_sha256")) != adapter:
+        return push_if_quota("sft", quota_hours, "sft trained on answers distilled from an older LoRA adapter",
+                             pretrain_session=last)
 
     evaluation = status(stage_slug("eval"))
     if evaluation in WAITING:

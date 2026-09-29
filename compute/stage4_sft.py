@@ -115,7 +115,11 @@ def merge_distill(train_path: Path, eval_path: Path, distill_paths: list[Path], 
         seen.add(key)
         added.append(line)
     output.write_text("\n".join(train_lines + added) + "\n", encoding="utf-8")
-    return {"attached": True, "path": str(distill_paths[0]), "added": len(added), "skipped_duplicate": skipped}
+    # distill_data writes its manifest beside the rows; run_pipeline reruns sft when this adapter is replaced.
+    manifest = distill_paths[0].parent / "distill_manifest.json"
+    teacher = json.loads(manifest.read_text(encoding="utf-8")).get("teacher", {}) if manifest.exists() else {}
+    return {"attached": True, "path": str(distill_paths[0]), "added": len(added), "skipped_duplicate": skipped,
+            "teacher_adapter_sha256": teacher.get("adapter_sha256")}
 
 
 def main(argv: list[str] | None = None) -> None:

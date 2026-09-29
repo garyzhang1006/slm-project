@@ -112,6 +112,9 @@ class DataAndAuditTests(unittest.TestCase):
         # json.loads keeps an escaped lone surrogate, which the byte tokenizer can't encode.
         with self.assertRaisesRegex(DataValidationError, "record 0: prompt"):
             validate_record({**base, "prompt": "p\ud800"})
+        # A huge JSON integer can't become a float, and must fail as a range error, not OverflowError.
+        with self.assertRaisesRegex(DataValidationError, "confidence must be between 0 and 1"):
+            validate_record({**base, "confidence": 10 ** 400})
 
     def test_encoding_rejects_examples_without_answer_tokens(self):
         example = validate_record(

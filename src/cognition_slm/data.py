@@ -111,7 +111,11 @@ def validate_record(raw: dict[str, Any], record_number: int = 0) -> CognitionExa
     confidence = raw.get("confidence")
     if isinstance(confidence, bool) or not isinstance(confidence, (int, float)):
         raise DataValidationError(f"record {record_number}: confidence must be numeric")
-    if not 0.0 <= float(confidence) <= 1.0:
+    try:
+        in_range = 0.0 <= float(confidence) <= 1.0
+    except OverflowError:
+        in_range = False
+    if not in_range:
         raise DataValidationError(f"record {record_number}: confidence must be between 0 and 1")
     source = _required_text(raw, "source", record_number)
     license_name = _required_text(raw, "license", record_number)

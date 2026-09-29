@@ -216,6 +216,30 @@ class ShortFactTests(unittest.TestCase):
         self.assertEqual(answer["Is a scarf a piece of clothing?"], "yes")
         self.assertEqual(answer["Is a hammer a vehicle?"], "no")
 
+    def test_reading_rows_answer_from_the_passage_or_say_it_is_missing(self):
+        rows = short_facts.reading_rows()
+        kept = {row["prompt"] for row in short_facts.short_fact_rows()}
+        self.assertEqual([row["prompt"] for row in rows if row["prompt"] not in kept], [])
+        everyday = json.loads((ROOT / "data/everyday_eval.json").read_text())["rows"]
+        eval_names = set(re.findall(r"[A-Z][a-z]+", " ".join(row["prompt"] for row in everyday)
+                                    + " ".join(HOLDOUT_PROMPTS)))
+        self.assertFalse(set(short_facts.READING_NAMES) & eval_names)
+        categories = {}
+        for row in rows:
+            categories.setdefault(row["group"], set()).add(row["category"])
+            if row["category"] == "unknown":
+                self.assertEqual(row["answer"], short_facts.NOT_STATED)
+                continue
+            if row["answer"] in ("yes", "no"):
+                continue
+            answer = row["answer"].removeprefix("because ").removeprefix("in the ").removesuffix(" o'clock")
+            if answer.isdigit() and not row["answer"].endswith("o'clock"):
+                answer = short_facts.NUMBER_WORDS[int(answer)]
+            self.assertIn(answer, row["prompt"], row)
+        # Every passage that leaves a detail out has a twin that states it.
+        self.assertTrue(all("english" in found for found in categories.values()))
+        self.assertGreater(sum("unknown" in found for found in categories.values()), 20)
+
     def test_sort_and_code_rows_are_correct_and_avoid_holdout_words(self):
         for row in short_facts.sort_rows():
             listed = row["prompt"].split(": ", 1)[-1].rstrip(".") if ":" in row["prompt"] else None

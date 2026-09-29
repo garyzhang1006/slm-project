@@ -139,6 +139,29 @@ class ShortFactTests(unittest.TestCase):
         self.assertFalse([record["prompt"] for _, record in sft.short_fact_records()
                           if sft.holdout_conflict(record, stems, normalized)])
 
+    def test_everyday_eval_facts_are_left_out(self):
+        rows = short_facts.short_fact_rows()
+        prompts = {row["prompt"] for row in rows}
+        for prompt in ("What is 72 / 8?", "Divide 20 by 4.", "What is 42 divided by 7? Reply with the number.",
+                       "Multiply 5 by 6.", "Is 3 bigger than 2? Answer yes or no.", "What day comes after Friday?",
+                       "Which day is right before Saturday? Reply with one word.", "What day comes before Wednesday?",
+                       "What month comes after March?", "What month comes before May?",
+                       "What is the last month of the year?"):
+            self.assertNotIn(prompt, prompts)
+        self.assertIn("What day comes after Thursday?", prompts)
+        groups = {row["group"] for row in rows}
+        self.assertFalse(groups & {"story:add:6:2", "story:add:2:6", "story:sub:3:1", "story:sub:10:4"})
+        self.assertIn("story:add:6:3", groups)
+
+    def test_stage3_screen_keeps_every_project_row(self):
+        # Stage 3 drops rows sharing a sentence with either eval file; a dropped project row is wasted work.
+        everyday = [row["prompt"] for row in json.loads((ROOT / "data/everyday_eval.json").read_text())["rows"]]
+        screened = HOLDOUT_PROMPTS + everyday
+        stems = corpus.holdout_stems(screened)
+        normalized = [corpus.normalize_overlap(prompt) for prompt in screened]
+        self.assertEqual([record["prompt"] for _, record in sft.short_fact_records()
+                          if sft.holdout_conflict(record, stems, normalized)], [])
+
     def test_arithmetic_answers_are_correct(self):
         operations = {"plus": operator.add, "minus": operator.sub, "times": operator.mul,
                       "divided by": operator.floordiv}

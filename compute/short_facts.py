@@ -4,8 +4,9 @@ Each fact appears in several phrasings so the model learns the fact rather than 
 The items tested by data/simple_questions_holdout.json (4 plus 9, days in a week, the
 opposite of tall, a home address, and so on) are left out on purpose, so a holdout gain
 measures transfer to unseen questions instead of recall of trained ones. The same holds for
-data/everyday_eval.json: its entities (capitals, opposites, plurals, names in its stories) and its
-question wordings are kept out of these rows, and tests/test_everyday_eval.py checks both.
+data/everyday_eval.json: its entities (capitals, opposites, plurals, names in its stories), the facts it
+asks (72 / 8, the day after Friday) and its question wordings are kept out of these rows, and
+tests/test_everyday_eval.py and tests/test_compute_data.py check them.
 """
 
 from __future__ import annotations
@@ -24,10 +25,23 @@ HOLDOUT_ARITHMETIC = {
     "divided by": {(18, 3)},
 }
 HOLDOUT_COMPARISONS = {(8, 3), (3, 8)}
+# The same facts asked by data/everyday_eval.json, as sums, splits, packs and "3 less than 2".
+EVERYDAY_ARITHMETIC = {
+    "plus": set(),
+    "minus": set(),
+    "times": {(5, 6), (6, 5)},
+    "divided by": {(72, 8), (20, 4), (42, 7)},
+}
+EVERYDAY_COMPARISONS = {(3, 2), (2, 3)}
+# (kind, a, b) story facts the everyday reading passages ask: 6 + 2 flowers, 3 - 1 pears, 10 - 4 marbles.
+EVERYDAY_STORIES = {("add", 6, 2), ("add", 2, 6), ("sub", 3, 1), ("sub", 10, 4)}
 
 DAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
 MONTHS = ("January", "February", "March", "April", "May", "June", "July", "August",
           "September", "October", "November", "December")
+# Neighbors data/everyday_eval.json asks about (tomorrow after Friday, yesterday before Wednesday, the
+# month between March and May), left out in both directions.
+EVERYDAY_NEIGHBORS = {("Friday", "Saturday"), ("Tuesday", "Wednesday"), ("March", "April"), ("April", "May")}
 
 # (one-word answer, sentence answer, phrasings). The one-word answer is written exactly as it
 # appears in the sentence. Holdout facts (days per week, months per year, meow, hearing) are absent.
@@ -77,7 +91,7 @@ FACTS = (
     ("8", "A spider has 8 legs.", ("How many legs does a spider have?",)),
     ("6", "An insect has 6 legs.", ("How many legs does an insect have?",)),
     ("5", "A hand has 5 fingers.",
-     ("How many fingers are on one hand?", "Count the fingers on one hand. How many are there?")),
+     ("How many fingers are on one hand?", "How many fingers do you count on one hand?")),
     ("10", "People have 10 fingers.", ("How many fingers do people have on both hands together?",)),
     ("3", "A triangle has 3 sides.",
      ("How many sides does a triangle have?", "A triangle has how many corners?")),
@@ -292,7 +306,7 @@ ARITHMETIC_TEMPLATES = {
     "minus": ("What is {a} minus {b}? Reply with the number.", "What is {a} - {b}?",
               "Subtract {b} from {a}.", "{a} take away {b} leaves how many?"),
     "times": ("What is {a} times {b}? Reply with the number.", "What is {a} x {b}?",
-              "Multiply {a} by {b}.", "What do you get when you multiply {a} and {b}?"),
+              "Multiply {a} by {b}.", "What is the product of {a} and {b}?"),
     "divided by": ("What is {a} divided by {b}? Reply with the number.", "What is {a} / {b}?",
                    "Divide {a} by {b}.", "How many times does {b} go into {a}?"),
 }
@@ -315,7 +329,7 @@ def arithmetic_rows() -> list[dict]:
             cases.append(("divided by", a * b, b, a))
     rows = []
     for operation, a, b, result in cases:
-        if (a, b) in HOLDOUT_ARITHMETIC[operation]:
+        if (a, b) in HOLDOUT_ARITHMETIC[operation] | EVERYDAY_ARITHMETIC[operation]:
             continue
         for template in ARITHMETIC_TEMPLATES[operation]:
             rows.append(_row(template.replace("{a}", str(a)).replace("{b}", str(b)), str(result),
@@ -327,7 +341,7 @@ def comparison_rows() -> list[dict]:
     rows = []
     for a in range(13):
         for b in range(13):
-            if a == b or (a, b) in HOLDOUT_COMPARISONS:
+            if a == b or (a, b) in HOLDOUT_COMPARISONS | EVERYDAY_COMPARISONS:
                 continue
             group, answer = f"compare:{a}:{b}", "yes" if a > b else "no"
             rows += [
@@ -344,20 +358,20 @@ def calendar_rows() -> list[dict]:
     for names, unit, scope in ((DAYS, "day", "week, starting from Monday"), (MONTHS, "month", "year")):
         for index, name in enumerate(names):
             after, before, group = names[(index + 1) % len(names)], names[index - 1], f"{unit}:{name}"
-            rows += [
-                _row(f"What {unit} comes after {name}?", after, "fact", group),
-                _row(f"Which {unit} follows {name}? Reply with one word.", after, "fact", group),
-                _row(f"What {unit} comes before {name}?", before, "fact", group),
-                _row(f"Which {unit} is right before {name}? Reply with one word.", before, "fact", group),
-                _row(f"What is {unit} number {index + 1} of the {scope}?", name, "fact", group),
-            ]
+            if (name, after) not in EVERYDAY_NEIGHBORS:
+                rows += [_row(f"What {unit} comes after {name}?", after, "fact", group),
+                         _row(f"Which {unit} follows {name}? Reply with one word.", after, "fact", group)]
+            if (before, name) not in EVERYDAY_NEIGHBORS:
+                rows += [_row(f"What {unit} comes before {name}?", before, "fact", group),
+                         _row(f"Which {unit} is right before {name}? Reply with one word.", before, "fact",
+                              group)]
+            rows.append(_row(f"What is {unit} number {index + 1} of the {scope}?", name, "fact", group))
     rows += [
         _row("Name the days of the week in order, starting with Monday.", ", ".join(DAYS),
              "fact", "day:list"),
         _row("List the months of the year in order.", ", ".join(MONTHS), "fact", "month:list"),
         _row("Which days make up the weekend?", "Saturday and Sunday", "fact", "day:weekend"),
         _row("What is the first month of the year?", "January", "fact", "month:first"),
-        _row("What is the last month of the year?", "December", "fact", "month:last"),
     ]
     return rows
 
@@ -488,10 +502,11 @@ def story_rows() -> list[dict]:
         for b in range(1, 10):
             name = STORY_NAMES[(a + b) % len(STORY_NAMES)]
             items = STORY_ITEMS[(a * b) % len(STORY_ITEMS)]
-            rows.append(_row(f"{name} has {a} {items} and finds {b} more. "
-                             f"How many {items} does {name} have now?", str(a + b), "math",
-                             f"story:add:{a}:{b}"))
-            if b < a:
+            if ("add", a, b) not in EVERYDAY_STORIES:
+                rows.append(_row(f"{name} has {a} {items} and finds {b} more. "
+                                 f"How many {items} does {name} have now?", str(a + b), "math",
+                                 f"story:add:{a}:{b}"))
+            if b < a and ("sub", a, b) not in EVERYDAY_STORIES:
                 rows.append(_row(f"{name} had {a} {items} and lost {b} of them. How many {items} are left?",
                                  str(a - b), "math", f"story:sub:{a}:{b}"))
     return rows

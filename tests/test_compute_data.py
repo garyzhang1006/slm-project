@@ -146,11 +146,13 @@ class ShortFactTests(unittest.TestCase):
                        "Multiply 5 by 6.", "Is 3 bigger than 2? Answer yes or no.", "What day comes after Friday?",
                        "Which day is right before Saturday? Reply with one word.", "What day comes before Wednesday?",
                        "What month comes after March?", "What month comes before May?",
-                       "What is the last month of the year?"):
+                       "What is the last month of the year?", "Which days make up the weekend?",
+                       "Yes or no: is ice cream warmer than hot tea?"):
             self.assertNotIn(prompt, prompts)
         self.assertIn("What day comes after Thursday?", prompts)
         groups = {row["group"] for row in rows}
-        self.assertFalse(groups & {"story:add:6:2", "story:add:2:6", "story:sub:3:1", "story:sub:10:4"})
+        self.assertFalse(groups & {"story:add:6:2", "story:add:2:6", "story:sub:3:1", "story:sub:10:4",
+                                   "story:sub:4:1"})
         self.assertIn("story:add:6:3", groups)
 
     def test_stage3_screen_keeps_every_project_row(self):

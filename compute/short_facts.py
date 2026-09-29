@@ -33,8 +33,9 @@ EVERYDAY_ARITHMETIC = {
     "divided by": {(72, 8), (20, 4), (42, 7)},
 }
 EVERYDAY_COMPARISONS = {(3, 2), (2, 3)}
-# (kind, a, b) story facts the everyday reading passages ask: 6 + 2 flowers, 3 - 1 pears, 10 - 4 marbles.
-EVERYDAY_STORIES = {("add", 6, 2), ("add", 2, 6), ("sub", 3, 1), ("sub", 10, 4)}
+# (kind, a, b) story facts the eval passages ask: 6 + 2 flowers, 3 - 1 pears, 10 - 4 marbles, and the
+# holdout's 4 - 1 oranges.
+EVAL_STORIES = {("add", 6, 2), ("add", 2, 6), ("sub", 3, 1), ("sub", 10, 4), ("sub", 4, 1)}
 
 DAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
 MONTHS = ("January", "February", "March", "April", "May", "June", "July", "August",
@@ -274,7 +275,7 @@ NATURE_FACTS = (
     ("gas", ("Is steam a solid, a liquid or a gas?", "Is the air around us a solid, a liquid or a gas?")),
     ("temperature", ("What does a thermometer measure?",)),
     ("telescope", ("Which tool helps people look at faraway stars?",)),
-    ("microscope", ("Which tool makes tiny things look much bigger?",)),
+    ("microscope", ("Which tool do scientists use to see cells and germs?",)),
     ("nectar", ("What sweet liquid do bees collect from flowers?",)),
     ("diamond", ("What is the hardest natural material?",)),
     ("stomach", ("Which organ breaks down the food you swallow?",)),
@@ -364,7 +365,7 @@ YES_NO_PAIRS = (
     ("Is a truck heavier than a skateboard?", "Is a skateboard heavier than a truck?"),
     ("Is a cheetah faster than a snail?", "Is a snail faster than a cheetah?"),
     ("Is an inch shorter than a yard?", "Is a yard shorter than an inch?"),
-    ("Is hot tea warmer than ice cream?", "Is ice cream warmer than hot tea?"),
+    ("Is a stove hotter than a fridge?", "Is a fridge hotter than a stove?"),
     ("Is a carrot a vegetable?", "Is a carrot a fruit?"),
     ("Is a shark a fish?", "Is a shark a bird?"),
     ("Is a rose a flower?", "Is a rose an animal?"),
@@ -569,7 +570,6 @@ def calendar_rows() -> list[dict]:
         _row("Name the days of the week in order, starting with Monday.", ", ".join(DAYS),
              "fact", "day:list"),
         _row("List the months of the year in order.", ", ".join(MONTHS), "fact", "month:list"),
-        _row("Which days make up the weekend?", "Saturday and Sunday", "fact", "day:weekend"),
         _row("What is the first month of the year?", "January", "fact", "month:first"),
     ]
     return rows
@@ -741,11 +741,11 @@ def story_rows() -> list[dict]:
         for b in range(1, 10):
             name = STORY_NAMES[(a + b) % len(STORY_NAMES)]
             items = STORY_ITEMS[(a * b) % len(STORY_ITEMS)]
-            if ("add", a, b) not in EVERYDAY_STORIES:
+            if ("add", a, b) not in EVAL_STORIES:
                 rows.append(_row(f"{name} has {a} {items} and finds {b} more. "
                                  f"How many {items} does {name} have now?", str(a + b), "math",
                                  f"story:add:{a}:{b}"))
-            if b < a and ("sub", a, b) not in EVERYDAY_STORIES:
+            if b < a and ("sub", a, b) not in EVAL_STORIES:
                 rows.append(_row(f"{name} had {a} {items} and lost {b} of them. How many {items} are left?",
                                  str(a - b), "math", f"story:sub:{a}:{b}"))
     return rows

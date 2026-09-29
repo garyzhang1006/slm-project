@@ -175,6 +175,18 @@ PLURALS = (
     ("tomato", "tomatoes"), ("hero", "heroes"), ("toy", "toys"), ("key", "keys"),
     ("day", "days"), ("cup", "cups"), ("shoe", "shoes"), ("song", "songs"), ("egg", "eggs"),
     ("book", "books"),
+    # More nouns for each spelling rule, with the usual exceptions (roofs, pianos) so no rule is overapplied.
+    ("elf", "elves"), ("scarf", "scarves"), ("hoof", "hooves"), ("self", "selves"), ("roof", "roofs"),
+    ("chief", "chiefs"), ("cliff", "cliffs"), ("belief", "beliefs"), ("fly", "flies"), ("pony", "ponies"),
+    ("body", "bodies"), ("army", "armies"), ("spy", "spies"), ("bunny", "bunnies"), ("diary", "diaries"),
+    ("library", "libraries"), ("donkey", "donkeys"), ("valley", "valleys"), ("tray", "trays"),
+    ("chimney", "chimneys"), ("holiday", "holidays"), ("beach", "beaches"), ("coach", "coaches"),
+    ("match", "matches"), ("inch", "inches"), ("bush", "bushes"), ("wish", "wishes"), ("dress", "dresses"),
+    ("boss", "bosses"), ("tax", "taxes"), ("quiz", "quizzes"), ("sandwich", "sandwiches"),
+    ("torch", "torches"), ("volcano", "volcanoes"), ("photo", "photos"), ("piano", "pianos"),
+    ("radio", "radios"), ("video", "videos"), ("fungus", "fungi"), ("nucleus", "nuclei"), ("louse", "lice"),
+    ("die", "dice"), ("moose", "moose"), ("aircraft", "aircraft"), ("series", "series"),
+    ("species", "species"), ("trout", "trout"),
 )
 HOLDOUT_PLURALS = {"book"}
 
@@ -568,6 +580,8 @@ def plural_rows() -> list[dict]:
             _row(f"What is the plural of {singular}?", plural, "english", group),
             _row(f"Give the plural of {singular}. Reply with one word.", plural, "english", group),
             _row(f"One {singular}, two what?", plural, "english", group),
+            _row(f"What do you call more than one {singular}?", plural, "english", group),
+            _row(f"Spell the plural of the word {singular}.", plural, "english", group),
             _row(f"What is the singular of {plural}?", singular, "english", group),
         ]
     return rows

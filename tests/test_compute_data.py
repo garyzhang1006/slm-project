@@ -249,6 +249,18 @@ class ShortFactTests(unittest.TestCase):
         self.assertEqual(answer["Please answer: What happens to butter when it gets hot?"], "it melts")
         self.assertNotIn("What happens to butter when it gets hot? Reply with one word.", answer)
 
+    def test_plurals_are_unique_and_avoid_the_eval_nouns(self):
+        singulars = [singular for singular, _ in short_facts.PLURALS]
+        self.assertEqual(len(singulars), len(set(singulars)))
+        everyday = json.loads((ROOT / "data/everyday_eval.json").read_text())["rows"]
+        eval_nouns = {re.findall(r"[a-z]+", row["prompt"])[-1] for row in everyday if row["category"] == "plurals"}
+        self.assertEqual(len(eval_nouns), 22)
+        self.assertFalse(set(singulars) & eval_nouns)
+        answer = {row["prompt"]: row["answer"] for row in short_facts.short_fact_rows()}
+        self.assertEqual(answer["What do you call more than one elf?"], "elves")
+        self.assertEqual(answer["Spell the plural of the word roof."], "roofs")
+        self.assertEqual(answer["What is the singular of fungi?"], "fungus")
+
     def test_sort_and_code_rows_are_correct_and_avoid_holdout_words(self):
         for row in short_facts.sort_rows():
             listed = row["prompt"].split(": ", 1)[-1].rstrip(".") if ":" in row["prompt"] else None

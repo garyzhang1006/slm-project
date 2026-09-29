@@ -29,6 +29,11 @@ class ScoreHoldoutTests(unittest.TestCase):
         self.assertEqual(normalize("Apple,  banana, PEAR!"), "apple banana pear")
         self.assertEqual(normalize("She doesn’t."), "she doesnt")
         self.assertEqual(normalize("3.5 cups"), "3.5 cups")
+        # A sign flips the value, so "-25" must not match 25; a dash between words or numbers is not a sign.
+        self.assertEqual(normalize("-25."), "-25")
+        self.assertEqual(normalize("40 - 15 = 25, or 3-4"), "40 15 25 or 3 4")
+        subtraction = {"id": "m", "category": "arithmetic", "expected_rubric": "25"}
+        self.assertEqual(self.module.score_answer(subtraction, "-25"), {"exact": False, "contains": False})
 
     def test_exact_and_whole_token_contains(self):
         row = {"id": "x", "category": "math", "expected_rubric": "3"}

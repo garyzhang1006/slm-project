@@ -22,7 +22,8 @@ _UNITS = {word: index for index, word in enumerate(
     "fifteen sixteen seventeen eighteen nineteen".split())}
 _TENS = {word: 10 * index for index, word in enumerate(
     "twenty thirty forty fifty sixty seventy eighty ninety".split(), start=2)}
-_TOKENS = re.compile(r"\d+(?:\.\d+)?|[^\W\d_]+")
+# A minus sign counts only when no word or digit comes right before it, so "3-4" stays two numbers.
+_TOKENS = re.compile(r"(?:(?<!\w)-)?\d+(?:\.\d+)?|[^\W\d_]+")
 
 
 def normalize_answer(text: str) -> str:

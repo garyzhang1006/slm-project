@@ -249,6 +249,72 @@ KINDS = {
     "clothing": ("scarf", "sock", "jacket", "sweater", "skirt", "hat", "belt"),
     "vehicle": ("truck", "boat", "airplane", "tractor", "taxi", "van", "helicopter"),
 }
+# (short answer, phrasings) for science, animal and color questions. Each fact differs from the ones
+# data/everyday_eval.json asks (no planets it names, no baby animals, sounds or colors it tests).
+NATURE_FACTS = (
+    ("Saturn", ("Which planet is famous for its bright rings?", "Name the planet with large rings around it.")),
+    ("Venus", ("Which planet is second from the sun?",)),
+    ("Neptune", ("Which planet is farthest from the sun?",)),
+    ("carnivore", ("What is the name for an animal that eats only meat?",)),
+    ("omnivore", ("What is the name for an animal that eats both plants and meat?",)),
+    ("solid", ("Is a stone a solid, a liquid or a gas?", "Is a wooden block a solid, a liquid or a gas?")),
+    ("liquid", ("Is milk a solid, a liquid or a gas?", "Is orange juice a solid, a liquid or a gas?")),
+    ("gas", ("Is steam a solid, a liquid or a gas?", "Is the air around us a solid, a liquid or a gas?")),
+    ("temperature", ("What does a thermometer measure?",)),
+    ("telescope", ("Which tool helps people look at faraway stars?",)),
+    ("microscope", ("Which tool makes tiny things look much bigger?",)),
+    ("nectar", ("What sweet liquid do bees collect from flowers?",)),
+    ("diamond", ("What is the hardest natural material?",)),
+    ("stomach", ("Which organ breaks down the food you swallow?",)),
+    ("teeth", ("What do people use to chew food?",)),
+    ("seeds", ("What do many new plants grow from?",)),
+    ("leaves", ("Which part of a plant usually makes its food from sunlight?",)),
+    ("lava", ("What is the hot melted rock that flows out of a volcano called?",)),
+    ("hail", ("What do we call small balls of ice that fall from clouds?",)),
+    ("snow", ("What soft white flakes fall from the sky in cold weather?",)),
+    ("evaporation", ("What is it called when liquid water slowly turns into vapor?",)),
+    ("it melts", ("What happens to butter when it gets hot?",)),
+    ("north", ("Which direction does a compass needle point?",)),
+    ("electricity", ("What powers a lamp that is plugged into the wall?",)),
+    ("shadow", ("What dark shape appears on the ground when you block the sunlight?",)),
+    ("frog", ("What does a tadpole grow into?",)),
+    ("mammal", ("What kind of animal is a bat: a bird or a mammal?",)),
+    ("amphibian", ("What kind of animal is a frog: a reptile or an amphibian?",)),
+    ("reptile", ("What kind of animal is a lizard: a reptile or a mammal?",)),
+    ("cub", ("What do we call a baby bear?", "A baby tiger is known as a what?")),
+    ("kid", ("What do we call a baby goat?",)),
+    ("fawn", ("What do we call a baby deer?",)),
+    ("chick", ("What do we call a baby chicken?",)),
+    ("owlet", ("What do we call a baby owl?",)),
+    ("gosling", ("What do we call a baby goose?",)),
+    ("tadpole", ("What do we call a baby frog?",)),
+    ("hoot", ("What noise does an owl make?", "Which sound does an owl make at night?")),
+    ("buzz", ("What noise does a bee make?",)),
+    ("croak", ("What noise does a frog make?",)),
+    ("howl", ("What noise does a wolf make at night?",)),
+    ("bray", ("What noise does a donkey make?",)),
+    ("coo", ("What noise does a dove make?",)),
+    ("gobble", ("What noise does a turkey make?",)),
+    ("cluck", ("What noise does a hen make?",)),
+    ("camel", ("Which animal has a hump and lives in the desert?",)),
+    ("parrot", ("Which colorful bird can copy words that people say?",)),
+    ("panda", ("Which black and white bear eats bamboo?",)),
+    ("spider", ("Which animal spins a web to catch insects?",)),
+    ("cheetah", ("Which spotted big cat is the fastest runner on land?",)),
+    ("chameleon", ("Which lizard can change its color to hide?",)),
+    ("firefly", ("Which insect glows in the dark?",)),
+    ("beaver", ("Which animal builds dams in rivers with sticks?",)),
+    ("squirrel", ("Which small animal with a bushy tail hides nuts for winter?",)),
+    ("bat", ("Which flying mammal sleeps upside down?",)),
+    ("purple", ("If you mix blue paint and red paint, what color do you get?", "What color is an eggplant?")),
+    ("gray", ("If you mix black paint and white paint, what color do you get?",)),
+    ("orange", ("What color is a carrot?",)),
+    ("pink", ("What color is a flamingo?",)),
+    ("green", ("What color is a lime?", "What color is broccoli?")),
+    ("brown", ("What color is the trunk of most trees?",)),
+    ("red", ("What color is ketchup?",)),
+    ("white", ("What color is table salt?",)),
+)
 KIND_PHRASES = {"fruit": "a fruit", "vegetable": "a vegetable", "animal": "an animal", "tool": "a tool",
                 "clothing": "a piece of clothing", "vehicle": "a vehicle"}
 # Pairs of world-knowledge questions, one answered yes and one no, so a yes/no answer depends on the
@@ -504,6 +570,16 @@ def plural_rows() -> list[dict]:
             _row(f"One {singular}, two what?", plural, "english", group),
             _row(f"What is the singular of {plural}?", singular, "english", group),
         ]
+    return rows
+
+
+def nature_rows() -> list[dict]:
+    rows = []
+    for index, (answer, phrasings) in enumerate(NATURE_FACTS):
+        for phrasing in phrasings:
+            rows.append(_row(phrasing, answer, "fact", f"nature:{index}"))
+            if " " not in answer:
+                rows.append(_row(phrasing + " Reply with one word.", answer, "fact", f"nature:{index}"))
     return rows
 
 
@@ -806,7 +882,7 @@ def code_rows() -> list[dict]:
 
 def short_fact_rows() -> list[dict]:
     """All rows in a fixed order, each {prompt, answer, category, group}, with unique prompts."""
-    worded = (calendar_rows() + opposite_rows() + plural_rows() + fact_rows() + copy_rows()
+    worded = (calendar_rows() + opposite_rows() + plural_rows() + fact_rows() + nature_rows() + copy_rows()
               + world_rows() + grammar_rows())
     # Arithmetic already has four templates and refusals three wrappers; the word questions
     # get extra framings so they are not outnumbered by arithmetic.

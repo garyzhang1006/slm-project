@@ -240,6 +240,15 @@ class ShortFactTests(unittest.TestCase):
         self.assertTrue(all("english" in found for found in categories.values()))
         self.assertGreater(sum("unknown" in found for found in categories.values()), 20)
 
+    def test_nature_rows_are_kept_with_wrapped_and_one_word_variants(self):
+        rows = short_facts.short_fact_rows()
+        answer = {row["prompt"]: row["answer"] for row in rows}
+        self.assertEqual([row["prompt"] for row in short_facts.nature_rows() if row["prompt"] not in answer], [])
+        self.assertEqual(answer["Which planet is famous for its bright rings?"], "Saturn")
+        self.assertEqual(answer["Question: What do we call a baby goat? Reply with one word."], "kid")
+        self.assertEqual(answer["Please answer: What happens to butter when it gets hot?"], "it melts")
+        self.assertNotIn("What happens to butter when it gets hot? Reply with one word.", answer)
+
     def test_sort_and_code_rows_are_correct_and_avoid_holdout_words(self):
         for row in short_facts.sort_rows():
             listed = row["prompt"].split(": ", 1)[-1].rstrip(".") if ":" in row["prompt"] else None

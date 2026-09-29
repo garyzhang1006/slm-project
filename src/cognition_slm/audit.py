@@ -79,10 +79,10 @@ def audit_dataset(path: str | Path) -> AuditReport:
             # Every text field ships in the data bundle, and the line number stands in for an id that may be the secret.
             for name in ("id", "prompt", "answer", "source", "license"):
                 _scan_text(report, f"{path}:{line_number}", str(raw.get(name, "")), name)
-            if str(raw.get("source", "")).lower() in {"unknown", ""}:
-                report.errors.append(f"{record_id}: source is missing or unknown")
-            if str(raw.get("license", "")).lower() in {"unknown", ""}:
-                report.errors.append(f"{record_id}: license is missing or unknown")
+            for name in ("source", "license"):
+                # Padding or a closing period doesn't turn the placeholder into real provenance.
+                if str(raw.get(name, "")).strip().rstrip(".").casefold() in {"unknown", ""}:
+                    report.errors.append(f"{record_id}: {name} is missing or unknown")
     return report
 
 

@@ -169,6 +169,16 @@ class DataAndAuditTests(unittest.TestCase):
                     path.write_text(json.dumps({**record, "answer": f"Use {token} here."}) + "\n", encoding="utf-8")
                     self.assertEqual(len(audit_dataset(path).errors), 1)
 
+    def test_audit_rejects_padded_unknown_provenance(self):
+        record = {"id": "r1", "prompt": "Say hi.", "answer": "Hi.", "task_type": "language_generation",
+                  "confidence": 0.5, "error_category": "none", "source": "test", "license": "CC0-1.0"}
+        with tempfile.TemporaryDirectory() as directory:
+            for field, value in (("source", "unknown "), ("license", "Unknown.")):
+                with self.subTest(field=field):
+                    path = Path(directory) / f"{field}.jsonl"
+                    path.write_text(json.dumps({**record, field: value}) + "\n", encoding="utf-8")
+                    self.assertEqual(audit_dataset(path).errors, [f"r1: {field} is missing or unknown"])
+
     def test_encoding_uses_the_model_label_sets(self):
         example = validate_record({"id": "chat", "prompt": "Say hi.", "answer": "Hi.", "task_type": "language_generation",
                                    "confidence": 0.5, "error_category": "none", "source": "test", "license": "CC0-1.0"})

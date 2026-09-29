@@ -243,7 +243,9 @@ class MainTests(unittest.TestCase):
 
     def test_watch_gives_up_after_repeated_errors(self):
         fake = mock.Mock()
-        fake.quota_hours.side_effect = RuntimeError("down")
+        # A finite list, so a broken cap ends in StopIteration: with sleep mocked, an endless side effect once
+        # looped forever while the mocks recorded every call, and the test run grew to 32 GB of memory.
+        fake.quota_hours.side_effect = [RuntimeError("down")] * (run_pipeline.MAX_CONSECUTIVE_FAILURES + 1)
         with mock.patch.object(run_pipeline, "Kaggle", return_value=fake), mock.patch("builtins.print"), \
                 mock.patch.object(run_pipeline.time, "sleep"), self.assertRaises(RuntimeError):
             run_pipeline.main(["--owner", "someone", "--watch"])

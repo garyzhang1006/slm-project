@@ -159,6 +159,16 @@ class DataAndAuditTests(unittest.TestCase):
                     # Errors name the line, so a secret in the id is not copied into the report.
                     self.assertNotIn(token, report.errors[0])
 
+    def test_audit_catches_fine_grained_github_and_hugging_face_tokens(self):
+        record = {"id": "r1", "prompt": "Say hi.", "answer": "Hi.", "task_type": "language_generation",
+                  "confidence": 0.5, "error_category": "none", "source": "test", "license": "CC0-1.0"}
+        with tempfile.TemporaryDirectory() as directory:
+            for token in ("github_pat_" + "A1" * 20, "hf_" + "aB3" * 12):
+                with self.subTest(token=token[:11]):
+                    path = Path(directory) / "tokens.jsonl"
+                    path.write_text(json.dumps({**record, "answer": f"Use {token} here."}) + "\n", encoding="utf-8")
+                    self.assertEqual(len(audit_dataset(path).errors), 1)
+
     def test_encoding_uses_the_model_label_sets(self):
         example = validate_record({"id": "chat", "prompt": "Say hi.", "answer": "Hi.", "task_type": "language_generation",
                                    "confidence": 0.5, "error_category": "none", "source": "test", "license": "CC0-1.0"})

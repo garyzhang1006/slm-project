@@ -6,6 +6,7 @@ from unittest.mock import patch
 from pathlib import Path
 
 from cognition_slm.audit import audit_dataset, audit_split_overlap
+from cognition_slm.config import LEGACY_TASK_TYPES
 from cognition_slm.data import DataValidationError, encode_examples, load_jsonl, validate_record
 from cognition_slm.tokenizer import ByteTokenizer
 
@@ -124,6 +125,14 @@ class DataAndAuditTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "no answer tokens"):
             encode_examples([example], ByteTokenizer(), block_size=16)
+
+    def test_encoding_uses_the_model_label_sets(self):
+        example = validate_record({"id": "chat", "prompt": "Say hi.", "answer": "Hi.", "task_type": "language_generation",
+                                   "confidence": 0.5, "error_category": "none", "source": "test", "license": "CC0-1.0"})
+        self.assertEqual(encode_examples([example], ByteTokenizer(), 256)[0]["task_label"], 5)
+        # Checkpoints saved before language_generation existed have a five-class task head.
+        with self.assertRaisesRegex(DataValidationError, "language_generation"):
+            encode_examples([example], ByteTokenizer(), 256, task_types=LEGACY_TASK_TYPES)
 
 
 if __name__ == "__main__":

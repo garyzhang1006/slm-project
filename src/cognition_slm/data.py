@@ -181,10 +181,19 @@ def encode_prompt(
 
 
 def encode_examples(
-    examples: Iterable[CognitionExample], tokenizer: ByteTokenizer, block_size: int
+    examples: Iterable[CognitionExample], tokenizer: ByteTokenizer, block_size: int, *,
+    task_types: tuple[str, ...] = TASK_TYPES, error_categories: tuple[str, ...] = ERROR_CATEGORIES,
 ) -> list[dict[str, Any]]:
+    """Label with the model's own classes; a resumed checkpoint may predate newer task types."""
     encoded: list[dict[str, Any]] = []
     for example in examples:
+        for field, value, labels in (("task_type", example.task_type, task_types),
+                                     ("error_category", example.error_category, error_categories)):
+            if value not in labels:
+                raise DataValidationError(
+                    f"example {example.id!r} has {field} {value!r}, which this model was not built with; "
+                    "drop those records or train a new model"
+                )
         prompt_ids = tokenizer.encode(format_prompt(example), add_eos=False)
         full_ids = tokenizer.encode(format_training_text(example))
         # A cut answer is a continuation, so do not teach EOS at an artificial boundary.
@@ -205,8 +214,8 @@ def encode_examples(
                 "input_ids": input_ids,
                 "pool_position": pool_position,
                 "answer_start": answer_start,
-                "task_label": TASK_TYPES.index(example.task_type),
-                "error_label": ERROR_CATEGORIES.index(example.error_category),
+                "task_label": task_types.index(example.task_type),
+                "error_label": error_categories.index(example.error_category),
                 "confidence_label": example.confidence_bucket,
             }
         )

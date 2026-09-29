@@ -389,6 +389,24 @@ class TrainingIntegrationTests(unittest.TestCase):
         self.assertEqual(len(saved["optimizer_state_dict"]["param_groups"]), 1)
         self.assertEqual(saved["model_config"]["architecture"], "legacy")
 
+    def test_resume_rejects_task_types_the_checkpoint_lacks(self):
+        import json
+        import torch
+        from cognition_slm.config import LEGACY_TASK_TYPES, ModelConfig
+        from cognition_slm.data import DataValidationError
+        from cognition_slm.model import CognitionSLM
+        from cognition_slm.train import train
+
+        config = ModelConfig(block_size=256, n_layer=1, n_head=2, n_embd=16, task_types=LEGACY_TASK_TYPES)
+        checkpoint = self.root / "five-class.pt"
+        torch.save({"model_config": config.to_dict(), "model_state_dict": CognitionSLM(config).state_dict(),
+                    "metadata": {"step": 0}}, checkpoint)
+        record = json.loads(self.data.read_text().splitlines()[0])
+        self.data.write_text(json.dumps({**record, "task_type": "language_generation"}))
+        # The five-class task head would otherwise fail inside the loss with "Target 5 is out of bounds".
+        with self.assertRaisesRegex(DataValidationError, "language_generation"):
+            train(self.args("rejected.pt", resume=str(checkpoint)))
+
     def test_cuda_fp16_checkpoint_roundtrip(self):
         import math
         import torch

@@ -289,12 +289,14 @@ def train(args: argparse.Namespace) -> dict:
     if pretrain_text:
         encoded = pack_pretrain_text(examples, tokenizer, config.block_size)
     else:
-        encoded = encode_examples(examples, tokenizer, config.block_size)
+        encoded = encode_examples(examples, tokenizer, config.block_size, task_types=config.task_types,
+                                  error_categories=config.error_categories)
     objective = "pretrain" if pretrain_text else "sft"
     validation_encoded = None
     if args.eval_data:
         validation_examples = load_jsonl(args.eval_data)
-        validation_encoded = encode_examples(validation_examples, tokenizer, config.block_size)
+        validation_encoded = encode_examples(validation_examples, tokenizer, config.block_size,
+                                             task_types=config.task_types, error_categories=config.error_categories)
     elif pretrain_eval_text:
         validation_encoded = pack_pretrain_text(
             load_pretrain_text(pretrain_eval_text), tokenizer, config.block_size

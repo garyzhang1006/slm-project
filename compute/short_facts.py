@@ -249,6 +249,55 @@ KINDS = {
     "clothing": ("scarf", "sock", "jacket", "sweater", "skirt", "hat", "belt"),
     "vehicle": ("truck", "boat", "airplane", "tractor", "taxi", "van", "helicopter"),
 }
+KIND_PHRASES = {"fruit": "a fruit", "vegetable": "a vegetable", "animal": "an animal", "tool": "a tool",
+                "clothing": "a piece of clothing", "vehicle": "a vehicle"}
+# Pairs of world-knowledge questions, one answered yes and one no, so a yes/no answer depends on the
+# fact rather than on a habit. The objects avoid the ones data/everyday_eval.json compares.
+YES_NO_PAIRS = (
+    ("Is a bus longer than a pencil?", "Is a pencil longer than a bus?"),
+    ("Is a mountain taller than a house?", "Is a house taller than a mountain?"),
+    ("Is an ant smaller than a dog?", "Is an ant bigger than a dog?"),
+    ("Is a tiger bigger than a frog?", "Is a frog bigger than a tiger?"),
+    ("Is summer warmer than winter?", "Is winter warmer than summer?"),
+    ("Is a day longer than a second?", "Is a second longer than a day?"),
+    ("Is a brick heavier than a leaf?", "Is a leaf heavier than a brick?"),
+    ("Is a grandparent older than a baby?", "Is a baby older than a grandparent?"),
+    ("Is the ocean deeper than a puddle?", "Is a puddle deeper than the ocean?"),
+    ("Is a truck heavier than a skateboard?", "Is a skateboard heavier than a truck?"),
+    ("Is a cheetah faster than a snail?", "Is a snail faster than a cheetah?"),
+    ("Is an inch shorter than a yard?", "Is a yard shorter than an inch?"),
+    ("Is hot tea warmer than ice cream?", "Is ice cream warmer than hot tea?"),
+    ("Is a carrot a vegetable?", "Is a carrot a fruit?"),
+    ("Is a shark a fish?", "Is a shark a bird?"),
+    ("Is a rose a flower?", "Is a rose an animal?"),
+    ("Is gold a metal?", "Is gold a kind of fruit?"),
+    ("Is Mars a planet?", "Is Mars a star?"),
+    ("Is Paris a city in France?", "Is Paris a city in Japan?"),
+    ("Does a spider have eight legs?", "Is a spider an insect?"),
+    ("Is a bat a mammal?", "Is a bat a bird?"),
+    ("Is a bee an insect?", "Is a bee a fish?"),
+    ("Can a duck swim in a pond?", "Can a dog fly like a bird?"),
+    ("Do bees make honey?", "Do bees make milk?"),
+    ("Does butter melt in a hot pan?", "Does butter get harder in a hot pan?"),
+    ("Is sugar sweet?", "Is sugar sour?"),
+    ("Is the sky dark at night?", "Is the sky dark at noon on a sunny day?"),
+    ("Do cows give milk?", "Do chickens give milk?"),
+    ("Can a frog jump?", "Can a chair walk?"),
+    ("Does the sun rise in the east?", "Does the sun rise in the west?"),
+    ("Do people smell with their nose?", "Do people smell with their ears?"),
+    ("Does a square have four sides?", "Does a square have three sides?"),
+    ("Do trees grow from seeds?", "Do trees grow from stones?"),
+    ("Is lava hot?", "Is lava cold?"),
+    ("Can an airplane fly?", "Can a train fly?"),
+    ("Does a doctor help sick people?", "Does a doctor fix cars?"),
+    ("Does a key open a lock?", "Does a key tell the time?"),
+    ("Is the Pacific the largest ocean?", "Is the Pacific the smallest ocean?"),
+    ("Do owls usually hunt at night?", "Do owls usually sleep at night?"),
+    ("Is a violin a musical instrument?", "Is a violin a vegetable?"),
+    ("Is Tokyo in Japan?", "Is Tokyo in Italy?"),
+    ("Are there seven continents?", "Are there twelve continents?"),
+)
+YES_NO_FORMS = ("Yes or no: {q}", "{Q} Answer yes or no.", "{Q}")
 # (base, past tense). Regular and irregular verbs, each past form standard in all English varieties.
 PAST_TENSES = (
     ("go", "went"), ("eat", "ate"), ("run", "ran"), ("see", "saw"), ("swim", "swam"),
@@ -350,6 +399,25 @@ def comparison_rows() -> list[dict]:
                 _row(f"Is {a} bigger than {b}? Answer yes or no.", answer, "instruction", group),
                 _row(f"Which is larger, {a} or {b}?", str(max(a, b)), "math", group),
             ]
+    return rows
+
+
+def yes_no_rows() -> list[dict]:
+    """World-knowledge yes/no questions with a bare "yes" or "no", balanced within each group."""
+    cases = [(f"yes-no:{index}", question, answer)
+             for index, pair in enumerate(YES_NO_PAIRS) for question, answer in zip(pair, ("yes", "no"))]
+    kinds = list(KINDS)
+    for position, (kind, items) in enumerate(KINDS.items()):
+        other = kinds[(position + 2) % len(kinds)]
+        for item in items:
+            article = "an" if item[0] in "aeiou" else "a"
+            cases += [(f"kind:{item}", f"Is {article} {item} {KIND_PHRASES[kind]}?", "yes"),
+                      (f"kind:{item}", f"Is {article} {item} {KIND_PHRASES[other]}?", "no")]
+    rows = []
+    for group, question, answer in cases:
+        for form in YES_NO_FORMS:
+            prompt = form.replace("{q}", question[0].lower() + question[1:]).replace("{Q}", question)
+            rows.append(_row(prompt, answer, "fact", group))
     return rows
 
 
@@ -630,7 +698,7 @@ def short_fact_rows() -> list[dict]:
     # get extra framings so they are not outnumbered by arithmetic.
     worded += [dict(row, prompt=wrapper + row["prompt"])
                for wrapper in WORD_WRAPPERS for row in list(worded)]
-    rows = (arithmetic_rows() + comparison_rows() + worded + refusal_rows() + number_rows()
+    rows = (arithmetic_rows() + comparison_rows() + yes_no_rows() + worded + refusal_rows() + number_rows()
             + clock_rows() + story_rows() + letter_rows() + sort_rows() + code_rows())
     unique, seen = [], set()
     for row in rows:

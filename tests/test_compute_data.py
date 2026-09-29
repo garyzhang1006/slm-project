@@ -203,6 +203,19 @@ class ShortFactTests(unittest.TestCase):
         self.assertTrue(asked)
         self.assertTrue(all(prompt.endswith(short_facts.SENTENCE_CUE) for prompt in asked))
 
+    def test_yes_no_rows_are_balanced_and_all_kept(self):
+        rows = short_facts.yes_no_rows()
+        answers = [row["answer"] for row in rows]
+        self.assertEqual(answers.count("yes"), answers.count("no"))
+        self.assertEqual(set(answers), {"yes", "no"})
+        kept = {row["prompt"] for row in short_facts.short_fact_rows()}
+        self.assertEqual([row["prompt"] for row in rows if row["prompt"] not in kept], [])
+        answer = {row["prompt"]: row["answer"] for row in rows}
+        self.assertEqual(answer["Yes or no: is a bat a mammal?"], "yes")
+        self.assertEqual(answer["Is a spider an insect? Answer yes or no."], "no")
+        self.assertEqual(answer["Is a scarf a piece of clothing?"], "yes")
+        self.assertEqual(answer["Is a hammer a vehicle?"], "no")
+
     def test_sort_and_code_rows_are_correct_and_avoid_holdout_words(self):
         for row in short_facts.sort_rows():
             listed = row["prompt"].split(": ", 1)[-1].rstrip(".") if ":" in row["prompt"] else None

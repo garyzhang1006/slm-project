@@ -8,7 +8,6 @@ from __future__ import annotations
 import math
 
 OWNER = "garyzhang11111"
-LORA_LONG_RUN = ["--max-seconds", str(int(10.5 * 3600)), "--max-steps", "20000"]
 
 STAGES = {
     "corpus": {"runner": "compute/stage1_corpus.py", "slug": "slm-160m-corpus",
@@ -24,11 +23,10 @@ STAGES = {
     # The corpus supplies pretrain_eval.jsonl for held-out bits-per-byte.
     "eval": {"runner": "compute/stage5_evaluate.py", "slug": "slm-160m-eval",
              "internet": False, "gpu": True, "attaches": ["slm-160m-sft", "slm-160m-corpus"]},
-    # Internet stays on so the runner can pip install peft and download the base model. Both adapters train
-    # for up to 10.5 hours of a 12 hour session, and the runner keeps the checkpoint with the lowest held-out
-    # loss, so late overfitting is never the one saved.
+    # Internet stays on so the runner can pip install peft and download the base model. Each adapter trains the
+    # runner's default epochs: the 5 and 3 epoch runs of 2026-09-29 had their lowest held-out loss near epoch 2
+    # for 360M (step 2500 of 6485) and epoch 1 for 1.7B (step 1250 of 3891), and only got worse after that.
     "lora": {"runner": "compute/lora_baseline.py", "slug": "slm-lora-baseline",
-             "args": ["--epochs", "5"] + LORA_LONG_RUN,
              "internet": True, "gpu": True, "attaches": ["slm-sft-data"]},
     # Scores base SmolLM2 and the trained adapter on the 252 everyday questions; internet for the base model.
     # The LoRA teacher answers Dolly questions whose human answers were too long for stage 3.
@@ -36,9 +34,10 @@ STAGES = {
                      "internet": True, "gpu": True, "attaches": ["slm-lora-baseline"]},
     "lora_eval": {"runner": "compute/lora_eval.py", "slug": "slm-lora-eval",
                   "internet": True, "gpu": True, "attaches": ["slm-lora-baseline"]},
-    # The same runners on SmolLM2-1.7B-Instruct; "args" is appended to the runner's command line.
+    # The same runners on SmolLM2-1.7B-Instruct; "args" is appended to the runner's command line. Its one epoch
+    # measured 9 s a step, about 3.2 hours, so the runner's 3 hour default would cut it short.
     "lora_1b7": {"runner": "compute/lora_baseline.py", "slug": "slm-lora-1b7",
-                 "args": ["--model", "1.7b", "--epochs", "3"] + LORA_LONG_RUN,
+                 "args": ["--model", "1.7b", "--max-seconds", str(4 * 3600)],
                  "internet": True, "gpu": True, "attaches": ["slm-sft-data"]},
     "lora_1b7_eval": {"runner": "compute/lora_eval.py", "slug": "slm-lora-1b7-eval",
                       "internet": True, "gpu": True, "attaches": ["slm-lora-1b7"]},

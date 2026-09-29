@@ -28,8 +28,8 @@ from compute.stages import PRETRAIN_SESSION_SECONDS, stage_slug  # noqa: E402
 
 # GPU hours a push must have left in the weekly quota: the stage's own time cap plus setup and save.
 STAGE_HOURS = {"pretrain": PRETRAIN_SESSION_SECONDS / 3600 + 1.0, "distill_data": 1.5, "sft": 9.5,
-               "eval": 1.0, "lora": 11.5, "lora_eval": 1.0, "sft_data": 0.0,
-               "lora_1b7": 11.5, "lora_1b7_eval": 1.5}
+               "eval": 1.0, "lora": 4.0, "lora_eval": 1.0, "sft_data": 0.0,
+               "lora_1b7": 5.5, "lora_1b7_eval": 1.5}
 # Reports that record which adapter a LoRA follow-up used, as a path of keys to its adapter_sha256.
 ADAPTER_USERS = {"lora_eval": ("lora_eval_report.json", ("adapter_sha256",)),
                  "distill_data": ("distill_manifest.json", ("teacher", "adapter_sha256")),

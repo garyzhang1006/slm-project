@@ -110,19 +110,22 @@ class LoraBaselineTests(unittest.TestCase):
         with self.assertRaises(SystemExit), mock.patch("sys.stderr"):
             self.module.parse_args(["--model", "7b"])
 
-    def test_kaggle_runs_fill_a_session_that_the_watcher_reserves(self):
-        # Kaggle stops a session at 12 hours; setup before the training timer, the adapter's holdout
-        # answers and the merged export need the last hour and a half.
+    def test_kaggle_runs_finish_their_epochs_within_the_hours_the_watcher_reserves(self):
+        # The 2026-09-29 Kaggle runs encoded 20,744 training rows and measured these seconds per optimizer
+        # step, eval passes included. Neither the step cap nor the timer may cut the planned epochs short.
         if str(ROOT) not in sys.path:
             sys.path.insert(0, str(ROOT))
         from compute.run_pipeline import STAGE_HOURS
         from compute.stages import STAGES
 
-        for stage, epochs in (("lora", 5.0), ("lora_1b7", 3.0)):
+        for stage, epochs, seconds_per_step in (("lora", 2.0, 1.73), ("lora_1b7", 1.0, 8.96)):
             with self.subTest(stage=stage):
                 args = self.module.parse_args(STAGES[stage].get("args", []))
-                self.assertEqual((args.epochs, args.max_seconds), (epochs, 10.5 * 3600))
-                self.assertGreater(args.max_steps, 10_000)
+                self.assertEqual(args.epochs, epochs)
+                steps = self.module.planned_optimizer_steps(20_744, args.batch_size, args.gradient_accumulation_steps,
+                                                            args.epochs, args.max_steps)
+                self.assertLess(steps, args.max_steps)
+                self.assertLess(steps * seconds_per_step * 1.1, args.max_seconds)
                 self.assertGreaterEqual(STAGE_HOURS[stage], args.max_seconds / 3600 + 1.0)
 
     def test_base_model_is_written_beside_both_exports(self):

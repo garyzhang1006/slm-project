@@ -16,7 +16,9 @@ ROOT = Path(__file__).resolve().parents[1]
 
 def prepare(output: Path, owner: str, slug: str, runner: str) -> None:
     files = [ROOT / name for name in ("pyproject.toml", "README.md", "LICENSE")]
-    for folder, pattern in (("src/cognition_slm", "*.py"), ("tests", "*.py"), ("data", "*.json*")):
+    # Tests import compute/ at module level, so the regression suite needs it for every runner.
+    for folder, pattern in (("src/cognition_slm", "*.py"), ("compute", "*.py"), ("tests", "*.py"),
+                            ("data", "*.json*")):
         files.extend(sorted((ROOT / folder).glob(pattern)))
     for filename in ("index.html", "style.css", "app.js"):
         files.append(ROOT / "src/cognition_slm/web" / filename)
@@ -24,9 +26,10 @@ def prepare(output: Path, owner: str, slug: str, runner: str) -> None:
     # The regression suite imports the curriculum generator for every runner.
     files.append(ROOT / "scripts" / "build_curriculum_data.py")
     files.append(ROOT / "scripts" / "elementary_curriculum.py")
-    # Phase-state regression tests import this runner without executing its main.
-    if runner != "kaggle_short_qa_pilot.py":
-        files.append(ROOT / "scripts" / "kaggle_short_qa_pilot.py")
+    # Phase-state and curriculum regression tests import these runners without executing their main.
+    for name in ("kaggle_short_qa_pilot.py", "kaggle_elementary_run.py"):
+        if runner != name:
+            files.append(ROOT / "scripts" / name)
     files.append(ROOT / "scripts" / "english_corpus.py")
     files.append(ROOT / "scripts" / "qa_corpus.py")
     files.append(ROOT / "scripts" / "broad_english_corpus.py")

@@ -1,4 +1,6 @@
+import contextlib
 import importlib
+import io
 import json
 from pathlib import Path
 import sys
@@ -18,6 +20,18 @@ def runner(name):
 
 def squad_prompt(context, question):
     return f"Answer from the passage.\n\nPassage: {context}\n\nQuestion: {question}"
+
+
+class PrepareKaggleTests(unittest.TestCase):
+    def test_bundle_holds_every_module_the_regression_suite_imports(self):
+        # Every runner starts with `unittest discover -s tests`, and several tests import compute/ and the
+        # elementary runner at module level, so a bundle without them fails before any training.
+        prepare = runner("prepare_kaggle")
+        with tempfile.TemporaryDirectory() as directory, contextlib.redirect_stdout(io.StringIO()):
+            prepare.prepare(Path(directory), "someone", "slug", "kaggle_run.py")
+            manifest = set(json.loads((Path(directory) / "source-manifest.json").read_text()))
+        needed = {str(path.relative_to(ROOT)) for path in (ROOT / "compute").glob("*.py")}
+        self.assertLessEqual(needed | {"scripts/kaggle_elementary_run.py"}, manifest)
 
 
 class LongRunHorizonTests(unittest.TestCase):

@@ -327,6 +327,26 @@ NATURE_FACTS = (
     ("red", ("What color is ketchup?",)),
     ("white", ("What color is table salt?",)),
 )
+# (number, phrasings) for units, shapes and counts; the units, shapes and months data/everyday_eval.json
+# asks about (leap years, centuries, hexagons, April and so on) are left out.
+COUNT_FACTS = (
+    ("1000", ("How many meters are in one kilometer?",)),
+    ("1000", ("How many milliliters are in one liter?",)),
+    ("1000", ("How many years are in a millennium?",)),
+    ("14", ("How many days are in a fortnight?",)),
+    ("15", ("How many minutes are in a quarter of an hour?",)),
+    ("120", ("How many minutes are in two hours?",)),
+    ("72", ("How many hours are in three days?",)),
+    ("4", ("How many sides does a rectangle have?",)),
+    ("0", ("How many corners does a circle have?",)),
+    ("6", ("How many faces does a cube have?",)),
+    ("1", ("How many wheels does a unicycle have?",)),
+    ("8", ("How many legs do two dogs have in total?",)),
+    ("6", ("How many eyes do three people have altogether?",)),
+    ("20", ("How many toes do two people have altogether?",)),
+)
+MONTH_DAYS = (("January", 31), ("March", 31), ("May", 31), ("June", 30), ("July", 31), ("August", 31),
+              ("September", 30), ("October", 31), ("November", 30), ("December", 31))
 KIND_PHRASES = {"fruit": "a fruit", "vegetable": "a vegetable", "animal": "an animal", "tool": "a tool",
                 "clothing": "a piece of clothing", "vehicle": "a vehicle"}
 # Pairs of world-knowledge questions, one answered yes and one no, so a yes/no answer depends on the
@@ -594,6 +614,32 @@ def nature_rows() -> list[dict]:
             rows.append(_row(phrasing, answer, "fact", f"nature:{index}"))
             if " " not in answer:
                 rows.append(_row(phrasing + " Reply with one word.", answer, "fact", f"nature:{index}"))
+    return rows
+
+
+def counting_rows() -> list[dict]:
+    rows = []
+    for index, (number, phrasings) in enumerate(COUNT_FACTS):
+        for phrasing in phrasings:
+            rows += [_row(phrasing, number, "math", f"count:{index}"),
+                     _row(phrasing + " Reply with the number.", number, "math", f"count:{index}")]
+    for month, days in MONTH_DAYS:
+        rows += [_row(f"How many days are in {month}?", str(days), "math", f"month-days:{month}"),
+                 _row(f"How many days does {month} have? Reply with the number.", str(days), "math",
+                      f"month-days:{month}")]
+    rows.append(_row("In which month is New Year's Day?", "January", "fact", "month:new-year"))
+    for index, day in enumerate(DAYS):
+        after, before = DAYS[(index + 1) % 7], DAYS[index - 1]
+        group = f"today:{day}"
+        if (day, after) not in EVERYDAY_NEIGHBORS:
+            rows.append(_row(f"Today is {day}. What day is tomorrow?", after, "fact", group))
+        if (before, day) not in EVERYDAY_NEIGHBORS:
+            rows.append(_row(f"Today is {day}. What day was it yesterday?", before, "fact", group))
+        rows += [
+            _row(f"Today is {day}. What day will it be the day after tomorrow?", DAYS[(index + 2) % 7], "fact",
+                 group),
+            _row(f"Today is {day}. What day was it two days ago?", DAYS[index - 2], "fact", group),
+        ]
     return rows
 
 
@@ -896,8 +942,8 @@ def code_rows() -> list[dict]:
 
 def short_fact_rows() -> list[dict]:
     """All rows in a fixed order, each {prompt, answer, category, group}, with unique prompts."""
-    worded = (calendar_rows() + opposite_rows() + plural_rows() + fact_rows() + nature_rows() + copy_rows()
-              + world_rows() + grammar_rows())
+    worded = (calendar_rows() + opposite_rows() + plural_rows() + fact_rows() + nature_rows() + counting_rows()
+              + copy_rows() + world_rows() + grammar_rows())
     # Arithmetic already has four templates and refusals three wrappers; the word questions
     # get extra framings so they are not outnumbered by arithmetic.
     worded += [dict(row, prompt=wrapper + row["prompt"])

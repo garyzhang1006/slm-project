@@ -261,6 +261,16 @@ class ShortFactTests(unittest.TestCase):
         self.assertEqual(answer["Spell the plural of the word roof."], "roofs")
         self.assertEqual(answer["What is the singular of fungi?"], "fungus")
 
+    def test_counting_rows_skip_the_eval_neighbors(self):
+        answer = {row["prompt"]: row["answer"] for row in short_facts.short_fact_rows()}
+        self.assertEqual(answer["Today is Thursday. What day will it be the day after tomorrow?"], "Saturday")
+        self.assertEqual(answer["Today is Monday. What day was it two days ago?"], "Saturday")
+        self.assertEqual(answer["Question: How many days are in September?"], "30")
+        self.assertEqual(answer["How many hours are in three days? Reply with the number."], "72")
+        for prompt in ("Today is Friday. What day is tomorrow?", "Today is Wednesday. What day was it yesterday?",
+                       "How many days are in April?", "How many days are in February?"):
+            self.assertNotIn(prompt, answer)
+
     def test_sort_and_code_rows_are_correct_and_avoid_holdout_words(self):
         for row in short_facts.sort_rows():
             listed = row["prompt"].split(": ", 1)[-1].rstrip(".") if ":" in row["prompt"] else None

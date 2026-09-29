@@ -58,6 +58,10 @@ class ScoreHoldoutTests(unittest.TestCase):
         self.assertFalse(self.module.score_answer(plural, "mices")["contains"])
         english = {"id": "e", "category": "english", "expected_rubric": "book"}
         self.assertFalse(self.module.score_answer(english, "books")["exact"])
+        # "Write only the word window." tests the exact form too.
+        copy = next(row for row in self.rows if row["id"] == "simple-v1-17")
+        self.assertEqual((copy["category"], copy["expected_rubric"]), ("instruction", "window"))
+        self.assertFalse(self.module.score_answer(copy, "windows")["contains"])
         short = {"id": "s", "category": "yes_no", "expected_rubric": "no"}
         self.assertFalse(self.module.score_answer(short, "nos")["exact"])
 

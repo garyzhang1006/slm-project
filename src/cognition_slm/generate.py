@@ -10,6 +10,7 @@ import torch
 
 from .checkpoint import load_checkpoint_payload
 from .code_eval import CODE_TASK_TYPES, python_syntax_valid
+from .config import TASK_TYPES
 from .data import format_prompt, validate_record
 from .model import CognitionSLM, KVCache
 from .tokenizer import ByteTokenizer
@@ -265,7 +266,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--checkpoint", required=True)
     parser.add_argument("--prompt", required=True)
-    parser.add_argument("--task-type", default="language_generation")
+    parser.add_argument("--task-type", default="language_generation", choices=TASK_TYPES)
     parser.add_argument("--max-new-tokens", type=int, default=96)
     parser.add_argument("--temperature", type=float, default=0.8)
     parser.add_argument("--top-k", type=int, default=40)
@@ -284,6 +285,9 @@ def main() -> None:
         parser.error("--top-p must be in (0, 1] and --repetition-penalty must be positive")
     if args.stop is not None and not all(args.stop):
         parser.error("--stop values must be non-empty")
+    # Checked before the checkpoint loads, which can take a while, rather than inside generation.
+    if not 0 <= args.temperature < math.inf or args.top_k < 0 or args.max_new_tokens < 1:
+        parser.error("--temperature must be finite and non-negative, --top-k non-negative and --max-new-tokens positive")
     device = _device(args.device)
     model, tokenizer = load_checkpoint(args.checkpoint, device)
     print(

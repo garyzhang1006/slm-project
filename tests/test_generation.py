@@ -90,7 +90,9 @@ class GenerationTests(unittest.TestCase):
 
     def test_cli_rejects_invalid_decoding_flags(self):
         for extra in (["--top-p", "0"], ["--top-p", "1.5"], ["--repetition-penalty", "0"],
-                      ["--repetition-penalty", "inf"], ["--repetition-penalty", "nan"], ["--stop", ""]):
+                      ["--repetition-penalty", "inf"], ["--repetition-penalty", "nan"], ["--stop", ""],
+                      ["--temperature", "-1"], ["--temperature", "nan"], ["--temperature", "inf"], ["--top-k", "-1"],
+                      ["--max-new-tokens", "0"], ["--task-type", "poetry"]):
             argv = ["cognition-slm-generate", "--checkpoint", "x.pt", "--prompt", "hi", *extra]
             with self.subTest(extra=extra), patch("sys.argv", argv), \
                  patch("cognition_slm.generate.load_checkpoint") as load, \

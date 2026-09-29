@@ -79,6 +79,10 @@ def _required_text(raw: dict[str, Any], field: str, record_number: int) -> str:
         raise DataValidationError(f"record {record_number}: {field} exceeds {MAX_TEXT_CHARS} characters")
     if any(ord(char) < 32 and char not in "\n\r\t" for char in value):
         raise DataValidationError(f"record {record_number}: {field} contains a control character")
+    try:
+        value.encode("utf-8")
+    except UnicodeEncodeError:
+        raise DataValidationError(f"record {record_number}: {field} contains a lone surrogate, which is not valid UTF-8") from None
     return value
 
 

@@ -109,6 +109,9 @@ class DataAndAuditTests(unittest.TestCase):
             validate_record({**base, "chain_of_thought": "private"})
         with self.assertRaises(DataValidationError):
             validate_record({**base, "unexpected": "field"})
+        # json.loads keeps an escaped lone surrogate, which the byte tokenizer can't encode.
+        with self.assertRaisesRegex(DataValidationError, "record 0: prompt"):
+            validate_record({**base, "prompt": "p\ud800"})
 
     def test_encoding_rejects_examples_without_answer_tokens(self):
         example = validate_record(

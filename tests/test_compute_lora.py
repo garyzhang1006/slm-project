@@ -110,6 +110,21 @@ class LoraBaselineTests(unittest.TestCase):
         with self.assertRaises(SystemExit), mock.patch("sys.stderr"):
             self.module.parse_args(["--model", "7b"])
 
+    def test_kaggle_runs_fill_a_session_that_the_watcher_reserves(self):
+        # Kaggle stops a session at 12 hours; setup before the training timer, the adapter's holdout
+        # answers and the merged export need the last hour and a half.
+        if str(ROOT) not in sys.path:
+            sys.path.insert(0, str(ROOT))
+        from compute.run_pipeline import STAGE_HOURS
+        from compute.stages import STAGES
+
+        for stage, epochs in (("lora", 5.0), ("lora_1b7", 3.0)):
+            with self.subTest(stage=stage):
+                args = self.module.parse_args(STAGES[stage].get("args", []))
+                self.assertEqual((args.epochs, args.max_seconds), (epochs, 10.5 * 3600))
+                self.assertGreater(args.max_steps, 10_000)
+                self.assertGreaterEqual(STAGE_HOURS[stage], args.max_seconds / 3600 + 1.0)
+
     def test_base_model_is_written_beside_both_exports(self):
         source = RUNNER.read_text()
         self.assertIn("write_json(adapter / BASE_MODEL_FILE, base)", source)

@@ -132,7 +132,7 @@ class PackageTests(unittest.TestCase):
         self.assertEqual(metadata["id"], "someone/slm-lora-1b7")
         self.assertEqual(metadata["kernel_sources"], ["someone/slm-sft-data"])
         script, _ = self.payload(out)
-        self.assertIn("] + ['--model', '1.7b']", script)
+        self.assertIn("] + ['--model', '1.7b', '--epochs', '3', '--max-seconds', '37800'", script)
 
     def test_cli_rejects_flags_for_the_wrong_stage(self):
         package = module("package")

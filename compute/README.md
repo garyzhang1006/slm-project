@@ -22,8 +22,8 @@ Nothing in this folder trains or downloads on your own machine. Every stage runs
 - **sft_data** builds short question and answer records: Dolly-15k (CC BY-SA 3.0) short answers, plus project-written rows from `compute/short_facts.py`: facts, arithmetic, word pairs, yes or no questions, short reading passages (some that leave the answer out, taught to say so), science, animal and color facts, unit and calendar counts, and "I don't know" refusals. A bare question gets the short answer, and a full sentence only when the prompt asks for one. Any row that overlaps a question in `data/simple_questions_holdout.json` or `data/everyday_eval.json` is dropped, so both scores stay honest, and the project rows also leave out the facts those files ask. It writes `sft/sft_train.jsonl`, `sft/sft_eval.jsonl` and `sft/sft_manifest.json`.
 - **sft** fine-tunes the last pretrain checkpoint on those records at learning rate 1e-4 and writes `artifacts/slm-160m-sft.pt` with `sft_report.json`.
 - **eval** answers the 24 holdout questions and a fixed set of English probes greedily (temperature 0, at most 64 new tokens, stopping at a newline), scores them with `scripts/score_holdout.py`, measures held-out bits per byte, and writes `eval_report.json`. It also answers the 252 questions in `data/everyday_eval.json` and reports them under `everyday_eval_scores`, per category. The pass gate is holdout accuracy above the old 3/24.
-- **lora** fine-tunes `HuggingFaceTB/SmolLM2-360M-Instruct` (Apache-2.0, revision `a10cc1512eabd3dde888204e902eca88bddb4951`) with LoRA on the same `sft_train.jsonl`, drops any row that copies a question from either eval file again, scores it on the same holdout, and writes `lora_report.json` plus the adapter.
-- **lora_1b7** runs the same runner on `HuggingFaceTB/SmolLM2-1.7B-Instruct` (Apache-2.0, revision `31b70e2e869a7173562077fd711b654946d38674`). The fp32 weights take about 6.8 GB of the T4's 16 GB, so it trains one epoch on micro-batches of 4 with gradient checkpointing. Every adapter folder now holds `base_model.json`, which is how `lora_eval`, `distill_data` and Studio know which base model to load.
+- **lora** fine-tunes `HuggingFaceTB/SmolLM2-360M-Instruct` (Apache-2.0, revision `a10cc1512eabd3dde888204e902eca88bddb4951`) with LoRA on the same `sft_train.jsonl`, drops any row that copies a question from either eval file again, scores it on the same holdout, and writes `lora_report.json` plus the adapter. On kaggle it trains up to five epochs within 10.5 hours and keeps the checkpoint with the lowest held-out loss.
+- **lora_1b7** runs the same runner on `HuggingFaceTB/SmolLM2-1.7B-Instruct` (Apache-2.0, revision `31b70e2e869a7173562077fd711b654946d38674`). The fp32 weights take about 6.8 GB of the T4's 16 GB, so it trains on micro-batches of 4 with gradient checkpointing, up to three epochs within the same 10.5 hours. Every adapter folder now holds `base_model.json`, which is how `lora_eval`, `distill_data` and Studio know which base model to load.
 - **lora_1b7_eval** scores the 1.7B base model and its adapter on the everyday questions and the holdout, like `lora_eval` does for the 360M model.
 
 ## How much GPU time
@@ -46,8 +46,8 @@ The step-based view agrees. One optimizer step is batch 8 × accumulation 4 × 2
 | pretrain | about 55, in 6 sessions (measured speed) |
 | sft | 1 to 2 |
 | eval | under 1 |
-| lora | 1 to 2 |
-| lora_1b7 | 2.5 to 4 (estimated, not yet measured) |
+| lora | up to 11.5 (training stops at 10.5) |
+| lora_1b7 | up to 11.5 (training stops at 10.5) |
 | lora_1b7_eval | about 1 |
 
 Kaggle gives a weekly GPU quota (check the current number on your account page), so pretraining will likely span more than one week.

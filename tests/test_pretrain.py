@@ -40,6 +40,13 @@ class PretrainDataTests(unittest.TestCase):
                 path.write_text(content, encoding="utf-8")
                 with self.assertRaises(DataValidationError):
                     load_pretrain_text(path)
+        for name, content in (("latin1.txt", b"caf\xe9\n"), ("latin1.jsonl", b'{"text": "caf\xe9"}\n'),
+                              ("nested.jsonl", b"[" * 200_000 + b"]" * 200_000 + b"\n")):
+            with self.subTest(name=name):
+                path = self.root / name
+                path.write_bytes(content)
+                with self.assertRaises(DataValidationError):
+                    load_pretrain_text(path)
         with self.assertRaises(FileNotFoundError):
             load_pretrain_text(self.root / "absent.txt")
 

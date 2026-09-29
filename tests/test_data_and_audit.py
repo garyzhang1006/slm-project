@@ -1,6 +1,7 @@
 import hashlib
 from dataclasses import replace
 import json
+import tempfile
 import unittest
 from unittest.mock import patch
 from pathlib import Path
@@ -131,6 +132,17 @@ class DataAndAuditTests(unittest.TestCase):
         )
         with self.assertRaisesRegex(ValueError, "no answer tokens"):
             encode_examples([example], ByteTokenizer(), block_size=16)
+
+    def test_audit_reports_files_that_are_not_utf8_or_nest_too_deeply(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for name, content in (("latin1.jsonl", b'{"id": "caf\xe9"}\n'),
+                                  ("nested.jsonl", b"[" * 200_000 + b"]" * 200_000 + b"\n")):
+                with self.subTest(name=name):
+                    path = Path(directory) / name
+                    path.write_bytes(content)
+                    report = audit_dataset(path)
+                    self.assertFalse(report.ok)
+                    self.assertIn(name, report.errors[0])
 
     def test_encoding_uses_the_model_label_sets(self):
         example = validate_record({"id": "chat", "prompt": "Say hi.", "answer": "Hi.", "task_type": "language_generation",

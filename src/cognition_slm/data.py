@@ -7,7 +7,7 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any, Iterable, Iterator
 
 from .config import ERROR_CATEGORIES, TASK_TYPES
 from .tokenizer import ByteTokenizer
@@ -137,23 +137,35 @@ def load_jsonl(path: str | Path) -> list[CognitionExample]:
         raise FileNotFoundError(path)
     examples: list[CognitionExample] = []
     seen_ids: set[str] = set()
-    with path.open("r", encoding="utf-8") as handle:
-        for record_number, line in enumerate(handle, start=1):
-            if not line.strip():
-                continue
-            try:
-                raw = json.loads(line, object_pairs_hook=_reject_duplicate_keys, parse_constant=_reject_constant)
-            except (DataValidationError, json.JSONDecodeError) as exc:
-                detail = exc.msg if isinstance(exc, json.JSONDecodeError) else str(exc)
-                raise DataValidationError(f"{path}:{record_number}: invalid JSON: {detail}") from exc
-            example = validate_record(raw, record_number)
-            if example.id in seen_ids:
-                raise DataValidationError(f"{path}:{record_number}: duplicate id {example.id!r}")
-            seen_ids.add(example.id)
-            examples.append(example)
+    for record_number, line in _utf8_lines(path):
+        if not line.strip():
+            continue
+        example = validate_record(_parse_json_line(path, record_number, line), record_number)
+        if example.id in seen_ids:
+            raise DataValidationError(f"{path}:{record_number}: duplicate id {example.id!r}")
+        seen_ids.add(example.id)
+        examples.append(example)
     if not examples:
         raise DataValidationError(f"{path}: dataset has no records")
     return examples
+
+
+def _utf8_lines(path: Path) -> Iterator[tuple[int, str]]:
+    """Numbered lines, streamed; a file in another encoding fails as a data error, not a traceback."""
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            yield from enumerate(handle, start=1)
+    except UnicodeDecodeError as exc:
+        raise DataValidationError(f"{path}: not valid UTF-8 ({exc.reason}); save the file as UTF-8") from exc
+
+
+def _parse_json_line(path: Path, record_number: int, line: str) -> Any:
+    try:
+        return json.loads(line, object_pairs_hook=_reject_duplicate_keys, parse_constant=_reject_constant)
+    except (DataValidationError, json.JSONDecodeError, RecursionError) as exc:
+        # Deep nesting overflows the parser's stack and raises RecursionError, not a decode error.
+        detail = exc.msg if isinstance(exc, json.JSONDecodeError) else str(exc)
+        raise DataValidationError(f"{path}:{record_number}: invalid JSON: {detail}") from exc
 
 
 def _reject_duplicate_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
@@ -245,26 +257,21 @@ def load_pretrain_text(path: str | Path) -> list[str]:
     if not path.exists():
         raise FileNotFoundError(path)
     if path.suffix != ".jsonl":
-        text = path.read_text(encoding="utf-8")
+        text = "".join(line for _, line in _utf8_lines(path))
         if not text.strip():
             raise DataValidationError(f"{path}: text file is empty")
         if not TEXT_DOCUMENT_BREAK.search(text):
             return [text]
         return [document for document in TEXT_DOCUMENT_BREAK.split(text) if document.strip()]
     documents: list[str] = []
-    with path.open("r", encoding="utf-8") as handle:
-        for record_number, line in enumerate(handle, start=1):
-            if not line.strip():
-                continue
-            try:
-                raw = json.loads(line, object_pairs_hook=_reject_duplicate_keys, parse_constant=_reject_constant)
-            except (DataValidationError, json.JSONDecodeError) as exc:
-                detail = exc.msg if isinstance(exc, json.JSONDecodeError) else str(exc)
-                raise DataValidationError(f"{path}:{record_number}: invalid JSON: {detail}") from exc
-            text = raw.get("text") if isinstance(raw, dict) else None
-            if not isinstance(text, str) or not text.strip():
-                raise DataValidationError(f"{path}:{record_number}: text must be non-empty text")
-            documents.append(text)
+    for record_number, line in _utf8_lines(path):
+        if not line.strip():
+            continue
+        raw = _parse_json_line(path, record_number, line)
+        text = raw.get("text") if isinstance(raw, dict) else None
+        if not isinstance(text, str) or not text.strip():
+            raise DataValidationError(f"{path}:{record_number}: text must be non-empty text")
+        documents.append(text)
     if not documents:
         raise DataValidationError(f"{path}: dataset has no records")
     return documents

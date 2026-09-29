@@ -168,6 +168,18 @@ class ShortFactTests(unittest.TestCase):
         self.assertEqual(answers["Should you say a hour or an hour?"], "an hour")
         self.assertEqual(answers["Is a mango a kind of fruit or a kind of tool?"], "fruit")
 
+    def test_bare_questions_get_short_answers_and_sentences_are_asked_for(self):
+        answers = {row["prompt"]: row["answer"] for row in short_facts.short_fact_rows()}
+        self.assertEqual(answers["What color is snow?"], "white")
+        self.assertEqual(answers["Question: How many legs does a spider have?"], "8")
+        self.assertEqual(answers["Which city is the capital of Poland?"], "Warsaw")
+        self.assertEqual(answers["What color is snow? Answer in a full sentence."], "Snow is white.")
+        sentences = {sentence for _, sentence, _ in short_facts.FACTS}
+        sentences |= {f"{city} is the capital of {country}." for country, city in short_facts.CAPITALS}
+        asked = [prompt for prompt, answer in answers.items() if answer in sentences]
+        self.assertTrue(asked)
+        self.assertTrue(all(prompt.endswith(short_facts.SENTENCE_CUE) for prompt in asked))
+
     def test_sort_and_code_rows_are_correct_and_avoid_holdout_words(self):
         for row in short_facts.sort_rows():
             listed = row["prompt"].split(": ", 1)[-1].rstrip(".") if ":" in row["prompt"] else None

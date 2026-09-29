@@ -210,6 +210,7 @@ REFUSALS = (
 )
 REFUSAL_WRAPPERS = ("{q}", "Quick question: {q}", "{q} Answer briefly.")
 WORD_WRAPPERS = ("Please answer: ", "Question: ")
+SENTENCE_CUE = " Answer in a full sentence."
 
 # Countries, languages, nouns, verbs and names below avoid the entities in data/everyday_eval.json.
 CAPITALS = (
@@ -392,12 +393,16 @@ def plural_rows() -> list[dict]:
 
 
 def fact_rows() -> list[dict]:
+    # A bare question gets the short answer, matching the "short, direct reply" system prompt the LoRA
+    # trains under; a full sentence only when the prompt asks for one. Training the bare question to a
+    # sentence taught the adapter to wrap everyday answers ("Snow is white.") where one word was wanted.
     rows = []
     for index, (word, sentence, phrasings) in enumerate(FACTS):
         for phrasing in phrasings:
-            rows.append(_row(phrasing, sentence, "fact", f"fact:{index}"))
+            rows.append(_row(phrasing, word, "fact", f"fact:{index}"))
             suffix = " Reply with the number." if word.isdigit() else " Reply with one word."
             rows.append(_row(phrasing + suffix, word, "fact", f"fact:{index}"))
+            rows.append(_row(phrasing + SENTENCE_CUE, sentence, "fact", f"fact:{index}"))
     return rows
 
 
@@ -514,8 +519,9 @@ def world_rows() -> list[dict]:
         group, title = f"capital:{country}", country[0].upper() + country[1:]
         rows += [
             _row(f"What is the capital of {country}?", city, "fact", group),
-            _row(f"Which city is the capital of {country}?", f"{city} is the capital of {country}.", "fact",
-                 group),
+            _row(f"Which city is the capital of {country}?", city, "fact", group),
+            _row(f"Which city is the capital of {country}?{SENTENCE_CUE}", f"{city} is the capital of {country}.",
+                 "fact", group),
             _row(f"{city} is the capital of which country?", title, "fact", group),
         ]
     for country, language in LANGUAGES:

@@ -52,5 +52,13 @@ class CodeEvaluationTests(unittest.TestCase):
         self.assertFalse(python_syntax_valid("```python\nreturn\n```"))
 
 
+    def test_unparseable_text_is_invalid_instead_of_raising(self):
+        # Null bytes raise ValueError before Python 3.12, and deep nesting overflows the parser or compiler.
+        for text in ("def f():\n    return 1\x00", "x = " + "1+" * 200_000 + "1", "x = " + "-" * 200_000 + "1"):
+            with self.subTest(text=text[:12]):
+                self.assertFalse(python_syntax_valid(text))
+                self.assertFalse(assess_python(text, "def f():\n    return 1").syntax_valid)
+
+
 if __name__ == "__main__":
     unittest.main()

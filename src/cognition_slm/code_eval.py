@@ -8,6 +8,9 @@ from dataclasses import dataclass
 
 
 CODE_TASK_TYPES = frozenset({"code_generation", "code_debugging"})
+# Null bytes raise ValueError before Python 3.12, and deep nesting overflows the parser (MemoryError)
+# or the compiler (RecursionError); all of them mean the text is not usable Python.
+_UNPARSEABLE = (SyntaxError, ValueError, RecursionError, MemoryError)
 # A generation cut off at max_new_tokens can leave its last fence unclosed.
 _FENCED_BLOCK = re.compile(r"```([^\n`]*)\n(.*?)(?:```|\Z)", re.DOTALL)
 
@@ -47,7 +50,7 @@ def python_syntax_valid(text: str) -> bool:
     try:
         tree = ast.parse(extract_python(text))
         compile(tree, "<generated-python>", "exec")
-    except SyntaxError:
+    except _UNPARSEABLE:
         return False
     return not _is_trivial(tree)
 
@@ -69,8 +72,8 @@ def assess_python(generated: str, expected: str) -> PythonQuality:
         expected_tree = ast.parse(expected_source)
         compile(generated_tree, "<generated-python>", "exec")
         compile(expected_tree, "<expected-python>", "exec")
-    except SyntaxError as exc:
-        return PythonQuality(False, 0.0, 0.0, f"SyntaxError: {exc.msg}")
+    except _UNPARSEABLE as exc:
+        return PythonQuality(False, 0.0, 0.0, f"{type(exc).__name__}: {exc.msg if isinstance(exc, SyntaxError) else exc}")
     if _is_trivial(generated_tree):
         return PythonQuality(False, 0.0, 0.0, "no Python statements in generation")
 

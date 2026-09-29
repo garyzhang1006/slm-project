@@ -72,9 +72,19 @@ class DecisionTests(unittest.TestCase):
         self.assertEqual((starved["kind"], starved["stage"]), ("wait", "pretrain"))
         self.assertIn("quota", starved["reason"])
 
-    def test_missing_report_stops(self):
+    def test_unreadable_reports_wait_instead_of_repushing(self):
+        # Kaggle.report returns None when a download fails, so a finished stage must not be pushed again.
         statuses = {"slm-160m-corpus": "complete", "slm-160m-pretrain-1": "complete"}
-        self.assertEqual(decide(statuses)["kind"], "stop")
+        self.assertEqual(decide(statuses)["kind"], "wait")
+        statuses.update({"slm-lora-baseline": "complete", "slm-distill-data": "complete", "slm-160m-sft": "complete"})
+        reports = {("slm-160m-pretrain-1", "pretrain_session_1.json"): DONE,
+                   ("slm-lora-baseline", "lora_report.json"): LORA_DONE, **FRESH_FOLLOW_UPS}
+        self.assertEqual(decide(statuses, reports)["kind"], "wait")
+        lora = {**LoraChainTests.READY, "slm-lora-eval": "complete", "slm-distill-data": "complete"}
+        self.assertEqual(decide_lora(lora, {("slm-lora-baseline", "lora_report.json"): LORA_DONE})["kind"], "wait")
+        large = {"slm-sft-data": "complete", "slm-lora-1b7": "complete", "slm-lora-1b7-eval": "complete"}
+        self.assertEqual(decide(large, {("slm-lora-1b7", "lora_report.json"): LORA_DONE},
+                                chooser=run_pipeline.large_lora_action)["kind"], "wait")
 
     def test_sft_then_eval_then_done(self):
         statuses = {"slm-160m-corpus": "complete", **{f"slm-160m-pretrain-{k}": "complete" for k in (1, 2, 3)}}

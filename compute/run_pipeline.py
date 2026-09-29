@@ -91,8 +91,8 @@ def next_action(status, report, quota_hours: float) -> dict:
     if current != "complete":
         return action("stop", f"pretrain session {last} ended as {current}; read its log before retrying")
     session_report = report(stage_slug("pretrain", last), f"pretrain_session_{last}.json")
-    if not session_report:
-        return action("stop", f"pretrain session {last} finished without pretrain_session_{last}.json")
+    if session_report is None:
+        return unreadable(f"pretrain_session_{last}.json", f"pretrain session {last}")
     if session_report.get("status") == "session_complete_resume_next":
         if last >= MAX_PRETRAIN_SESSIONS:
             return action("stop", f"{last} pretrain sessions and still not done; check the step budget")
@@ -112,7 +112,9 @@ def next_action(status, report, quota_hours: float) -> dict:
         return push_if_quota("sft", quota_hours, f"pretraining finished in session {last}", pretrain_session=last)
     if sft != "complete":
         return action("stop", f"sft ended as {sft}; read its log before retrying")
-    sft_report = report(stage_slug("sft"), "sft_report.json") or {}
+    sft_report = report(stage_slug("sft"), "sft_report.json")
+    if sft_report is None:
+        return unreadable("sft_report.json", "sft")
     if sft_report.get("pretrain_session") != last:
         return push_if_quota("sft", quota_hours, f"sft was built on pretrain session "
                              f"{sft_report.get('pretrain_session')}, not {last}", pretrain_session=last)
@@ -125,6 +127,12 @@ def next_action(status, report, quota_hours: float) -> dict:
     if evaluation != "complete":
         return action("stop", f"eval ended as {evaluation}; read its log before retrying")
     return action("done", "eval finished; read eval_report.json from the eval kernel output")
+
+
+def unreadable(filename: str, kernel: str) -> dict:
+    # Kaggle.report returns None when the download fails, which is usually a transient API error, so a
+    # finished stage waits a round instead of being pushed again on a missing report.
+    return action("wait", f"could not read {filename} from {kernel}; retrying next round")
 
 
 def dig(value, keys: tuple[str, ...]):
@@ -140,10 +148,13 @@ def current_adapter(status, report) -> str | None:
     return dig(report(stage_slug("lora"), "lora_report.json"), ("adapter_sha256",))
 
 
-def follow_up_fresh(status, report, stage: str, adapter: str | None) -> bool:
+def follow_up_fresh(status, report, stage: str, adapter: str | None) -> bool | None:
+    """Whether stage finished on adapter, or None when its finished report could not be read."""
     filename, keys = ADAPTER_USERS[stage]
-    return (adapter is not None and status(stage_slug(stage)) == "complete"
-            and dig(report(stage_slug(stage), filename), keys) == adapter)
+    if adapter is None or status(stage_slug(stage)) != "complete":
+        return False
+    found = report(stage_slug(stage), filename)
+    return None if found is None else dig(found, keys) == adapter
 
 
 def lora_action(status, report, quota_hours: float) -> dict:
@@ -165,8 +176,7 @@ def lora_action(status, report, quota_hours: float) -> dict:
         return action("stop", f"lora ended as {teacher}; read its log before retrying")
     lora_report = report(stage_slug("lora"), "lora_report.json")
     if lora_report is None:
-        # Kaggle.report returns None when the download fails, which is usually a transient API error.
-        return action("wait", "could not read lora_report.json from the lora kernel; retrying next round")
+        return unreadable("lora_report.json", "the lora kernel")
     if lora_report.get("status") != "complete_pending_manual_review":
         return action("stop", f"lora report status is {lora_report.get('status')!r}")
     adapter = lora_report.get("adapter_sha256")
@@ -181,9 +191,12 @@ def lora_action(status, report, quota_hours: float) -> dict:
 
     waiting, stopped = [], []
     for stage, state in followers.items():
+        fresh = state == "complete" and follow_up_fresh(status, report, stage, adapter)
         if state in WAITING:
             waiting.append(f"{stage} is {state}")
-        elif state == "missing" or (state == "complete" and not follow_up_fresh(status, report, stage, adapter)):
+        elif fresh is None:
+            waiting.append(unreadable(ADAPTER_USERS[stage][0], stage)["reason"])
+        elif state == "missing" or (state == "complete" and not fresh):
             return push_if_quota(stage, quota_hours, f"{stage} has not run on adapter {adapter[:12]}")
         elif state != "complete":
             stopped.append(f"{stage} ended as {state}; read its log before retrying")
@@ -211,15 +224,17 @@ def large_lora_action(status, report, quota_hours: float) -> dict:
         return action("stop", f"lora_1b7 ended as {teacher}; read its log before retrying")
     lora_report = report(stage_slug("lora_1b7"), "lora_report.json")
     if lora_report is None:
-        return action("wait", "could not read lora_report.json from lora_1b7; retrying next round")
+        return unreadable("lora_report.json", "lora_1b7")
     adapter = lora_report.get("adapter_sha256")
     if lora_report.get("status") != "complete_pending_manual_review" or not adapter:
         return action("stop", f"lora_1b7 report status is {lora_report.get('status')!r}")
     evaluation = status(stage_slug("lora_1b7_eval"))
     if evaluation in WAITING:
         return action("wait", f"lora_1b7_eval is {evaluation}")
-    if evaluation == "missing" or (evaluation == "complete"
-                                   and not follow_up_fresh(status, report, "lora_1b7_eval", adapter)):
+    fresh = evaluation == "complete" and follow_up_fresh(status, report, "lora_1b7_eval", adapter)
+    if fresh is None:
+        return unreadable("lora_eval_report.json", "lora_1b7_eval")
+    if evaluation == "missing" or (evaluation == "complete" and not fresh):
         return push_if_quota("lora_1b7_eval", quota_hours, f"lora_1b7_eval has not run on adapter {adapter[:12]}")
     if evaluation != "complete":
         return action("stop", f"lora_1b7_eval ended as {evaluation}; read its log before retrying")

@@ -16,8 +16,14 @@ SECRET_PATTERNS = (
     re.compile(r"github_pat_[A-Za-z0-9_]{22,}"),
     re.compile(r"hf_[A-Za-z0-9]{30,}"),
     re.compile(r"sk-[A-Za-z0-9_-]{20,}"),
-    re.compile(r"AKIA[0-9A-Z]{16}"),
-    re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
+    re.compile(r"A(?:KIA|SIA)[0-9A-Z]{16}"),
+    re.compile(r"-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY(?: BLOCK)?-----"),
+    re.compile(r"xox[abposr]-[A-Za-z0-9-]{10,}"),
+    re.compile(r"AIza[0-9A-Za-z_-]{35}"),
+    re.compile(r"[rs]k_live_[A-Za-z0-9]{16,}"),
+    re.compile(r"glpat-[A-Za-z0-9_-]{20,}"),
+    re.compile(r"npm_[A-Za-z0-9]{36}"),
+    re.compile(r"eyJ[A-Za-z0-9_-]{10,}\.eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}"),
 )
 INJECTION_PATTERN = re.compile(
     r"(?i)(ignore\s+(?:all\s+)?previous|reveal\s+(?:the\s+)?system prompt|developer message)"

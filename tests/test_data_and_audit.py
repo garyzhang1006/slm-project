@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 from pathlib import Path
 
-from cognition_slm.audit import audit_dataset, audit_split_overlap
+from cognition_slm.audit import SECRET_PATTERNS, audit_dataset, audit_split_overlap
 from cognition_slm.config import LEGACY_TASK_TYPES
 from cognition_slm.data import DataValidationError, encode_examples, load_jsonl, validate_record
 from cognition_slm.tokenizer import ByteTokenizer
@@ -168,6 +168,21 @@ class DataAndAuditTests(unittest.TestCase):
                     path = Path(directory) / "tokens.jsonl"
                     path.write_text(json.dumps({**record, "answer": f"Use {token} here."}) + "\n", encoding="utf-8")
                     self.assertEqual(len(audit_dataset(path).errors), 1)
+
+    def test_secret_patterns_cover_other_common_credentials(self):
+        # Built from pieces so this file never holds a token-shaped literal. The corpus, sft_data and
+        # distill_data filters use these patterns too, so a miss lets the credential into training data.
+        tokens = ["-----BEGIN ENCRYPTED PRIVATE KEY-----", "-----BEGIN DSA PRIVATE KEY-----",
+                  "-----BEGIN PGP PRIVATE KEY BLOCK-----", "xox" + "b-1234567890-" + "aB3" * 8,
+                  "AI" + "za" + "Sy" + "a1B2c3" * 5 + "D4E", "sk_" + "live_" + "a1B2" * 6,
+                  "AS" + "IA" + "ABCDEFGH23456789", "glpat-" + "a1B2c" * 4, "npm_" + "a1B2" * 9,
+                  "eyJ" + "hbGciOiJIUzI1NiJ9.eyJ" + "zdWIiOiIxMjM0In0." + "a1B2c3" * 5]
+        for token in tokens:
+            with self.subTest(token=token[:12]):
+                self.assertTrue(any(pattern.search(f"key: {token} end") for pattern in SECRET_PATTERNS))
+        for text in ("-----BEGIN PUBLIC KEY-----", "Ask live questions.", "Set the npm_package field."):
+            with self.subTest(text=text):
+                self.assertFalse(any(pattern.search(text) for pattern in SECRET_PATTERNS))
 
     def test_audit_rejects_padded_unknown_provenance(self):
         record = {"id": "r1", "prompt": "Say hi.", "answer": "Hi.", "task_type": "language_generation",

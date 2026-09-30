@@ -53,6 +53,8 @@ class ConfigTests(unittest.TestCase):
                                   ({"n_layer": True}, "n_layer must be an integer"),
                                   ({"rope_theta": float("nan")}, "rope_theta must be a finite"),
                                   ({"rope_theta": float("inf")}, "rope_theta must be a finite"),
+                                  ({"task_types": [["qa"]]}, "task_types must be a non-empty list"),
+                                  ({"error_categories": [{}]}, "error_categories must be a non-empty list"),
                                   ({"n_kv_head": 1}, "unknown fields: n_kv_head"),
                                   ({"task_types": "abc"}, "task_types must be a list"),
                                   ({"task_types": 5}, "task_types must be a list"),

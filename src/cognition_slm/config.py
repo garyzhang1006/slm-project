@@ -78,8 +78,9 @@ class ModelConfig:
             raise ValueError(f"dropout must be a number in [0, 1), got {self.dropout!r}")
         for name in ("task_types", "error_categories"):
             labels = getattr(self, name)
-            if (not isinstance(labels, (tuple, list)) or not labels or len(set(labels)) != len(labels)
-                    or not all(isinstance(label, str) and label for label in labels)):
+            # Items are checked before set(), which raises TypeError on a nested list such as [["qa"]].
+            if (not isinstance(labels, (tuple, list)) or not labels
+                    or not all(isinstance(label, str) and label for label in labels) or len(set(labels)) != len(labels)):
                 raise ValueError(f"{name} must be a non-empty list of distinct label names, got {labels!r}")
         if self.architecture not in ARCHITECTURES:
             raise ValueError(f"architecture must be one of {ARCHITECTURES}")

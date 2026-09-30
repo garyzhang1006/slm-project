@@ -177,7 +177,10 @@ class ShortFactTests(unittest.TestCase):
                        "Beth has 4 stickers and finds 9 more. How many stickers does Beth have now?",
                        "Beth has 9 stickers and finds 4 more. How many stickers does Beth have now?",
                        "Beth had 4 cookies and lost 1 of them. How many cookies are left?",
-                       "What number comes just before 4?", "What number comes right after 3?"):
+                       "What number comes just before 4?", "What number comes right after 3?",
+                       # And as clock times: 1 hour before 4 o'clock, and 1 hour after 3 o'clock.
+                       "It is 4 o'clock now. What time was it 1 hour ago?",
+                       "It is 3 o'clock now. What time will it be in 1 hour?"):
             self.assertNotIn(prompt, prompts)
         self.assertIn("What is 5 + 9?", prompts)
         stems = corpus.holdout_stems(HOLDOUT_PROMPTS)
@@ -208,8 +211,15 @@ class ShortFactTests(unittest.TestCase):
                        "What is 12 minus 9? Reply with the number.",
                        "Beth had 12 stickers and lost 9 of them. How many stickers are left?",
                        # everyday-v1-034 and v1-033 ask the hours in two days and the minutes in half an hour.
-                       "What is double 24?", "What is half of 48?", "What is double 30?", "What is half of 60?"):
+                       "What is double 24?", "What is half of 48?", "What is double 30?", "What is half of 60?",
+                       # Clock times state 6 + 2, 10 - 4 and 3 - 1 as well.
+                       "It is 6 o'clock now. What time will it be in 2 hours?",
+                       "It is 2 o'clock now. What time will it be in 6 hours?",
+                       "It is 10 o'clock now. What time was it 4 hours ago?",
+                       "It is 3 o'clock now. What time was it 1 hour ago?"):
             self.assertNotIn(prompt, prompts)
+        # A clock time that wraps past 12 states no sum, so it stays.
+        self.assertIn("It is 11 o'clock now. What time will it be in 3 hours?", prompts)
         self.assertIn("Ivan has 6 stickers and finds 3 more. How many stickers does Ivan have now?", prompts)
 
     def test_stage3_screen_keeps_every_project_row(self):

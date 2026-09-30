@@ -534,6 +534,17 @@ def _facts(group: str) -> set[tuple]:
     return {_fact(*fact) for fact in facts}
 
 
+def _clock_facts(group: str) -> set[tuple]:
+    """The sums a clock pair states: 4 o'clock 1 hour ago states 4 - 1, while a time that wraps past 12, as
+    11 plus 3 hours, states none. They only screen out eval facts, since merging groups on them would chain
+    7 - 2 and 7 - 5 into one group through 2 + 5."""
+    kind, *parts = group.split(":")
+    if kind != "clock-pair" or int(parts[0]) > int(parts[1]):
+        return set()
+    earlier, later = int(parts[0]), int(parts[1])
+    return {_fact("plus", earlier, later - earlier), _fact("minus", later, later - earlier)}
+
+
 EVAL_FACTS = {_fact(operation, a, b) for table in (HOLDOUT_ARITHMETIC, EVERYDAY_ARITHMETIC)
               for operation, pairs in table.items() for a, b in pairs}
 
@@ -1030,8 +1041,8 @@ def short_fact_rows() -> list[dict]:
     for row in rows:
         key = " ".join(row["prompt"].casefold().split())
         # A fact an eval file asks is left out in every form that states it: the holdout's 4 plus 9 as a
-        # story too, and its four oranges less one as the number before 4.
-        if key not in seen and not _facts(row["group"]) & EVAL_FACTS:
+        # story too, and its four oranges less one as the number before 4 and as 1 hour before 4 o'clock.
+        if key not in seen and not (_facts(row["group"]) | _clock_facts(row["group"])) & EVAL_FACTS:
             seen.add(key)
             unique.append(row)
     return _merge_fact_groups(unique)

@@ -32,6 +32,19 @@ class ContextTherapyTests(unittest.TestCase):
         self.assertEqual(assessment.observations[0].code, "context_over_budget")
         self.assertEqual(assessment.actions[0].code, "compress_context")
 
+    def test_budget_pressure_tiers_start_at_their_thresholds(self):
+        # The docs say overloaded meets or exceeds the budget; no test held that boundary or the two lower tiers.
+        messages = [ContextMessage("user", "x" * 100)]
+        estimated = estimate_tokens(messages)
+        for budget, state, codes in ((estimated, "overloaded", ["context_over_budget"]),
+                                     (estimated * 100 // 90, "strained", ["context_near_budget"]),
+                                     (estimated * 100 // 70, "strained", ["context_pressure"]),
+                                     (estimated * 2, "stable", [])):
+            with self.subTest(budget=budget):
+                assessment = ContextTherapist().assess(messages, token_budget=budget)
+                self.assertEqual(assessment.state, state)
+                self.assertEqual([item.code for item in assessment.observations], codes)
+
     def test_repeated_turns_trigger_deduplication(self):
         text = "Preserve the current goal and run the focused test before claiming success."
         assessment = ContextTherapist().assess(

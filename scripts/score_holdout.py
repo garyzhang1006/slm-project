@@ -26,6 +26,8 @@ _TENS = {word: 10 * index for index, word in enumerate(
 # A minus sign counts only when no word or digit comes right before it, so "3-4" stays two numbers.
 _TOKENS = re.compile(r"(?:(?<!\w)-)?\d+(?:\.\d+)?|[^\W\d_]+")
 _GROUPED = re.compile(r"\b\d{1,3}(?:,\d{3})+\b")
+# Spelled numbers continue only across spaces and hyphens, so "One hundred. Ten decades" stays two numbers.
+_JOINER = re.compile(r"[\s-]*")
 
 
 def _below_100(tokens: list[str], i: int) -> tuple[int, int] | None:
@@ -66,16 +68,24 @@ def _number(tokens: list[str], i: int) -> tuple[int, int] | None:
 def normalize_answer(text: str) -> str:
     """Casefold, drop punctuation, collapse whitespace and write spelled numbers below a million as digits."""
     text = _GROUPED.sub(lambda match: match.group().replace(",", ""), text)  # "1,000" is one number
-    tokens = _TOKENS.findall(text.casefold().replace("'", "").replace("’", ""))
-    result, i = [], 0
-    while i < len(tokens):
-        number = _number(tokens, i)
-        if number is None:
-            result.append(tokens[i])
-            i += 1
-        else:
-            result.append(str(number[0]))
-            i = number[1]
+    text = text.casefold().replace("'", "").replace("’", "")
+    phrases, end = [], None
+    for match in _TOKENS.finditer(text):
+        if end is None or not _JOINER.fullmatch(text, end, match.start()):
+            phrases.append([])
+        phrases[-1].append(match.group())
+        end = match.end()
+    result = []
+    for tokens in phrases:
+        i = 0
+        while i < len(tokens):
+            number = _number(tokens, i)
+            if number is None:
+                result.append(tokens[i])
+                i += 1
+            else:
+                result.append(str(number[0]))
+                i = number[1]
     return " ".join(result)
 
 

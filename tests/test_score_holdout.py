@@ -44,6 +44,8 @@ class ScoreHoldoutTests(unittest.TestCase):
         self.assertEqual(normalize("two thousand twenty-six, or a thousand"), "2026 or 1000")
         self.assertEqual(normalize("three four hundred, a hundred thousand"), "3 400 100000")
         self.assertEqual(normalize("a hundreds a"), "a hundreds a")
+        self.assertEqual(normalize("One hundred. Ten decades make a century."), "100 10 decades make a century")
+        self.assertEqual(normalize("Two hundred, three hundred; twenty-one"), "200 300 21")
         hundred = {"id": "c", "category": "counting_time", "expected_rubric": "100"}
         self.assertEqual(self.module.score_answer(hundred, "A dollar is worth a hundred cents."),
                          {"exact": False, "contains": True})

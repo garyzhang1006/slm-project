@@ -44,6 +44,12 @@ class CodeEvaluationTests(unittest.TestCase):
         closed = "```python\nx = 1\n```\nprose after"
         self.assertEqual(extract_python(closed), "x = 1")
 
+    def test_prose_reference_answer_does_not_invalidate_generation(self):
+        result = assess_python("def add(a, b):\n    return a + b", "Add the two numbers and return the sum.")
+        self.assertTrue(result.syntax_valid)
+        self.assertIsNone(result.error)
+        self.assertEqual(result.static_score, 1.0)
+
     def test_prose_tasks_are_not_treated_as_code(self):
         self.assertIsNone(assess_code("explanation", "explanation", "code_explanation"))
 

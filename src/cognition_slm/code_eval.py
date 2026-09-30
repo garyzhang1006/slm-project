@@ -69,15 +69,17 @@ def assess_python(generated: str, expected: str) -> PythonQuality:
     expected_source = extract_python(expected)
     try:
         generated_tree = ast.parse(generated_source)
-        expected_tree = ast.parse(expected_source)
         compile(generated_tree, "<generated-python>", "exec")
-        compile(expected_tree, "<expected-python>", "exec")
     except _UNPARSEABLE as exc:
         return PythonQuality(False, 0.0, 0.0, f"{type(exc).__name__}: {exc.msg if isinstance(exc, SyntaxError) else exc}")
     if _is_trivial(generated_tree):
         return PythonQuality(False, 0.0, 0.0, "no Python statements in generation")
+    # A prose reference answer names no functions to recall; it says nothing about the generation's syntax.
+    try:
+        expected_names = _function_names(ast.parse(expected_source))
+    except _UNPARSEABLE:
+        expected_names = set()
 
-    expected_names = _function_names(expected_tree)
     generated_names = _function_names(generated_tree)
     if expected_names:
         recall = len(expected_names.intersection(generated_names)) / len(expected_names)

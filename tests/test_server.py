@@ -311,6 +311,32 @@ class StudioAssetTests(unittest.TestCase):
         rejected = [code for code in range(0x3000) if CONTROL_CHARACTER.search(chr(code))]
         self.assertEqual(json.loads(result.stdout), rejected)
 
+    def test_page_never_sends_a_body_the_server_refuses_unread(self):
+        # The server answers a body over MAX_BODY_BYTES with 413 before reading it, which a browser can report as a
+        # lost connection, and a LoRA question has no byte-token check to stop it first.
+        script = (self.web / "app.js").read_text()
+        self.assertEqual(int(re.search(r"^const MAX_BODY = (\d+);", script, re.M).group(1)), MAX_BODY_BYTES)
+        node = shutil.which("node")
+        if node is None:
+            self.skipTest("node is not installed")
+        lines = [line for line in script.splitlines()
+                 if line.startswith(("const encoder = ", "const bytes = ", "const wellFormed = ", "const cleanPrompt = ",
+                                     "const MAX_BODY = "))]
+        start = script.index("function overflows(")
+        function = script[start:script.index("\n}\n", start) + 3]
+        config = {"task_type": "language_generation", "temperature": 0.3, "max_new_tokens": 64, "top_k": 40,
+                  "top_p": 0.9, "repetition_penalty": 1, "stop_sequences": ["\n"]}
+        # The page sends { prompt, ...settings() }, so this question makes a body of exactly MAX_BODY_BYTES.
+        filler = MAX_BODY_BYTES - len(json.dumps({"prompt": "", **config}, separators=(",", ":")).encode())
+        largest = f"'é'.repeat({filler // 2}) + 'x'.repeat({filler % 2})"
+        probe = ("\n".join(lines) + "\nconst state = { status: { model: { architecture: 'llama+lora' } } };\n"
+                 "const customModel = () => false;\n" + function
+                 + f"\nconst config = {json.dumps(config)};\n"
+                 f"console.log(JSON.stringify([overflows({largest}, config), "
+                 f"overflows({largest} + 'x', config), overflows('hello', config)]));")
+        result = subprocess.run([node, "-e", probe], capture_output=True, text=True, timeout=30, check=True)
+        self.assertEqual(json.loads(result.stdout), [False, True, False])
+
     def test_lone_surrogates_are_sent_as_the_character_the_page_counts(self):
         # TextEncoder counts a lone surrogate as U+FFFD (3 bytes), and the server rejects the raw surrogate.
         script = (self.web / "app.js").read_text()

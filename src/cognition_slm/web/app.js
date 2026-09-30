@@ -128,9 +128,14 @@ function promptTokens(text) {
   return 1 + encoder.encode(`<task_type>${settings().task_type}</task_type>\n<instruction>\n${prompt}\n</instruction>\n<answer>\n`).length;
 }
 
+// Same as MAX_BODY_BYTES in server.py, which answers a larger body with 413 before reading it, and a browser
+// can report that as a lost connection, so the page never sends one.
+const MAX_BODY = 84064;
+
 // promptTokens counts byte tokens. A BPE model such as SmolLM2 with LoRA needs far fewer, so for those the
 // page would block questions that fit, and the server's own token check decides instead.
 function overflows(prompt, config) {
+  if (bytes(JSON.stringify({ prompt: cleanPrompt(prompt), ...config })) > MAX_BODY) return true;
   const context = state.status?.model?.context_window;
   return customModel() && Boolean(context) && promptTokens(prompt) + config.max_new_tokens > context;
 }

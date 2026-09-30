@@ -199,6 +199,27 @@ class StudioAssetTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     validate_request({"prompt": "hello", key: largest + 1})
 
+    def test_defaults_match_balanced_preset_markup_and_server(self):
+        html = (self.web / "index.html").read_text()
+        script = (self.web / "app.js").read_text()
+        defaults = dict(re.findall(r'"?([a-z-]+)"?: "([^"]*)"', re.search(r"const DEFAULTS = \{([^}]*)\}", script).group(1)))
+        balanced = {key: float(value) for key, value in
+                    re.findall(r'"?([a-z-]+)"?: ([\d.]+)', re.search(r"^  balanced: \{([^}]*)\}", script, re.M).group(1))}
+        # Reset answer settings must land on Balanced, the preset the page starts with.
+        self.assertIn('id="preset-balanced" value="balanced" checked', html)
+        self.assertEqual({key: float(defaults[key]) for key in balanced}, balanced)
+        for element_id in ("max-tokens", "temperature", "top-k", "top-p", "repetition-penalty"):
+            with self.subTest(element_id=element_id):
+                self.assertRegex(html, rf'id="{element_id}" [^>]*value="{re.escape(defaults[element_id])}"')
+        self.assertIn(f'<select id="task-type" aria-describedby="task-hint">\n            <option value="{defaults["task-type"]}">', html)
+        # A request that leaves the fields out gets the same values as the page's defaults.
+        options, record = validate_request({"prompt": "hello"})
+        fields = {"max-tokens": "max_new_tokens", "temperature": "temperature", "top-k": "top_k",
+                  "top-p": "top_p", "repetition-penalty": "repetition_penalty"}
+        self.assertEqual({field: float(defaults[element_id]) for element_id, field in fields.items()},
+                         {field: options[field] for field in fields.values()})
+        self.assertEqual(record.task_type, defaults["task-type"])
+
     def test_app_sends_validated_field_names(self):
         script = (self.web / "app.js").read_text()
         for snippet in ('top_p: Number($("top-p").value)',

@@ -118,9 +118,9 @@ function describeSettings(options, custom) {
 
 // TextEncoder counts a lone surrogate as U+FFFD while the server rejects one, so both fields send U+FFFD.
 const wellFormed = (text) => text.replace(/[\ud800-\udbff][\udc00-\udfff]|[\ud800-\udfff]/g, (match) => (match.length === 2 ? match : "\ufffd"));
-// The server rejects control characters other than tab and line breaks, which pasted text sometimes carries,
-// so the question is counted exactly as it will be sent.
-const cleanPrompt = (text) => wellFormed(text).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, " ").trim();
+// The server rejects control characters other than tab and line breaks, including DEL, C1 and bidi controls,
+// which pasted text sometimes carries, so the question is counted exactly as it will be sent.
+const cleanPrompt = (text) => wellFormed(text).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F‪-‮⁦-⁩]/g, " ").trim();
 
 function promptTokens(text) {
   const prompt = cleanPrompt(text);

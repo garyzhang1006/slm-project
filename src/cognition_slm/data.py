@@ -35,6 +35,11 @@ ALLOWED_FIELDS = {
     "license",
 }
 MAX_TEXT_CHARS = 100_000
+# DEL, C1 controls and bidi embeddings, overrides and isolates join the C0 controls other than tab and line breaks:
+# none of them is visible, and a bidi override makes audit output read differently from the stored text.
+CONTROL_CHARACTER = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f\x7f-\x9f\u202a-\u202e\u2066-\u2069]")
+# format_prompt marks the fields with these, so a prompt holding "</instruction>" and "<answer>" forges an answer block.
+TEMPLATE_TAGS = ("<task_type>", "</task_type>", "<instruction>", "</instruction>", "<answer>")
 # A form feed, or a newline followed by one or more whitespace-only lines, ends a .txt document.
 TEXT_DOCUMENT_BREAK = re.compile(r"\f|\r?\n(?:[ \t\r\v]*\n)+")
 
@@ -77,8 +82,11 @@ def _required_text(raw: dict[str, Any], field: str, record_number: int) -> str:
         raise DataValidationError(f"record {record_number}: {field} must be non-empty text")
     if len(value) > MAX_TEXT_CHARS:
         raise DataValidationError(f"record {record_number}: {field} exceeds {MAX_TEXT_CHARS} characters")
-    if any(ord(char) < 32 and char not in "\n\r\t" for char in value):
-        raise DataValidationError(f"record {record_number}: {field} contains a control character")
+    control = CONTROL_CHARACTER.search(value)
+    if control:
+        raise DataValidationError(
+            f"record {record_number}: {field} contains a control character (U+{ord(control.group()):04X}); remove it"
+        )
     try:
         value.encode("utf-8")
     except UnicodeEncodeError:
@@ -100,6 +108,12 @@ def validate_record(raw: dict[str, Any], record_number: int = 0) -> CognitionExa
     record_id = _required_text(raw, "id", record_number)
     prompt = _required_text(raw, "prompt", record_number)
     answer = _required_text(raw, "answer", record_number)
+    for field, value in (("prompt", prompt), ("answer", answer)):
+        tag = next((tag for tag in TEMPLATE_TAGS if tag in value), None)
+        if tag:
+            raise DataValidationError(
+                f"record {record_number}: {field} contains the template tag {tag}, which the prompt format reserves; remove it"
+            )
     task_type = _required_text(raw, "task_type", record_number)
     if task_type not in TASK_TYPES:
         raise DataValidationError(f"record {record_number}: unknown task_type {task_type!r}")

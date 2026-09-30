@@ -132,6 +132,8 @@ def load_predictions(path: Path, report_key: str = "simple_questions") -> list[d
         value = [value] if "id" in value else value.get(report_key, value.get("predictions"))
     if not isinstance(value, list) or not all(isinstance(item, dict) for item in value):
         raise ValueError(f"{path}: expected a list of {{id, answer}} objects, JSONL, or a report with {report_key}")
+    if not value:
+        raise ValueError(f"{path}: no predictions found; check the file is the runner's finished output")
     return value
 
 

@@ -116,6 +116,16 @@ class ScoreHoldoutTests(unittest.TestCase):
                              encoding="utf-8")
             self.assertEqual(self.module.load_predictions(jsonl), predictions)
 
+    def test_cli_rejects_empty_predictions(self):
+        with tempfile.TemporaryDirectory() as directory:
+            empty = Path(directory) / "predictions.jsonl"
+            empty.write_text("\n")
+            stdout, stderr = io.StringIO(), io.StringIO()
+            with contextlib.redirect_stdout(stdout), contextlib.redirect_stderr(stderr):
+                self.assertEqual(self.module.main([str(empty)]), 2)
+        self.assertIn("no predictions", stderr.getvalue())
+        self.assertEqual(stdout.getvalue(), "")
+
     def test_cli_scores_another_file_with_categories(self):
         holdout = ROOT / "data/everyday_eval.json"
         rows = json.loads(holdout.read_text())["rows"]

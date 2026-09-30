@@ -1,11 +1,15 @@
+import ast
+import base64
 import contextlib
 import importlib
 import io
 import json
 from pathlib import Path
+import subprocess
 import sys
 import tempfile
 import unittest
+import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
 # Kaggle packages only the runners a kernel needs, so each test skips when its runner is absent.
@@ -32,6 +36,24 @@ class PrepareKaggleTests(unittest.TestCase):
             manifest = set(json.loads((Path(directory) / "source-manifest.json").read_text()))
         needed = {str(path.relative_to(ROOT)) for path in (ROOT / "compute").glob("*.py")}
         self.assertLessEqual(needed | {"scripts/kaggle_elementary_run.py"}, manifest)
+
+    def test_bundled_results_tests_pass_without_the_files_the_bundle_leaves_out(self):
+        # dcaaa65 added a test that reads compute/RESULTS.md, which no bundle ships, so the regression suite every
+        # runner starts with failed before any training.
+        prepare = runner("prepare_kaggle")
+        with tempfile.TemporaryDirectory() as directory, contextlib.redirect_stdout(io.StringIO()):
+            prepare.prepare(Path(directory) / "kernel", "someone", "slug", "kaggle_run.py")
+            script = (Path(directory) / "kernel" / "run.py").read_text()
+            payload = ast.literal_eval(next(line for line in script.splitlines()
+                                            if line.startswith("payload = "))[len("payload = "):])
+            bundle = Path(directory) / "bundle"
+            with zipfile.ZipFile(io.BytesIO(base64.b64decode(payload))) as archive:
+                archive.extractall(bundle)
+            # The runners' own command, narrowed to the one module.
+            result = subprocess.run([sys.executable, "-m", "unittest", "discover", "-s", "tests",
+                                     "-p", "test_compute_results.py"], cwd=bundle, capture_output=True, text=True,
+                                    timeout=120)
+        self.assertEqual(result.returncode, 0, result.stderr[-2000:])
 
     def test_output_inside_a_packaged_folder_is_refused(self):
         # A run.py written into compute/ or tests/ would ship, stale, in every later bundle.

@@ -126,6 +126,8 @@ class RenderTests(unittest.TestCase):
 
     def test_readme_quotes_the_everyday_scores_in_results(self):
         # A re-score with wider answer keys moved RESULTS.md to 149 and 102, and README kept 141 and 100.
+        if not (ROOT / "compute/RESULTS.md").exists():
+            self.skipTest("compute/RESULTS.md is not packaged here")
         results = (ROOT / "compute/RESULTS.md").read_text()
         small, large = re.findall(r"everyday_eval: base \d+/252 exact and \d+/252 contains, LoRA (\d+)/252 exact",
                                   results)

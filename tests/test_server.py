@@ -200,8 +200,15 @@ class StudioAssetTests(unittest.TestCase):
     def test_byte_token_limits_apply_only_to_byte_level_models(self):
         script = (self.web / "app.js").read_text()
         # promptTokens counts bytes, which overcounts a BPE model's tokens, so LoRA models are checked by the server.
-        self.assertIn("const overflow = !grounded && customModel() && Boolean(context)", script)
+        self.assertIn("return customModel() && Boolean(context) && promptTokens(prompt) + config.max_new_tokens > context;", script)
         self.assertIn("[count, context && customModel() ? Math.max(context - config.max_new_tokens, 0) : 0,", script)
+
+    def test_try_again_checks_the_context_window_like_send(self):
+        script = (self.web / "app.js").read_text()
+        # Try again can follow a raise in Answer length, so it must stop where Send stops, with the same message.
+        self.assertIn('const overflow = !grounded && overflows($("prompt").value, config);', script)
+        self.assertIn("!run.grounded && overflows(run.prompt, settings()) ? notify(TOO_LONG, true) : ask(run, true)", script)
+        self.assertIn("overflow ? TOO_LONG", script)
 
     def test_notices_clear_when_their_cause_changes(self):
         script = (self.web / "app.js").read_text()

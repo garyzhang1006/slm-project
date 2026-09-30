@@ -116,11 +116,20 @@ function describeSettings(options, custom) {
     `Up to ${plural(options.max_new_tokens, "token")}`, stops ? `Stops at ${stops}` : "No stop sequences"].join(" · ");
 }
 
-function promptTokens() {
-  const prompt = $("prompt").value.trim();
+function promptTokens(text) {
+  const prompt = text.trim();
   if (!prompt) return 0;
   return 1 + encoder.encode(`<task_type>${settings().task_type}</task_type>\n<instruction>\n${prompt}\n</instruction>\n<answer>\n`).length;
 }
+
+// promptTokens counts byte tokens. A BPE model such as SmolLM2 with LoRA needs far fewer, so for those the
+// page would block questions that fit, and the server's own token check decides instead.
+function overflows(prompt, config) {
+  const context = state.status?.model?.context_window;
+  return customModel() && Boolean(context) && promptTokens(prompt) + config.max_new_tokens > context;
+}
+
+const TOO_LONG = "Shorten your question, or lower Answer length in Settings.";
 
 function sourceMode() {
   return $("mode-sources").checked;
@@ -142,15 +151,13 @@ function syncComposer() {
   state.stopTask = $("task-type").value;
   const grounded = sourceMode();
   const config = settings();
-  const count = promptTokens();
+  const count = promptTokens($("prompt").value);
   const current = phase();
   const context = state.status?.model?.context_window;
   const sourceBytes = bytes($("source-text").value);
   const questionBytes = bytes($("prompt").value.trim());
   const sourceOverflow = grounded && (sourceBytes > LIMITS.source || questionBytes > LIMITS.question);
-  // promptTokens counts byte tokens. A BPE model such as SmolLM2 with LoRA needs far fewer, so for those the
-  // page would block questions that fit, and the server's own token check decides instead.
-  const overflow = !grounded && customModel() && Boolean(context) && count + config.max_new_tokens > context;
+  const overflow = !grounded && overflows($("prompt").value, config);
   const validK = Number.isInteger(config.top_k) && config.top_k >= 0 && config.top_k <= 259;
   const validStops = !config.stop_sequences || (config.stop_sequences.length <= 4 && config.stop_sequences.every((item) => encoder.encode(item).length <= 64));
   const busy = Boolean(state.status?.busy);
@@ -201,7 +208,7 @@ function syncComposer() {
   for (const button of document.querySelectorAll('[data-action="retry"]')) button.disabled = !retryAllowed(button.dataset.grounded === "true");
   $("generate").setAttribute("aria-label", state.busy ? "Working on an answer" : grounded ? "Search" : "Send");
 
-  const problem = grounded ? "" : overflow ? "Shorten your question, or lower Answer length in Settings."
+  const problem = grounded ? "" : overflow ? TOO_LONG
     : !validK ? "Top K must be a whole number from 0 to 259. Change it in Settings, under Advanced."
     : !validStops ? "Stop sequences: use at most 4 entries in Settings, under Advanced, each at most 64 UTF-8 bytes."
     : "";
@@ -345,7 +352,8 @@ function retryButton(run, labelled = false) {
   button.dataset.action = "retry";
   button.dataset.grounded = String(run.grounded);
   button.disabled = !retryAllowed(run.grounded);
-  button.addEventListener("click", () => ask(run, true));
+  // Answer length may have gone up since the question was sent, so the earlier question gets Send's check.
+  button.addEventListener("click", () => (!run.grounded && overflows(run.prompt, settings()) ? notify(TOO_LONG, true) : ask(run, true)));
   return button;
 }
 

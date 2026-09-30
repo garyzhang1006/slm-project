@@ -46,6 +46,21 @@ class RequestValidationTests(unittest.TestCase):
                 main()
                 self.assertEqual(browser.call_args_list, [(("http://127.0.0.1:8770",),)] if opened else [])
 
+    def test_abbreviated_flags_are_refused(self):
+        # launch-studio.command rewrites only the full --checkpoint and --lora-adapter spellings to the
+        # caller's folder, so an abbreviation would load a path relative to the project folder instead.
+        for argv in (["studio", "--sources"], ["studio", "--sources-only", "--check", "model.pt"],
+                     ["studio", "--sources-only", "--lora", "adapter"]):
+            with self.subTest(argv=argv), patch("sys.argv", argv), \
+                 patch("cognition_slm.server.ModelRuntime") as runtime, \
+                 patch("cognition_slm.lora_runtime.LoraRuntime") as lora, \
+                 patch("cognition_slm.server.WorkbenchServer") as server, \
+                 patch("sys.stderr"), self.assertRaises(SystemExit):
+                server.return_value.serve_forever.side_effect = KeyboardInterrupt
+                main()
+            runtime.assert_not_called()
+            lora.assert_not_called()
+
     def test_wrong_size_checkpoint_rejected(self):
         import torch
         import tempfile

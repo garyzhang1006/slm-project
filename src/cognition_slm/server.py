@@ -318,7 +318,8 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description=__doc__)
+    # launch-studio.command resolves only the full flag spellings against the caller's folder.
+    parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("--checkpoint", type=Path, default=None)
     parser.add_argument("--device", choices=("cpu", "mps", "cuda", "auto"), default="cpu")
     parser.add_argument("--port", type=int, default=8766)

@@ -103,3 +103,49 @@
 | 2026-09-29 | docs and results | docs/kaggle.md said no kaggle bundle needs internet, but the english, qa and long runners stream hugging face datasets | `docs/kaggle.md:15` | fixed | 7144ebc |
 | 2026-09-29 | compute pipeline | the quota gate ignores hours still owed by kernels already queued or running, so the watcher can push a second gpu stage past the quota | `compute/run_pipeline.py:254` | deferred | needs an observed run; on 2026-09-29 kaggle let two sessions finish at 40.76 of 30 hours, so an overrun may not cut a session short |
 | 2026-09-29 | compute pipeline | arithmetic rows restate the everyday reading-passage sums that EVAL_STORIES excludes | `compute/short_facts.py:29` | rejected | deliberate: b051804 excludes only math-category everyday facts from bare arithmetic, and those passages test reading |
+| 2026-09-30 | compute pipeline | stage 4 and the lora trainer split jsonl with `splitlines`, so a raw U+2028, U+2029 or U+0085 inside a distilled or sft record cut it in half and crashed the kernel | `compute/stage4_sft.py:102` | fixed | 87d66bd |
+| 2026-09-30 | kaggle and data scripts | score_holdout and three kaggle runners split jsonl the same way | `scripts/score_holdout.py:128` | fixed | 8005395 |
+| 2026-09-30 | compute pipeline | the watcher died with a traceback on a truncated or non-object report download instead of waiting a round | `compute/run_pipeline.py:293` | fixed | 23e6875 |
+| 2026-09-30 | tests | the generate_answers order test gave every prompt the same token ids, so reordered answers still passed | `tests/test_compute_lora.py:55` | fixed | 3edf093 |
+| 2026-09-30 | tests | no test sent a secret through stage 3 filter_rows or distill build_records, and nothing audits distill_train.jsonl later | `compute/distill_data.py:89` | fixed | 0710bbf |
+| 2026-09-30 | training and evaluation code | the train cli let a missing data file, a directory and resume errors escape as tracebacks | `src/cognition_slm/train.py:725` | fixed | 7e788d0 |
+| 2026-09-30 | model and data code | the generate cli checked the prompt only after loading the checkpoint, then exited with a traceback | `src/cognition_slm/generate.py:293` | fixed | bb52914 |
+| 2026-09-30 | compute pipeline | the watcher's report keys are tested only with hand-built dicts | `compute/run_pipeline.py:137` | rejected | the keys match what stage4_sft.py and stage5_evaluate.py write today; only a future rename would break it |
+| 2026-09-30 | studio server and search | casefolding `İstanbul` split the word (closes the 2026-09-28 deferred row) | `src/cognition_slm/grounding.py:45` | fixed | 2108f6e |
+| 2026-09-30 | studio server and search | the lora greedy cutoff comment claimed to match generate.py (closes the deferred row) | `src/cognition_slm/lora_runtime.py:18` | fixed | f963a95 |
+| 2026-09-30 | studio server and search | no http test sent a runtime `ValueError` through the 400 branch (closes the deferred row) | `src/cognition_slm/server.py:292` | fixed | 526dbfb |
+| 2026-09-30 | studio server and search | the api defaults comment left out the studio newline stop (closes the deferred row) | `src/cognition_slm/server.py:157` | fixed | 0d1434f |
+| 2026-09-30 | studio server and search | a lone surrogate in a request got a raw utf-8 codec error; the server now answers 400 with a clear message | `src/cognition_slm/server.py:199` | fixed | eeb5870 |
+| 2026-09-30 | studio page | the page still counts a lone surrogate as 3 bytes | `src/cognition_slm/web/app.js:148` | deferred | needs a real browser: paste `a\ud800` into the question box in chrome and safari |
+| 2026-09-30 | studio page | try again skipped the context window check that send makes (closes the deferred row) | `src/cognition_slm/web/app.js:198` | fixed | 6a3de17 |
+| 2026-09-30 | studio page | a failed sessionStorage write let a refresh restore an older conversation unannounced (closes the deferred row) | `src/cognition_slm/web/app.js:41` | fixed | bafac4e |
+| 2026-09-30 | studio page | the markdown download let a line starting `<!--` hide the rest of the file (closes the deferred row) | `src/cognition_slm/web/app.js:637` | fixed | a4de53d |
+| 2026-09-30 | studio page | no test tied `LIMITS` and the top-k and answer length bounds to the server (closes the deferred row) | `src/cognition_slm/web/app.js:12` | fixed | 2cc7401 |
+| 2026-09-30 | studio page | no test tied `DEFAULTS`, the balanced preset and the markup to the server (closes the deferred row) | `src/cognition_slm/web/app.js:13` | fixed | b76867e |
+| 2026-09-30 | model and data code | ModelConfig.from_dict accepted huge, fractional or bool sizes and a nan rope_theta (closes the deferred row) | `src/cognition_slm/config.py:81` | fixed | 677436d |
+| 2026-09-30 | model and data code | load_jsonl's guards had no tests (closes the deferred row) | `src/cognition_slm/data.py:164` | fixed | f2dbe9e |
+| 2026-09-30 | model and data code | generate_text with several candidates had no test (closes the deferred row) | `src/cognition_slm/generate.py:251` | fixed | c47afec |
+| 2026-09-30 | training and evaluation code | assess_python failed a valid generation when the reference was prose (closes the deferred row) | `src/cognition_slm/code_eval.py:72` | fixed | b234dbb |
+| 2026-09-30 | training and evaluation code | the audit raised IsADirectoryError on a directory path (closes the deferred row) | `src/cognition_slm/audit.py:62` | fixed | e30ff33 |
+| 2026-09-30 | training and evaluation code | a multi-line record id could forge a status line in the markdown audit report (closes the deferred row) | `src/cognition_slm/audit.py:133` | fixed | 526e34f |
+| 2026-09-30 | training and evaluation code | the audit injection warning and cli exit code 1 had no tests (closes the deferred row) | `tests/test_data_and_audit.py` | fixed | 47eeea4 |
+| 2026-09-30 | training and evaluation code | the audit's hidden-reasoning branch was unreachable (closes the dead code row) | `src/cognition_slm/audit.py:73` | fixed | 7672a5b |
+| 2026-09-30 | training and evaluation code | the audit's empty provenance check is unreachable | `src/cognition_slm/audit.py:73` | rejected | reachable: a source or license of `.` passes load_jsonl and strips to empty |
+| 2026-09-30 | training and evaluation code | deeply nested context json escaped the cli as RecursionError (closes the deferred row) | `src/cognition_slm/context_therapy.py:602` | fixed | 6c789ae |
+| 2026-09-30 | training and evaluation code | the directive topic was cut before redaction (closes the deferred row) | `src/cognition_slm/context_therapy.py:327` | fixed | 9edb26a |
+| 2026-09-30 | training and evaluation code | the evaluate cli checked its arguments only after loading the checkpoint (closes the deferred row) | `src/cognition_slm/evaluate.py:214` | fixed | f46f32b |
+| 2026-09-30 | training and evaluation code | resume used the checkpoint's weight decay while the metadata recorded the flag (closes the deferred row) | `src/cognition_slm/train.py:481` | fixed | 1ab0e95 |
+| 2026-09-30 | training and evaluation code | resume accepted a different seed mid-epoch (closes the deferred row) | `src/cognition_slm/train.py:498` | fixed | b51aeeb |
+| 2026-09-30 | compute pipeline | the sft eval split held out one direction of an opposite pair (closes the deferred row) | `compute/short_facts.py:587` | fixed | 6d845da |
+| 2026-09-30 | compute pipeline | day, month and number rows also state one fact in two split groups, such as after monday and before tuesday | `compute/short_facts.py` | deferred | the groups chain, so merging them would put a whole week, year or number range in one group; the eval split needs a decision first |
+| 2026-09-30 | compute pipeline | the find_input error named slm-sft-data for every missing file (closes the deferred row) | `compute/lora_baseline.py:99` | fixed | 2a40afd |
+| 2026-09-30 | compute pipeline | a package `--out` inside compute/ shipped its run.py in the next package (closes the deferred row) | `compute/package.py:87` | fixed | 557702d |
+| 2026-09-30 | compute pipeline | a lone carriage return split a RESULTS.md table row (closes the deferred row) | `compute/collect_results.py:121` | fixed | e870dbc |
+| 2026-09-30 | compute pipeline | the compute readme left out distill_data, lora_eval and oasst1, and the stage 3 docstring left out the everyday eval screen (closes both deferred rows) | `compute/README.md:9` | fixed | c3f10bf |
+| 2026-09-30 | kaggle and data scripts | a kaggle_studio_verify bundle attached no parent kernel (closes the deferred row) | `scripts/prepare_kaggle.py:76` | fixed | f2158bc |
+| 2026-09-30 | kaggle and data scripts | kaggle_quality_run hid the training output on failure (closes the deferred row) | `scripts/kaggle_quality_run.py:58` | fixed | 243b1f6 |
+| 2026-09-30 | kaggle and data scripts | an empty predictions file scored 0/22 and exited 0 (closes the deferred row) | `scripts/score_holdout.py:124` | fixed | 1c5ac4c |
+| 2026-09-30 | kaggle and data scripts | the missing counter skipped manual-review rows (closes the deferred row) | `scripts/score_holdout.py:105` | fixed | 2c52e94 |
+| 2026-09-30 | kaggle and data scripts | score_holdout could not read the simple questions audit report (closes the deferred row) | `scripts/score_holdout.py:127` | fixed | 41987f1 |
+| 2026-09-30 | kaggle and data scripts | launch_500m_kaggle.sh reused a fixed folder in shared /tmp (closes the deferred row) | `scripts/launch_500m_kaggle.sh:7` | fixed | ac81b3d |
+| 2026-09-30 | kaggle and data scripts | prepare_data's flags overwrote every record's own provenance (closes the deferred row) | `scripts/prepare_data.py:24` | fixed | 28ffeb9 |

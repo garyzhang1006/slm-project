@@ -152,6 +152,17 @@ class GroundingTests(unittest.TestCase):
         passage = "Councils use a tram."
         self.assertEqual(self.answer("Who used trams?", passage)["sources"][0]["text"], passage)
 
+    def test_inflected_forms_match_their_base_word(self):
+        # These stemmed apart, as "meeting" and "meetings" did, so each question abstained on its passage.
+        for prompt, passage in (("Where is the meeting?", "Meetings are held in room 4."),
+                                ("Which buildings are open?", "The building is open late."),
+                                ("Can documents be copied?", "Staff can copy documents for members."),
+                                ("What movie?", "Two movies are on tonight."),
+                                ("When was the bus stopped?", "The bus stops at noon."),
+                                ("Who is running?", "Tom runs every day.")):
+            with self.subTest(prompt=prompt):
+                self.assertEqual(self.answer(prompt, passage)["sources"][0]["text"], passage)
+
     def test_irregular_past_forms_match(self):
         passage = "Hamlet was written by Shakespeare."
         self.assertEqual(self.answer("Who wrote Hamlet?", passage)["sources"][0]["text"], passage)

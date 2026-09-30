@@ -47,13 +47,22 @@ _IRREGULAR = {form: base for base, forms in (
 
 def _stem(word: str) -> str:
     # Light suffix stripping so "panels"/"panel" and "used"/"use" match; _IRREGULAR covers common past forms.
+    # The plural goes first, so "meetings" goes on to lose its ing as "meeting" does.
     if word.endswith("ies") and len(word) > 4:
-        return word[:-3] + "y"
+        word = word[:-3] + "y"
+    elif word.endswith("s") and not word.endswith("ss") and len(word) > 3:
+        word = word[:-1]
     # "used" leaves a 2-letter stem, so ing/ed allow it and "use" drops its e to meet it at "us".
-    for suffix, minimum in (("ing", 2), ("ed", 2), ("s", 3)):
-        if word.endswith(suffix) and not word.endswith("ss") and len(word) - len(suffix) >= minimum:
-            word = word[: -len(suffix)]
+    for suffix in ("ing", "ied", "ed"):
+        if word.endswith(suffix) and len(word) - len(suffix) >= 2:
+            word = word[: -len(suffix)] + ("y" if suffix == "ied" else "")
+            # "stopped" and "running" double the last letter of "stop" and "run"; "called" and "missed" do not.
+            if suffix != "ied" and len(word) > 2 and word[-1] == word[-2] and word[-1] not in "aeiouflsz":
+                word = word[:-1]
             break
+    # A final y reads as i, so "copy" meets "copied" and "movie" meets "movies" (read as "movy").
+    if word.endswith("y") and len(word) > 2:
+        return word[:-1] + "i"
     return word[:-1] if word.endswith("e") and len(word) > 2 else word
 
 

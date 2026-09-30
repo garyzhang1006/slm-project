@@ -711,16 +711,17 @@ def counting_rows() -> list[dict]:
     rows.append(_row("In which month is New Year's Day?", "January", "fact", "month:new-year"))
     for index, day in enumerate(DAYS):
         after, before = DAYS[(index + 1) % 7], DAYS[index - 1]
-        group = f"today:{day}"
         if (day, after) not in EVERYDAY_NEIGHBORS:
             rows.append(_row(f"Today is {day}. What day is tomorrow?", after, "fact", _pair("day", day, after)))
         if (before, day) not in EVERYDAY_NEIGHBORS:
             rows.append(_row(f"Today is {day}. What day was it yesterday?", before, "fact",
                              _pair("day", before, day)))
+        # Two days after Monday and two days before Wednesday state one fact, keyed like the neighbors above.
         rows += [
             _row(f"Today is {day}. What day will it be the day after tomorrow?", DAYS[(index + 2) % 7], "fact",
-                 group),
-            _row(f"Today is {day}. What day was it two days ago?", DAYS[index - 2], "fact", group),
+                 _pair("day", day, DAYS[(index + 2) % 7])),
+            _row(f"Today is {day}. What day was it two days ago?", DAYS[index - 2], "fact",
+                 _pair("day", DAYS[index - 2], day)),
         ]
     return rows
 

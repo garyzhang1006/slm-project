@@ -367,6 +367,8 @@ class ShortFactTests(unittest.TestCase):
             ("Which letter comes after K in the alphabet?", "Which letter comes before L in the alphabet?"),
             ("It is 3 o'clock now. What time will it be in 4 hours?",
              "It is 7 o'clock now. What time was it 4 hours ago?"),
+            ("Today is Monday. What day will it be the day after tomorrow?",
+             "Today is Wednesday. What day was it two days ago?"),
         ):
             with self.subTest(forward=forward):
                 self.assertEqual(group[forward], group[backward])

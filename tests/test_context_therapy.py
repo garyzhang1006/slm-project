@@ -265,7 +265,7 @@ class ContextTherapyTests(unittest.TestCase):
 
     def test_negated_verification_does_not_count_as_evidence(self):
         for content in ("Fixed it. I have not tested or run anything.", "Fixed it. I haven\u2019t run the tests.",
-                        "Done. Tests have not been run.", "Fixed it. No tests were run."):
+                        "Done. Tests have not been run.", "Fixed it. No tests were run.", "Fixed. Nothing was tested."):
             with self.subTest(content=content):
                 assessment = ContextTherapist().assess([{"role": "assistant", "content": content}])
                 self.assertIn("unsupported_claim", [item.code for item in assessment.observations])

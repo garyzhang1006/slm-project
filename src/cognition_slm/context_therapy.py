@@ -45,9 +45,9 @@ _CLAIM_PATTERN = re.compile(r"(?i)\b(?:works?|fixed|correct|verified|done|passes
 _EVIDENCE_PATTERN = re.compile(
     r"(?i)\b(?:test(?:ed|s)?|ran|run|output|traceback|benchmark|evidence|source|commit|ci)\b"
 )
-# "haven't run the tests" states the absence of evidence, so a negator within three words before an
-# evidence word, or a "have not"/"were never" right after it, disqualifies that hit.
-_EVIDENCE_NEGATOR = re.compile(r"(?i)not|never|no|without|cannot|\w+n['\u2019]t")
+# "haven't run the tests" or "nothing was tested" states the absence of evidence, so a negator within
+# three words before an evidence word, or a "have not"/"were never" right after it, disqualifies that hit.
+_EVIDENCE_NEGATOR = re.compile(r"(?i)not|never|no|nothing|without|cannot|\w+n['\u2019]t")
 _NEGATED_AFTER_EVIDENCE = re.compile(
     r"(?i)\s+(?:(?:have|has|had|was|were|is|are)(?:n['\u2019]t|\s+not|\s+never)|not|never)\b"
 )

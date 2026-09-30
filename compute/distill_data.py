@@ -36,8 +36,8 @@ MAX_PROMPT_CHARS = 300
 MAX_ANSWER_CHARS = 400
 # A period after these words, or after a single letter such as the J of "J. K." or the C of "D.C.", ends no sentence.
 ABBREVIATIONS = frozenset({"mr", "mrs", "ms", "dr", "st", "jr", "sr", "prof", "vs", "etc", "e.g", "i.e", "approx"})
-# A numbered list, on its own lines or inline as in "ways: 1. Rest 2. Eat".
-NUMBERED_LIST = re.compile(r"(?:^|\s)1[.)]\s.*?\s2[.)]\s", re.S)
+# A numbered list starts a line or follows a colon, as in "ways: 1. Rest 2. Eat"; "on May 1. ... on June 2." is none.
+NUMBERED_LIST = re.compile(r"(?:^|[\n:])\s*1[.)]\s.*?\s2[.)]\s", re.S)
 # Greetings that open a reply without answering it, as the first paragraph before the answer.
 OPENERS = frozenset({"sure", "certainly", "of course", "okay", "ok", "absolutely", "alright", "all right",
                      "great question", "good question", "sure thing", "happy to help"})

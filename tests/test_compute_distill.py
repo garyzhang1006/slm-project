@@ -65,6 +65,10 @@ class DistillTests(unittest.TestCase):
             with self.subTest(text=text[:40]):
                 kept = "" if text.startswith("Here") else "Drink more water daily."
                 self.assertEqual(distill_data.trim_answer(text, limit=300), kept)
+        # Numbered dates are no list, so a long answer about them is cut at its last sentence end as usual.
+        treaty = "The treaty was signed in Paris on May 1. It took effect on June 2. " + "It changed trade for decades. " * 12
+        self.assertEqual(distill_data.trim_answer(treaty, limit=120),
+                         "The treaty was signed in Paris on May 1. It took effect on June 2. It changed trade for decades.")
 
     def test_build_records_filters_and_counts(self):
         holdout = ["What is 4 plus 9? Reply with the number."]

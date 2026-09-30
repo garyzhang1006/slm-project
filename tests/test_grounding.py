@@ -43,6 +43,9 @@ class GroundingTests(unittest.TestCase):
             ("谁写了哈姆雷特？", "哈姆雷特是莎士比亚写的。", "香蕉含有钾。", ["哈", "姆", "雷", "特", "写"]),
             ("ハムレットを書いたのは誰？", "ハムレットはシェイクスピアが書いた。", "バナナにはカリウムがある。",
              ["ハムレット", "書"]),
+            # All hiragana: pairs of neighbouring letters stand in for words, and the pairs the two
+            # sentences share merge into one highlight each.
+            ("ねこはなにをたべる？", "ねこはさかなをたべる。", "いぬはにくをたべる。", ["ねこは", "をたべる"]),
         ]
         for prompt, passage, unrelated, words in cases:
             with self.subTest(prompt=prompt):

@@ -107,7 +107,8 @@ def main() -> None:
     try:
         checkpoints = [parse_model_spec(value) for value in args.model]
         result = benchmark(checkpoints, args.data, args.max_new_tokens, _device(args.device))
-    except (FileNotFoundError, ValueError) as exc:
+    except (OSError, ValueError) as exc:
+        # OSError, as in generate and evaluate, so a directory or unreadable path is a usage error.
         parser.error(str(exc))
     print(json.dumps(result, indent=2))
 

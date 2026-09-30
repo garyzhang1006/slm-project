@@ -49,6 +49,18 @@ class BenchmarkTests(unittest.TestCase):
             main()
         load.assert_called_once_with(Path("a.pt"), torch.device("meta"))
 
+    def test_cli_reports_a_directory_as_data_without_a_traceback(self):
+        import io
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory, \
+                patch("sys.argv", ["benchmark", "--model", "a=a.pt", "--data", directory]), \
+                patch("sys.stderr", new_callable=io.StringIO) as stderr, \
+                self.assertRaises(SystemExit) as caught:
+            main()
+        self.assertEqual(caught.exception.code, 2)
+        self.assertIn("Is a directory", stderr.getvalue())
+
     def test_benchmark_defaults_to_cpu(self):
         import torch
 

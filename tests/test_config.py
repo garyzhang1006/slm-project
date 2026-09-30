@@ -11,6 +11,18 @@ class ConfigTests(unittest.TestCase):
         pyproject = (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text()
         self.assertEqual(cognition_slm.__version__, re.search(r'^version = "([^"]+)"', pyproject, re.M).group(1))
 
+    def test_supported_pythons_have_torch_wheels_in_the_pin(self):
+        # torch 2.9 is the first release with Python 3.14 wheels, so under a lower cap the README quick start,
+        # run with a Python 3.14 python3, failed at pip install.
+        root = Path(__file__).resolve().parents[1]
+        pyproject = (root / "pyproject.toml").read_text()
+        torch_cap = tuple(map(int, re.search(r'"torch>=[\d.]+,<(\d+)\.(\d+)"', pyproject).groups()))
+        python_cap = re.search(r'^requires-python = ">=3\.10,<3\.(\d+)"', pyproject, re.M)
+        if torch_cap <= (2, 9):
+            self.assertIsNotNone(python_cap)
+            self.assertLessEqual(int(python_cap.group(1)), 14)
+            self.assertNotIn("\npython3 -m venv", (root / "README.md").read_text())
+
     def test_vocabulary_matches_byte_tokenizer(self):
         for size in (258, 260, 512):
             with self.subTest(vocab_size=size), self.assertRaisesRegex(ValueError, "exactly 259"):

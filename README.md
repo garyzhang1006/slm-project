@@ -60,10 +60,10 @@ a few limits: in search my text, pasted text and opened files are capped at 12,0
 
 ## quick start
 
-the demo model is tiny and trains in a few minutes on a laptop cpu. it won't say anything smart. it exists to show that every step of the pipeline runs end to end.
+the demo model is tiny and trains in a few minutes on a laptop cpu. it won't say anything smart. it exists to show that every step of the pipeline runs end to end. it needs python 3.10 to 3.13, because the torch versions it pins (below 2.9) have no python 3.14 wheels. if `python3.13` isn't installed, use another python from that range in the first line.
 
 ```bash
-python3 -m venv .venv
+python3.13 -m venv .venv
 .venv/bin/python -m pip install ".[dev]"
 .venv/bin/python -m pytest -q
 .venv/bin/python -m cognition_slm.audit --train data/demo.jsonl --eval data/eval.jsonl

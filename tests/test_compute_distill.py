@@ -42,6 +42,7 @@ class DistillTests(unittest.TestCase):
     def test_trim_answer_drops_openers_and_lead_ins_before_the_answer(self):
         for text in ("Great question!\n\nThe Nile is the longest river in Africa.", "Sure!\n\nParis.",
                      "That's a great question!\n\nThe Nile is long.", "Sure, here goes!\n\nThe Nile.",
+                     "Sure.\n\nParis is the capital.", "Certainly.\n\nThe Nile.", "Of course\n\nThe Nile.",
                      "Here are some examples:\n\n1. Oak\n2. Pine", "Here are some examples:"):
             with self.subTest(text=text):
                 self.assertEqual(distill_data.trim_answer(text), "")

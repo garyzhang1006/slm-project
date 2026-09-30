@@ -38,6 +38,9 @@ MAX_ANSWER_CHARS = 400
 ABBREVIATIONS = frozenset({"mr", "mrs", "ms", "dr", "st", "jr", "sr", "prof", "vs", "etc", "e.g", "i.e", "approx"})
 # A numbered list, on its own lines or inline as in "ways: 1. Rest 2. Eat".
 NUMBERED_LIST = re.compile(r"(?:^|\s)1[.)]\s.*?\s2[.)]\s", re.S)
+# Greetings that open a reply without answering it, as the first paragraph before the answer.
+OPENERS = frozenset({"sure", "certainly", "of course", "okay", "ok", "absolutely", "alright", "all right",
+                     "great question", "good question", "sure thing", "happy to help"})
 OUT_DIR = Path("/kaggle/working/distill")
 SOURCE = "distilled:SmolLM2-360M-Instruct+LoRA<-databricks/databricks-dolly-15k"
 
@@ -63,8 +66,10 @@ def trim_answer(text: str, limit: int = MAX_ANSWER_CHARS) -> str:
     paragraph = text.strip().split("\n\n", 1)[0].strip()
     if len(paragraph) <= limit:
         # A lead-in such as "Here are some examples:" introduces the answer, and an exclamation such as "Sure!" or
-        # "That's a great question!" before more paragraphs greets it; kept alone, neither is an answer.
-        if paragraph.endswith(":") or ("\n\n" in text.strip() and paragraph.endswith("!")):
+        # "That's a great question!" or an opener such as "Certainly." before more paragraphs greets it; kept
+        # alone, neither is an answer.
+        greeting = paragraph.endswith("!") or paragraph.rstrip(".!").lower() in OPENERS
+        if paragraph.endswith(":") or ("\n\n" in text.strip() and greeting):
             return ""
         return paragraph
     cut = paragraph[:limit]

@@ -116,9 +116,11 @@ function describeSettings(options, custom) {
     `Up to ${plural(options.max_new_tokens, "token")}`, stops ? `Stops at ${stops}` : "No stop sequences"].join(" · ");
 }
 
+// TextEncoder counts a lone surrogate as U+FFFD while the server rejects one, so both fields send U+FFFD.
+const wellFormed = (text) => text.replace(/[\ud800-\udbff][\udc00-\udfff]|[\ud800-\udfff]/g, (match) => (match.length === 2 ? match : "\ufffd"));
 // The server rejects control characters other than tab and line breaks, which pasted text sometimes carries,
 // so the question is counted exactly as it will be sent.
-const cleanPrompt = (text) => text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, " ").trim();
+const cleanPrompt = (text) => wellFormed(text).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, " ").trim();
 
 function promptTokens(text) {
   const prompt = cleanPrompt(text);
@@ -563,7 +565,7 @@ $("prompt-form").addEventListener("submit", (event) => {
   if ($("generate").disabled) return;
   const grounded = sourceMode();
   const task = $("task-type").value;
-  runs.push({ prompt: cleanPrompt($("prompt").value), grounded, source_text: grounded ? $("source-text").value : "",
+  runs.push({ prompt: cleanPrompt($("prompt").value), grounded, source_text: grounded ? wellFormed($("source-text").value) : "",
     tag: grounded ? "Searched your text" : customModel() && task !== "language_generation" ? labels[task] : "", answers: [], shown: 0 });
   $("prompt").value = "";
   autosize();

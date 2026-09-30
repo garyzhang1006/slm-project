@@ -1,6 +1,8 @@
 import http.client
 import json
 import re
+import shutil
+import subprocess
 import threading
 import unittest
 from pathlib import Path
@@ -279,10 +281,23 @@ class StudioAssetTests(unittest.TestCase):
     def test_question_is_counted_as_it_will_be_sent(self):
         # A question of control characters alone would count as text, enable Send and go out empty.
         script = (self.web / "app.js").read_text()
-        self.assertIn(r'const cleanPrompt = (text) => text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, " ").trim();', script)
+        self.assertIn(r'const cleanPrompt = (text) => wellFormed(text).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, " ").trim();', script)
         self.assertIn("const prompt = cleanPrompt(text);", script)
         self.assertIn('const questionBytes = bytes(cleanPrompt($("prompt").value));', script)
         self.assertIn('runs.push({ prompt: cleanPrompt($("prompt").value), grounded,', script)
+
+    def test_lone_surrogates_are_sent_as_the_character_the_page_counts(self):
+        # TextEncoder counts a lone surrogate as U+FFFD (3 bytes), and the server rejects the raw surrogate.
+        script = (self.web / "app.js").read_text()
+        line = next(line for line in script.splitlines() if line.startswith("const wellFormed = "))
+        self.assertIn('source_text: grounded ? wellFormed($("source-text").value) : "",', script)
+        node = shutil.which("node")
+        if node is None:
+            self.skipTest("node is not installed")
+        probe = line + ('\nconsole.log(JSON.stringify(["a\\ud800", "\\udc00b", "\\ud83d\\ude00", "ok"]'
+                        '.map(wellFormed).map((text) => [...text].map((c) => c.codePointAt(0)))));')
+        result = subprocess.run([node, "-e", probe], capture_output=True, text=True, timeout=30, check=True)
+        self.assertEqual(json.loads(result.stdout), [[97, 0xFFFD], [0xFFFD, 98], [0x1F600], [111, 107]])
 
     def test_status_poll_cannot_undo_the_busy_flag_an_answer_cleared(self):
         # A poll answered while this page's request held the model arrives after it with busy still true.

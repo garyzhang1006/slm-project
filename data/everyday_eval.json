@@ -1503,6 +1503,8 @@
       "expected_rubric": "Atlantic",
       "accepted_answers": [
         "Atlantic",
+        "the Atlantic",
+        "Atlantic Ocean",
         "the Atlantic Ocean"
       ],
       "task_type": "language_generation"
@@ -1956,6 +1958,7 @@
       "accepted_answers": [
         "5",
         "five",
+        "5 pm",
         "five o'clock"
       ],
       "task_type": "language_generation"

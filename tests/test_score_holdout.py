@@ -35,6 +35,9 @@ class ScoreHoldoutTests(unittest.TestCase):
         subtraction = {"id": "m", "category": "arithmetic", "expected_rubric": "25"}
         self.assertEqual(self.module.score_answer(subtraction, "-25"), {"exact": False, "contains": False})
         self.assertEqual(self.module.score_answer(subtraction, "\u221225"), {"exact": False, "contains": False})
+        # Times written with dots or :00 match the plain form, and other minutes stay apart.
+        self.assertEqual([normalize(text) for text in ("2 p.m.", "2:00 PM", "7 a.m", "2:30 pm")],
+                         ["2 pm", "2 pm", "7 am", "2 30 pm"])
         self.assertEqual(normalize("1,000 meters, or 2,500,000"), "1000 meters or 2500000")
         self.assertEqual(normalize("1,2, 3"), "1 2 3")
         thousand = {"id": "k", "category": "counting_time", "expected_rubric": "1000"}

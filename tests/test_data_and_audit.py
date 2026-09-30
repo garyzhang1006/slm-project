@@ -8,7 +8,7 @@ from pathlib import Path
 
 from cognition_slm.audit import SECRET_PATTERNS, audit_dataset, audit_split_overlap, render_report
 from cognition_slm.config import LEGACY_TASK_TYPES
-from cognition_slm.data import DataValidationError, encode_examples, load_jsonl, validate_record
+from cognition_slm.data import DataValidationError, encode_examples, load_jsonl, load_pretrain_text, validate_record
 from cognition_slm.tokenizer import ByteTokenizer
 
 
@@ -131,6 +131,14 @@ class DataAndAuditTests(unittest.TestCase):
                     validate_record({**base, "prompt": f"Say{char}hi."})
         # Tab, line breaks, a right-to-left mark and a zero-width joiner stay allowed.
         self.assertEqual(validate_record({**base, "prompt": "Say\thi.\r\n\u200f\u200d"}).prompt, "Say\thi.\r\n\u200f\u200d")
+
+    def test_pretrain_jsonl_names_the_line_with_a_lone_surrogate(self):
+        # json.loads keeps an escaped half pair, which packing would later fail to encode with no location.
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "pretrain.jsonl"
+            path.write_text('{"text": "fine"}\n{"text": "ok \\ud800"}\n', encoding="utf-8")
+            with self.assertRaisesRegex(DataValidationError, "pretrain.jsonl:2: text contains a lone surrogate"):
+                load_pretrain_text(path)
 
     def test_load_jsonl_rejects_ambiguous_or_unsafe_records(self):
         record = {"id": "r1", "prompt": "Say hi.", "answer": "Hi.", "task_type": "language_generation",

@@ -287,6 +287,12 @@ def load_pretrain_text(path: str | Path) -> list[str]:
         text = raw.get("text") if isinstance(raw, dict) else None
         if not isinstance(text, str) or not text.strip():
             raise DataValidationError(f"{path}:{record_number}: text must be non-empty text")
+        try:
+            text.encode("utf-8")
+        except UnicodeEncodeError:
+            raise DataValidationError(
+                f"{path}:{record_number}: text contains a lone surrogate, which is not valid UTF-8"
+            ) from None
         documents.append(text)
     if not documents:
         raise DataValidationError(f"{path}: dataset has no records")

@@ -223,6 +223,13 @@ class EvaluateTests(unittest.TestCase):
         self.assertEqual(len({identifier for identifier, _, _ in evaluate.ENGLISH_PROBES}), len(prompts))
         self.assertFalse(holdout & set(prompts))
 
+    def test_eval_asks_with_the_task_tag_sft_trains_on(self):
+        # The holdout tags two rows code_explanation, a prompt prefix no SFT record carries.
+        from compute.stage3_sft_data import sft_record
+
+        self.assertEqual(sft_record("x", "What is 2 * 6?", "12", "test", "CC0-1.0")["task_type"], evaluate.TASK_TYPE)
+        self.assertNotIn('row["task_type"]', Path(evaluate.__file__).read_text())
+
     def test_looks_english(self):
         self.assertTrue(evaluate.looks_english("There are 7 days in a week."))
         self.assertTrue(evaluate.looks_english("12"))

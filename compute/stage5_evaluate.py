@@ -29,6 +29,9 @@ DEFAULT_CHECKPOINT = "slm-160m-sft.pt"
 BASELINE_CORRECT, BASELINE_TOTAL = 3, 24
 MAX_NEW_TOKENS = 64
 STOP = ("\n",)
+# Every SFT record from stage 3 and distill_data carries this tag, so the holdout's two code_explanation
+# rows are asked the way the model was trained rather than under a tag it never saw.
+TASK_TYPE = "language_generation"
 # Everyday requests outside the holdout; rubrics guide the manual read, and looks_english is automatic.
 ENGLISH_PROBES = (
     ("probe-01", "Say hello to a new friend in one short sentence.", "a friendly English greeting"),
@@ -101,18 +104,19 @@ def main(argv: list[str] | None = None) -> None:
     report = {"status": "generating", "checkpoint": str(checkpoint), "sha256": digest(checkpoint),
               "parameters": sum(parameter.numel() for parameter in model.parameters()),
               "source_manifest": manifest, "gpu": torch.cuda.get_device_name(0),
-              "decoding": {"temperature": 0, "max_new_tokens": MAX_NEW_TOKENS, "stop": list(STOP)}}
+              "decoding": {"temperature": 0, "max_new_tokens": MAX_NEW_TOKENS, "stop": list(STOP),
+                           "task_type": TASK_TYPE}}
     holdout = json.loads((ROOT / "data/simple_questions_holdout.json").read_text())["rows"]
 
-    def answer(prompt: str, task_type: str = "language_generation") -> str:
-        return generate_text(model, tokenizer, prompt, task_type=task_type, max_new_tokens=MAX_NEW_TOKENS,
+    def answer(prompt: str) -> str:
+        return generate_text(model, tokenizer, prompt, task_type=TASK_TYPE, max_new_tokens=MAX_NEW_TOKENS,
                              temperature=0, top_k=0, stop_sequences=list(STOP))
 
-    report["simple_questions"] = [{**row, "answer": answer(row["prompt"], row["task_type"])} for row in holdout]
+    report["simple_questions"] = [{**row, "answer": answer(row["prompt"])} for row in holdout]
     report["simple_questions_scores"] = score_predictions(holdout, report["simple_questions"])
     report["pass_gate"] = pass_gate(report["simple_questions_scores"])
     everyday = json.loads((ROOT / "data/everyday_eval.json").read_text())["rows"]
-    report["everyday_eval"] = [{**row, "answer": answer(row["prompt"], row["task_type"])} for row in everyday]
+    report["everyday_eval"] = [{**row, "answer": answer(row["prompt"])} for row in everyday]
     report["everyday_eval_scores"] = score_predictions(everyday, report["everyday_eval"])
     report["english_probes"] = []
     for identifier, prompt, rubric in ENGLISH_PROBES:

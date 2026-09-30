@@ -46,6 +46,12 @@ class DistillTests(unittest.TestCase):
                 self.assertEqual(distill_data.trim_answer(text), "")
         self.assertEqual(distill_data.trim_answer("Paris is the capital.\n\nIt is in France."), "Paris is the capital.")
 
+    def test_trim_answer_never_cuts_at_a_list_marker(self):
+        items = "".join(f"\n{number}. Drink water and sleep eight hours every night" for number in range(1, 9))
+        self.assertEqual(distill_data.trim_answer("Here are some ways to stay healthy:" + items, limit=300), "")
+        # A year that ends a sentence mid-line still ends it.
+        self.assertEqual(distill_data.trim_answer("It opened in 1889. It is tall." + items, limit=300), "It opened in 1889.")
+
     def test_build_records_filters_and_counts(self):
         holdout = ["What is 4 plus 9? Reply with the number."]
         stems = distill_data.holdout_stems(holdout)

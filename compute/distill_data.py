@@ -68,6 +68,9 @@ def trim_answer(text: str, limit: int = MAX_ANSWER_CHARS) -> str:
     for end in range(len(cut) - 2, 0, -1):
         if cut[end] not in ".!?" or cut[end + 1] != " ":
             continue
+        # The period of a list marker such as the "5." that starts a line ends no sentence.
+        if cut[:end].rsplit("\n", 1)[-1].strip().isdigit():
+            continue
         word = cut[:end].rsplit(None, 1)[-1].lstrip("(\"'").lower()
         if cut[end] == "." and (word in ABBREVIATIONS or len(word.rsplit(".", 1)[-1]) == 1 and word[-1:].isalpha()):
             continue

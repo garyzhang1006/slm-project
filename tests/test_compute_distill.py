@@ -110,6 +110,12 @@ class DistillTests(unittest.TestCase):
         self.assertFalse(distill_data.repetitive("It opened in 1889. It is 330 meters tall."))
         self.assertFalse(distill_data.repetitive("Team A scored 3. Team A scored 4. Team B scored 5."))
 
+    def test_repetitive_keeps_numbers_that_end_list_items(self):
+        # 86bfad9 read the "3." before a line break as an item number, so these items compared as "team a scored".
+        self.assertFalse(distill_data.repetitive("Scores:\n1. Team A scored 3.\n2. Team A scored 4.\n3. Team B scored 5."))
+        self.assertFalse(distill_data.repetitive("Watch these:\n1. Star Wars Episode 4. \n2. Star Wars Episode 5."))
+        self.assertTrue(distill_data.repetitive("Watch these:\n1. Star Wars Episode 4.\n2. Star Wars Episode 4."))
+
     def test_answers_cut_off_inside_the_first_paragraph_are_dropped(self):
         prompts = [(1, "Which is the biggest country?"), (2, "Why is snow white?"), (3, "Why is grass green?")]
         answers = ["Russia is the biggest country. It is the 1", "Snow scatters all light.\n\nIt also",

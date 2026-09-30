@@ -44,9 +44,10 @@ OPENERS = frozenset({"sure", "certainly", "of course", "okay", "ok", "absolutely
                      "great question", "good question", "sure thing", "happy to help"})
 # A list marker such as "- " or "2. " at the start of a line, set aside when comparing lines.
 LIST_MARKER = re.compile(r"^[ \t]*(?:[-*\u2022]|\d+[.)])\s+", re.M)
-# An item number after a space, as in "Try these: 1. Rest 2. Eat", read as one only inside a numbered list so that
-# "Team A scored 3. Team A scored 4." keeps its numbers.
-INLINE_NUMBER = re.compile(r"(?<=\s)\d{1,2}[.)]\s+")
+# An item number after a space and before the item's text on the same line, as in "Try these: 1. Rest 2. Eat",
+# read as one only inside a numbered list so that "Team A scored 3. Team A scored 4." keeps its numbers, and never
+# before a line break, where "3." ends an item such as "1. Team A scored 3.".
+INLINE_NUMBER = re.compile(r"(?<=\s)\d{1,2}[.)][ \t]+(?=\S)")
 OUT_DIR = Path("/kaggle/working/distill")
 SOURCE = "distilled:SmolLM2-360M-Instruct+LoRA<-databricks/databricks-dolly-15k"
 

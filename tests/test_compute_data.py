@@ -158,7 +158,9 @@ class ShortFactTests(unittest.TestCase):
                        "Which day is right before Saturday? Reply with one word.", "What day comes before Wednesday?",
                        "What month comes after March?", "What month comes before May?",
                        "What is the last month of the year?", "Which days make up the weekend?",
-                       "Yes or no: is ice cream warmer than hot tea?"):
+                       "Yes or no: is ice cream warmer than hot tea?",
+                       # The everyday rows ask which star is closest and which planet the moon travels around.
+                       "What bright star do we see in the daytime sky?", "What orbits Earth and shines at night?"):
             self.assertNotIn(prompt, prompts)
         self.assertIn("What day comes after Thursday?", prompts)
         groups = {row["group"] for row in rows}

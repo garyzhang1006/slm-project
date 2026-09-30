@@ -106,13 +106,13 @@ def score_predictions(rows: list[dict], predictions) -> dict:
         results.append({"id": row["id"], "category": row["category"],
                         "missing": answer is None, **(flags or {"manual_review": True})})
         for target in (bucket, total):
+            target["missing"] += answer is None
             if flags is None:
                 target["manual_review"] += 1
                 continue
             target["scored"] += 1
             target["exact"] += flags["exact"]
             target["contains"] += flags["contains"]
-            target["missing"] += answer is None
     return {"categories": {name: _accuracy(bucket) for name, bucket in categories.items()},
             "total": _accuracy(total), "rows": results,
             "unknown_ids": sorted(set(answers) - known),

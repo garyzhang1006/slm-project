@@ -80,6 +80,15 @@ class ScoreHoldoutTests(unittest.TestCase):
         self.assertIsNone(report["categories"]["unknown"]["exact_accuracy"])
         self.assertEqual(report["unknown_ids"], [])
 
+    def test_unanswered_manual_rows_count_as_missing(self):
+        predictions = [{"id": row["id"], "answer": row["expected_rubric"]}
+                       for row in self.rows if row["category"] != "unknown"]
+        report = self.module.score_predictions(self.rows, predictions)
+        manual = sum(row["category"] == "unknown" for row in self.rows)
+        self.assertEqual(report["categories"]["unknown"]["missing"], manual)
+        self.assertEqual(report["categories"]["unknown"]["manual_review"], manual)
+        self.assertEqual(report["total"]["missing"], manual)
+
     def test_rejects_bad_predictions(self):
         for predictions in ([{"id": "a"}], [{"id": 1, "answer": "x"}],
                             [{"id": "a", "answer": "x"}, {"id": "a", "answer": "y"}]):

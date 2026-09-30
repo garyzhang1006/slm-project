@@ -57,9 +57,10 @@ def _stem(word: str) -> str:
         if word.endswith(suffix) and len(word) - len(suffix) >= 2:
             word = word[: -len(suffix)] + ("y" if suffix == "ied" else "")
             break
-    # "stopped" and "running" double the last letter of "stop" and "run", so a double letter reads as one;
-    # "add" undoubles too, to meet "added". "called" and "missed" keep theirs.
-    if len(word) > 2 and word[-1] == word[-2] and word[-1] not in "aeiouflsz":
+    # "stopped" and "running" double the last letter of "stop" and "run", so a double consonant reads as one;
+    # "add" undoubles too, to meet "added". "called" and "missed" keep theirs, and digits never undouble,
+    # so 100 stays apart from 10.
+    if len(word) > 2 and word[-1] == word[-2] and word[-1] in "bcdgkmnprt":
         word = word[:-1]
     # A final y reads as i, so "copy" meets "copied" and "movie" meets "movies" (read as "movy").
     if word.endswith("y") and len(word) > 2:

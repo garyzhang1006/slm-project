@@ -164,6 +164,12 @@ class GroundingTests(unittest.TestCase):
             with self.subTest(prompt=prompt):
                 self.assertEqual(self.answer(prompt, passage)["sources"][0]["text"], passage)
 
+    def test_numbers_keep_every_digit(self):
+        # Undoubling read 100 as 10, so a question about room 100 quoted the passage about room 10.
+        self.assertTrue(self.answer("What is in room 100?", "Room 10 holds the printer.")["abstained"])
+        result = self.answer("Where is room 100?", "Room 10 is upstairs.\n\nRoom 100 is in the basement.")
+        self.assertEqual([source["text"] for source in result["sources"]], ["Room 100 is in the basement."])
+
     def test_irregular_past_forms_match(self):
         passage = "Hamlet was written by Shakespeare."
         self.assertEqual(self.answer("Who wrote Hamlet?", passage)["sources"][0]["text"], passage)

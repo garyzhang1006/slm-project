@@ -347,7 +347,11 @@ class Kaggle:
         with tempfile.TemporaryDirectory() as directory:
             prepare(decision["stage"], Path(directory), self.owner, decision.get("session"),
                     decision.get("pretrain_session"))
-            return self.run("kernels", "push", "-p", directory).strip()
+            output = self.run("kernels", "push", "-p", directory).strip()
+        # The CLI prints "Kernel push error: ..." and still exits 0 when Kaggle rejects the push.
+        if "successfully pushed" not in output:
+            raise RuntimeError(f"kaggle kernels push for {decision['stage']} was not accepted: {output[:500]}")
+        return output
 
 
 def main(argv: list[str] | None = None) -> int:

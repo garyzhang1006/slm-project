@@ -291,14 +291,22 @@ class KaggleReportTests(unittest.TestCase):
     def test_push_packages_the_session_the_decision_names(self):
         # Dropping session or pretrain_session would package session 1 again, or sft from the wrong checkpoint.
         kaggle, pushed = run_pipeline.Kaggle("someone"), []
-        kaggle.run = lambda *args, check=True: pushed.append(args) or "pushed"
+        accepted = "Kernel version 3 successfully pushed.  Please check progress at https://www.kaggle.com/code/x"
+        kaggle.run = lambda *args, check=True: pushed.append(args) or accepted
         for decision, expected in (({"stage": "pretrain", "session": 3}, ("pretrain", "someone", 3, None)),
                                    ({"stage": "sft", "pretrain_session": 6}, ("sft", "someone", None, 6))):
             with self.subTest(stage=decision["stage"]), mock.patch("compute.package.prepare") as prepare:
-                self.assertEqual(kaggle.push(decision), "pushed")
+                self.assertEqual(kaggle.push(decision), accepted)
                 stage, directory, owner, session, pretrain_session = prepare.call_args.args
                 self.assertEqual((stage, owner, session, pretrain_session), expected)
                 self.assertEqual(pushed[-1], ("kernels", "push", "-p", str(directory)))
+
+    def test_a_rejected_push_raises(self):
+        # kaggle 2.2.4 prints the server's error and exits 0, so the watcher must read the output.
+        kaggle = run_pipeline.Kaggle("someone")
+        kaggle.run = lambda *args, check=True: "Kernel push error: Maximum batch GPU session count reached"
+        with mock.patch("compute.package.prepare"), self.assertRaisesRegex(RuntimeError, "was not accepted"):
+            kaggle.push({"stage": "lora"})
 
 
 class MainTests(unittest.TestCase):

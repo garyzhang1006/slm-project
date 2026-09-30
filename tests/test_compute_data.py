@@ -42,6 +42,15 @@ class HoldoutOverlapTests(unittest.TestCase):
                   if not corpus.overlaps_holdout(f"Homework sheet. {row['prompt']} Check your answer.", stems)]
         self.assertEqual(missed, [])
 
+    def test_labeled_eval_questions_mark_overlap_without_their_label(self):
+        # The label stayed on the sentence, so "Yes or no: Is the sun a star?" never matched the bare question.
+        stems = corpus.load_holdout_stems(ROOT)
+        for text in ("Is the sun a star? Explain your answer.", "Kids often ask: is the sun a star? It is.",
+                     "Is eight greater than three? Yes."):
+            with self.subTest(text=text):
+                self.assertTrue(corpus.overlaps_holdout(text, stems))
+        self.assertFalse(corpus.overlaps_holdout("Is the moon a star? No.", stems))
+
     def test_overlap_matches_whole_words_ignoring_case_and_punctuation(self):
         stems = corpus.holdout_stems(HOLDOUT_PROMPTS)
         self.assertTrue(corpus.overlaps_holdout("Quiz: WHAT is 4 plus 9?!", stems))

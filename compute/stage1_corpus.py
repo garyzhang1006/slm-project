@@ -44,6 +44,8 @@ COMMON_WORDS = frozenset(
     "they which you one had not but what all were when we there can he she his her their".split())
 _NON_WORD = re.compile(r"[^0-9a-z]+")
 _SENTENCE_END = re.compile(r"(?<=[.?!])\s+")
+# A question after a label, as in "Yes or no: Is the sun a star?", which compute/lora_baseline.py also takes alone.
+_QUESTION = re.compile(r"[^.?!:]*\?")
 
 
 def normalize_overlap(text: str) -> str:
@@ -58,12 +60,14 @@ def holdout_stems(prompts: list[str], min_words: int = 4) -> list[str]:
     instruction rather than holdout content, so it is dropped; otherwise every trained row with
     that instruction would count as overlap. Sentences under min_words ("What is it?") are too
     common in ordinary text to mark overlap, but numbers make a sentence specific, so one with a
-    digit counts from three words and "Compute 25 + 17." still marks overlap.
+    digit counts from three words and "Compute 25 + 17." still marks overlap. A question behind a
+    label ("Yes or no: Is the sun a star?") counts without its label too.
     """
     counts: dict[str, int] = {}
     per_prompt = []
     for prompt in prompts:
         sentences = {normalize_overlap(part) for part in _SENTENCE_END.split(prompt.strip())}
+        sentences |= {normalize_overlap(part) for part in _QUESTION.findall(prompt)}
         sentences.add(normalize_overlap(prompt))
         sentences.discard("")
         per_prompt.append(sentences)

@@ -77,6 +77,11 @@ class ScoreHoldoutTests(unittest.TestCase):
         self.assertFalse(self.module.score_answer(copy, "windows")["contains"])
         short = {"id": "s", "category": "yes_no", "expected_rubric": "no"}
         self.assertFalse(self.module.score_answer(short, "nos")["exact"])
+        everyday = {row["id"]: row for row in json.loads((ROOT / "data/everyday_eval.json").read_text())["rows"]}
+        for key, inflected in (("everyday-v1-063", "answered"), ("everyday-v1-067", "evens"), ("everyday-v1-075", "bottoms")):
+            with self.subTest(key=key):
+                self.assertEqual(everyday[key]["category"], "opposites")
+                self.assertEqual(self.module.score_answer(everyday[key], inflected), {"exact": False, "contains": False})
 
     def test_real_holdout_totals(self):
         expected = {row["id"]: row["expected_rubric"] for row in self.rows}

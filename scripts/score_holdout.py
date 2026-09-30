@@ -15,8 +15,8 @@ REPORT_KEYS = {"simple_questions_holdout.json": "simple_questions", "everyday_ev
 # These rubrics describe a behavior (abstaining) rather than an answer string, so a human judges them.
 MANUAL_CATEGORIES = frozenset({"unknown"})
 # Where the word form is what the question tests (plural of mouse, is or are, "write only the word window"),
-# an inflected answer is wrong.
-INFLECTION_EXEMPT = frozenset({"plurals", "english", "instruction"})
+# an inflected answer is wrong. So it is for opposites: "evens" is not the opposite of odd, nor "answered" of question.
+INFLECTION_EXEMPT = frozenset({"plurals", "english", "instruction", "opposites"})
 _SUFFIXES = ("s", "es", "ed", "d", "ing")
 _UNITS = {word: index for index, word in enumerate(
     "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen "

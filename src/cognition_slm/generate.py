@@ -299,6 +299,12 @@ def main() -> None:
         parser.error("--top-p must be in (0, 1] and --repetition-penalty must be positive")
     if args.stop is not None and not all(args.stop):
         parser.error("--stop values must be non-empty")
+    # Undecodable argv bytes arrive as lone surrogates, which the tokenizer cannot encode.
+    try:
+        for item in args.stop or ():
+            item.encode("utf-8")
+    except UnicodeEncodeError:
+        parser.error("--stop values must be valid UTF-8; one contains a lone surrogate")
     # Checked before the checkpoint loads, which can take a while, rather than inside generation.
     if not 0 <= args.temperature < math.inf or args.top_k < 0 or args.max_new_tokens < 1:
         parser.error("--temperature must be finite and non-negative, --top-k non-negative and --max-new-tokens positive")

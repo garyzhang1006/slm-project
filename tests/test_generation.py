@@ -95,7 +95,7 @@ class GenerationTests(unittest.TestCase):
                       ["--repetition-penalty", "inf"], ["--repetition-penalty", "nan"], ["--stop", ""],
                       ["--temperature", "-1"], ["--temperature", "nan"], ["--temperature", "inf"], ["--top-k", "-1"],
                       ["--max-new-tokens", "0"], ["--task-type", "poetry"], ["--syntax-bonus", "nan"],
-                      ["--syntax-bonus", "inf"]):
+                      ["--syntax-bonus", "inf"], ["--stop", "\udcff"]):
             argv = ["cognition-slm-generate", "--checkpoint", "x.pt", "--prompt", "hi", *extra]
             with self.subTest(extra=extra), patch("sys.argv", argv), \
                  patch("cognition_slm.generate.load_checkpoint") as load, \

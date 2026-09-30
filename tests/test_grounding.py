@@ -114,10 +114,18 @@ class GroundingTests(unittest.TestCase):
         self.assertEqual(self.answer("Is it open at 9 am?", "The library opens at 9 am.")["sources"][0]["text"],
                          "The library opens at 9 am.")
 
-    def test_am_after_a_number_is_the_time_of_day(self):
-        # As a stop word everywhere, "am" left only {free, 9}, so the shorter 9 pm passage ranked first.
-        source = "Room B is free at 9 pm.\n\nRoom A, on the second floor near the lifts, is free at 9 am."
-        self.assertIn("9 am", self.answer("Which room is free at 9 am?", source)["sources"][0]["text"])
+    def test_clock_times_rank_by_am_or_pm(self):
+        # As a stop word everywhere, "am" left only {free, 9}, so the shorter 9 pm passage ranked first; judged by
+        # its neighbours, it was lost before a sentence starting with I and still highlighted the verb in "I am".
+        for prompt, room_a in (("Which room is free at 9 am?", "Room A, on the second floor near the lifts, is free at 9 am."),
+                               ("Which room is free at 9 AM?", "Room A on the second floor is free at 9 a.m. I suggest booking."),
+                               ("Which room is free at 9am?", "Room A on the second floor is free at 9 am. I suggest booking.")):
+            with self.subTest(prompt=prompt):
+                self.assertEqual(self.answer(prompt, f"Room B is free at 9 pm.\n\n{room_a}")["sources"][0]["text"], room_a)
+        passage = "I am told room 5 is free at 9 am."
+        spans = self.answer("Which room is free at 9 am?", passage)["sources"][0]["matches"]
+        self.assertEqual([passage[start:end] for start, end in spans], ["room", "free", "9 am."])
+        self.assertFalse(self.answer("Is it open at 9?", "The library opens at 9 am.")["abstained"])
 
     def test_contracted_pronouns_are_not_topics(self):
         # "i'm", "i've" and "where'd" stayed topics, so questions matched fewer of their terms and abstained.

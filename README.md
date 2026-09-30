@@ -21,7 +21,7 @@ the plan to fix it lives in [`compute/`](compute/README.md). there are two route
 - mixed precision, gradient accumulation, activation checkpointing, and checkpoints that resume exactly where they stopped, including the order of the training samples.
 - studio, a small web page that runs on your machine for trying the model.
 - a "context therapist" that reads long chat logs and points out drift and contradictions.
-- about 370 tests.
+- about 460 tests.
 
 ## studio
 

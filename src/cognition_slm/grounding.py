@@ -22,6 +22,10 @@ _STOP |= frozenset("whats wheres whos hows whens whys theres thats".split())
 _STOP |= frozenset("have has had must".split())
 _STOP |= frozenset(f"{word}{end}" for word in "do does did is are was were has have had could would should might must".split()
                    for end in ("n't", "nt")) | frozenset("can't cant cannot won't wont shan't shant ain't aint".split())
+# Contracted pronouns and question words say no more than the words they shorten, so "I'm" and "where'd" are not
+# topics. Forms such as "well", "shed" and "wed" stay, since they are also ordinary words.
+_STOP |= frozenset(f"{word}'{end}" for word in "i you he she it we they what where who how when why there that".split()
+                   for end in ("m", "ve", "re", "d", "ll")) | frozenset("im ive youre youve youll youd theyre theyve theyll theyd weve".split())
 # Hiragana mostly spells grammar (particles and verb endings), and these Han characters spell function and
 # question words, so as single-character terms they would let a question match any passage in its language.
 _STOP |= frozenset(chr(code) for code in range(0x3041, 0x30a0)) | frozenset("的了是在和与也都就很吗呢吧啊么什谁哪怎样这那个为何誰")

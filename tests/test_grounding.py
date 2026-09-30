@@ -119,6 +119,15 @@ class GroundingTests(unittest.TestCase):
         source = "Room B is free at 9 pm.\n\nRoom A, on the second floor near the lifts, is free at 9 am."
         self.assertIn("9 am", self.answer("Which room is free at 9 am?", source)["sources"][0]["text"])
 
+    def test_contracted_pronouns_are_not_topics(self):
+        # "i'm", "i've" and "where'd" stayed topics, so questions matched fewer of their terms and abstained.
+        for prompt, passage in (("I'm looking for printing costs", "Printing costs 10 cents per page."),
+                                ("I\u2019m wondering how many books can I borrow?", "Members can borrow up to 12 books."),
+                                ("Where'd I print?", "Printing costs 10 cents per page."),
+                                ("I've got books to return?", "Return books at the front desk.")):
+            with self.subTest(prompt=prompt):
+                self.assertEqual(self.answer(prompt, passage)["sources"][0]["text"], passage)
+
     def test_question_words_typed_without_apostrophes_are_not_topics(self):
         # "theres" stemmed to the topic "ther", and "whats" to "what", so these questions abstained.
         passage = "Members can borrow up to 12 books at a time."

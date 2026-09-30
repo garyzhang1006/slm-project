@@ -50,8 +50,9 @@ def _stem(word: str) -> str:
 
 
 def _terms(text: str) -> set[str]:
-    # Dropping accents after NFKD lets cafe match café, and the dotted capital I casefolds to i plus a dot.
-    folded = unicodedata.normalize("NFKD", text.casefold().replace("\u2019", "'"))
+    # NFKD before casefolding turns styled letters such as a math bold P into a plain P that then folds to p.
+    # Dropping accents after the second NFKD lets cafe match café, and the dotted capital I folds to i plus a dot.
+    folded = unicodedata.normalize("NFKD", unicodedata.normalize("NFKD", text).casefold().replace("\u2019", "'"))
     words = _WORDS.findall("".join(char for char in folded if unicodedata.category(char) != "Mn"))
     words = (word.removesuffix("'s") for word in words)
     return {_stem(_IRREGULAR.get(word, word)) for word in words if word not in _STOP}

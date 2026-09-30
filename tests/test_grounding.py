@@ -57,6 +57,13 @@ class GroundingTests(unittest.TestCase):
         self.assertTrue(self.answer("猫は何を食べますか", "犬は肉を食べます。")["abstained"])
         self.assertTrue(self.answer("猫吃什么", "狗吃什么都行")["abstained"])
 
+    def test_styled_letters_match_plain_ones(self):
+        bold = "\U0001d40f\U0001d41a\U0001d42b\U0001d422\U0001d42c"  # Paris in math bold
+        self.assertEqual(self.answer(f"Where is {bold}?", "Paris is in France.")["sources"][0]["matches"], [[0, 5]])
+        passage = f"{bold} is in France."
+        spans = self.answer("Where is Paris?", passage)["sources"][0]["matches"]
+        self.assertEqual([passage[start:end] for start, end in spans], [bold])
+
     def test_no_reference_or_overlap_abstains(self):
         for source in ("", "Bananas contain potassium."):
             self.assertTrue(self.answer("Where is Paris?", source)["abstained"])

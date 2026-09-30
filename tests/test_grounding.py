@@ -159,7 +159,8 @@ class GroundingTests(unittest.TestCase):
                                 ("Can documents be copied?", "Staff can copy documents for members."),
                                 ("What movie?", "Two movies are on tonight."),
                                 ("When was the bus stopped?", "The bus stops at noon."),
-                                ("Who is running?", "Tom runs every day.")):
+                                ("Who is running?", "Tom runs every day."),
+                                ("How do I add a user?", "Users are added in the settings page.")):
             with self.subTest(prompt=prompt):
                 self.assertEqual(self.answer(prompt, passage)["sources"][0]["text"], passage)
 

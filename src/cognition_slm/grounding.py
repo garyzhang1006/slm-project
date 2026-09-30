@@ -56,10 +56,11 @@ def _stem(word: str) -> str:
     for suffix in ("ing", "ied", "ed"):
         if word.endswith(suffix) and len(word) - len(suffix) >= 2:
             word = word[: -len(suffix)] + ("y" if suffix == "ied" else "")
-            # "stopped" and "running" double the last letter of "stop" and "run"; "called" and "missed" do not.
-            if suffix != "ied" and len(word) > 2 and word[-1] == word[-2] and word[-1] not in "aeiouflsz":
-                word = word[:-1]
             break
+    # "stopped" and "running" double the last letter of "stop" and "run", so a double letter reads as one;
+    # "add" undoubles too, to meet "added". "called" and "missed" keep theirs.
+    if len(word) > 2 and word[-1] == word[-2] and word[-1] not in "aeiouflsz":
+        word = word[:-1]
     # A final y reads as i, so "copy" meets "copied" and "movie" meets "movies" (read as "movy").
     if word.endswith("y") and len(word) > 2:
         return word[:-1] + "i"

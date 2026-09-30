@@ -42,7 +42,10 @@ NUMBERED_LIST = re.compile(r"(?:^|[\n:])\s*1[.)]\s.*?\s2[.)]\s", re.S)
 OPENERS = frozenset({"sure", "certainly", "of course", "okay", "ok", "absolutely", "alright", "all right",
                      "great question", "good question", "sure thing", "happy to help"})
 # A list marker such as "- " or "2. " at the start of a line, set aside when comparing lines.
-LIST_MARKER = re.compile(r"^(?:[-*\u2022]|\d+[.)])\s+")
+LIST_MARKER = re.compile(r"^[ \t]*(?:[-*\u2022]|\d+[.)])\s+", re.M)
+# An item number after a space, as in "Try these: 1. Rest 2. Eat", read as one only inside a numbered list so that
+# "Team A scored 3. Team A scored 4." keeps its numbers.
+INLINE_NUMBER = re.compile(r"(?<=\s)\d{1,2}[.)]\s+")
 OUT_DIR = Path("/kaggle/working/distill")
 SOURCE = "distilled:SmolLM2-360M-Instruct+LoRA<-databricks/databricks-dolly-15k"
 
@@ -61,6 +64,12 @@ def candidate_prompts(raws, limit: int) -> list[tuple[int, str]]:
     # Hash order, not file order, so a limit samples every category instead of the first few thousand rows.
     chosen.sort(key=lambda item: hashlib.sha256(item[1].encode("utf-8")).hexdigest())
     return chosen[:limit]
+
+
+def abbreviated(word: str) -> bool:
+    """Whether a period after word ends no sentence, as after "Dr" or the S of "U.S"."""
+    word = word.lstrip("(\"'").lower()
+    return word in ABBREVIATIONS or len(word.rsplit(".", 1)[-1]) == 1 and word[-1:].isalpha()
 
 
 def trim_answer(text: str, limit: int = MAX_ANSWER_CHARS) -> str:
@@ -83,8 +92,7 @@ def trim_answer(text: str, limit: int = MAX_ANSWER_CHARS) -> str:
     for end in range(len(cut) - 1, 0, -1):
         if cut[end] not in ".!?" or paragraph[end + 1] != " ":
             continue
-        word = cut[:end].rsplit(None, 1)[-1].lstrip("(\"'").lower()
-        if cut[end] == "." and (word in ABBREVIATIONS or len(word.rsplit(".", 1)[-1]) == 1 and word[-1:].isalpha()):
+        if cut[end] == "." and abbreviated(cut[:end].rsplit(None, 1)[-1]):
             continue
         # Kept alone, an opener such as "Sure!" or "Great question!" is a fragment of the answer, not an answer.
         return cut[:end + 1] if len(cut[:end].split()) >= 3 else ""
@@ -94,8 +102,19 @@ def trim_answer(text: str, limit: int = MAX_ANSWER_CHARS) -> str:
 def repetitive(text: str) -> bool:
     """True when two lines or sentences of two or more words say the same thing once list markers are set aside,
     as the teacher writes when it loops, such as "1. The Blue Moon 2. The Blue Moon"."""
-    parts = [sentence.rstrip(".!?").strip().lower() for line in text.splitlines()
-             for sentence in re.split(r"(?<=[.!?])\s+", LIST_MARKER.sub("", line.strip()))]
+    if NUMBERED_LIST.search(text):
+        text = INLINE_NUMBER.sub("\n", text)
+    parts = []
+    for line in LIST_MARKER.sub("", text).splitlines():
+        start = 0
+        for end in re.finditer(r"[.!?](?=\s|$)", line):
+            words = line[start:end.start()].split()
+            if end.group() == "." and words and abbreviated(words[-1]):
+                continue
+            parts.append(line[start:end.start()])
+            start = end.end()
+        parts.append(line[start:])
+    parts = [" ".join(part.lower().split()) for part in parts]
     parts = [part for part in parts if len(part.split()) >= 2]
     return len(parts) != len(set(parts))
 

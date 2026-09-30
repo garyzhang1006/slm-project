@@ -100,6 +100,15 @@ class DistillTests(unittest.TestCase):
         self.assertEqual([record["id"] for record in records], ["distill-4"])
         self.assertEqual(dropped, {"repetitive": 3})
 
+    def test_repetitive_reads_inline_lists_and_skips_abbreviations(self):
+        # An inline loop kept its item numbers and passed, and "The U.S." twice split at "U.S." and was dropped.
+        self.assertTrue(distill_data.repetitive("1. The Blue Moon 2. The Blue Moon 3. The Blue Moon"))
+        self.assertTrue(distill_data.repetitive("Try these: 1. The Blue Moon 2. The Blue Moon"))
+        self.assertFalse(distill_data.repetitive("The U.S. has 50 states. The U.S. capital is Washington, D.C."))
+        self.assertFalse(distill_data.repetitive("Dr. Smith and Dr. Jones met. They met in St. Louis."))
+        self.assertFalse(distill_data.repetitive("It opened in 1889. It is 330 meters tall."))
+        self.assertFalse(distill_data.repetitive("Team A scored 3. Team A scored 4. Team B scored 5."))
+
     def test_answers_cut_off_inside_the_first_paragraph_are_dropped(self):
         prompts = [(1, "Which is the biggest country?"), (2, "Why is snow white?"), (3, "Why is grass green?")]
         answers = ["Russia is the biggest country. It is the 1", "Snow scatters all light.\n\nIt also",

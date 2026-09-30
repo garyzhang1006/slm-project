@@ -86,6 +86,8 @@ def _terms(text: str) -> set[str]:
     terms = set()
     for word in (word.removesuffix("'s") for word in words):
         if _TIME.fullmatch(word):
+            # A zero-padded hour, as in "08:30 am", is the same hour as a bare 8.
+            word = re.sub(r"(?<![:\d])0(?=\d)", "", word)
             # "9:30 am" keeps 9 and 30 and adds 9am, so it still matches a bare 9 but ranks above "9:30 pm".
             meridiem = word.replace(".", "")[-2] + "m"
             other = "pm" if meridiem == "am" else "am"

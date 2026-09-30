@@ -176,7 +176,10 @@ class ShortFactTests(unittest.TestCase):
                        "Diego had 10 cookies and lost 4 of them. How many cookies are left?",
                        "What is 6 + 2?", "Add 2 and 6.", "What is 10 - 4?", "What is 12 - 12?", "What is 2 x 4?",
                        "What is double 4?", "What is double 16?", "What number comes just before 3?",
-                       "How many legs do two dogs have in total?"):
+                       "How many legs do two dogs have in total?",
+                       # everyday-v1-050 asks the hours from 9 in the morning until noon, which is 12 - 9.
+                       "What is 12 minus 9? Reply with the number.",
+                       "Beth had 12 stickers and lost 9 of them. How many stickers are left?"):
             self.assertNotIn(prompt, prompts)
         self.assertIn("Ivan has 6 stickers and finds 3 more. How many stickers does Ivan have now?", prompts)
 

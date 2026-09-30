@@ -33,6 +33,15 @@ class HoldoutOverlapTests(unittest.TestCase):
         self.assertNotIn("reply with the number", stems)
         self.assertNotIn("what is it", stems)
 
+    def test_every_eval_prompt_marks_overlap(self):
+        # "Compute 25 + 17." normalizes to three words, under the four a stem needed, so no screen caught it.
+        stems = corpus.load_holdout_stems(ROOT)
+        rows = [row for path in (corpus.HOLDOUT_PATH, corpus.EVERYDAY_EVAL_PATH)
+                for row in json.loads((ROOT / path).read_text())["rows"]]
+        missed = [row["id"] for row in rows
+                  if not corpus.overlaps_holdout(f"Homework sheet. {row['prompt']} Check your answer.", stems)]
+        self.assertEqual(missed, [])
+
     def test_overlap_matches_whole_words_ignoring_case_and_punctuation(self):
         stems = corpus.holdout_stems(HOLDOUT_PROMPTS)
         self.assertTrue(corpus.overlaps_holdout("Quiz: WHAT is 4 plus 9?!", stems))

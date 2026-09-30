@@ -57,7 +57,8 @@ def holdout_stems(prompts: list[str], min_words: int = 4) -> list[str]:
     A sentence shared by two or more prompts ("Reply with the number.") is an answer-format
     instruction rather than holdout content, so it is dropped; otherwise every trained row with
     that instruction would count as overlap. Sentences under min_words ("What is it?") are too
-    common in ordinary text to mark overlap.
+    common in ordinary text to mark overlap, but numbers make a sentence specific, so one with a
+    digit counts from three words and "Compute 25 + 17." still marks overlap.
     """
     counts: dict[str, int] = {}
     per_prompt = []
@@ -69,7 +70,8 @@ def holdout_stems(prompts: list[str], min_words: int = 4) -> list[str]:
         for sentence in sentences:
             counts[sentence] = counts.get(sentence, 0) + 1
     stems = {sentence for sentences in per_prompt for sentence in sentences
-             if counts[sentence] == 1 and len(sentence.split()) >= min_words}
+             if counts[sentence] == 1
+             and len(sentence.split()) >= (min(3, min_words) if any(c.isdigit() for c in sentence) else min_words)}
     return sorted(stems)
 
 

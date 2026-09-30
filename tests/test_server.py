@@ -290,7 +290,9 @@ class StudioAssetTests(unittest.TestCase):
         self.assertIn("if (phase() !== before) state.notice = null;", script)
         # Try again's too-long notice asks for a lower Answer length, so changing a setting clears it
         # ahead of the field's redraw, and so do a preset and Reset answer settings.
-        self.assertIn('$("settings").addEventListener("input", () => { state.notice = null; }, true);', script)
+        # The theme and shortcut switches sit in Settings too but never redraw, so they leave the notice alone.
+        self.assertIn('$("settings").addEventListener("input", (event) => { if (!["theme", "keys"].includes('
+                      'event.target.name)) state.notice = null; }, true);', script)
         self.assertIn('state.stopTask = $("task-type").value;\n  state.notice = null;\n  syncComposer(); saveSettings();',
                       script)
 

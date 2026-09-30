@@ -782,9 +782,9 @@ function renderStatus() {
 $("prompt").addEventListener("input", () => { state.notice = null; autosize(); });
 // A notice about a file or earlier text no longer applies once the text to search changes.
 $("source-text").addEventListener("input", () => { state.notice = null; });
-// Try again's too-long notice asks for a change in Settings, so any change there retires it.
-// Capture runs this before the changed field's own redraw.
-$("settings").addEventListener("input", () => { state.notice = null; }, true);
+// Try again's too-long notice asks for a change in Settings, so an answer setting's change retires it.
+// Capture runs this before the changed field's own redraw; the theme and shortcut switches never redraw.
+$("settings").addEventListener("input", (event) => { if (!["theme", "keys"].includes(event.target.name)) state.notice = null; }, true);
 window.addEventListener("resize", () => { autosize(); syncScrollButton(); syncDock(); });
 // Dragging the pasted-text box taller changes the composer without any other event.
 new ResizeObserver(syncDock).observe(document.querySelector(".dock"), { box: "border-box" });

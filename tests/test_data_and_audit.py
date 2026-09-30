@@ -117,6 +117,26 @@ class DataAndAuditTests(unittest.TestCase):
         with self.assertRaisesRegex(DataValidationError, "confidence must be between 0 and 1"):
             validate_record({**base, "confidence": 10 ** 400})
 
+    def test_load_jsonl_rejects_ambiguous_or_unsafe_records(self):
+        record = {"id": "r1", "prompt": "Say hi.", "answer": "Hi.", "task_type": "language_generation",
+                  "confidence": 0.5, "error_category": "none", "source": "test", "license": "CC0-1.0"}
+        line = json.dumps(record)
+        cases = (
+            ("duplicate_key", line[:-1] + ', "id": "r2"}', "duplicate JSON field 'id'"),
+            ("nan", line.replace("0.5", "NaN"), "non-finite JSON number NaN"),
+            ("infinity", line.replace("0.5", "Infinity"), "non-finite JSON number Infinity"),
+            ("duplicate_id", line + "\n" + line, "2: duplicate id 'r1'"),
+            ("control", json.dumps({**record, "prompt": "Say\x07hi."}), "prompt contains a control character"),
+            ("too_long", json.dumps({**record, "answer": "x" * 100_001}), "answer exceeds 100000 characters"),
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            for name, content, message in cases:
+                with self.subTest(case=name):
+                    path = Path(directory) / f"{name}.jsonl"
+                    path.write_text(content + "\n", encoding="utf-8")
+                    with self.assertRaisesRegex(DataValidationError, message):
+                        load_jsonl(path)
+
     def test_encoding_rejects_examples_without_answer_tokens(self):
         example = validate_record(
             {

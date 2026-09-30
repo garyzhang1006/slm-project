@@ -41,6 +41,8 @@ NUMBERED_LIST = re.compile(r"(?:^|[\n:])\s*1[.)]\s.*?\s2[.)]\s", re.S)
 # Greetings that open a reply without answering it, as the first paragraph before the answer.
 OPENERS = frozenset({"sure", "certainly", "of course", "okay", "ok", "absolutely", "alright", "all right",
                      "great question", "good question", "sure thing", "happy to help"})
+# A list marker such as "- " or "2. " at the start of a line, set aside when comparing lines.
+LIST_MARKER = re.compile(r"^(?:[-*\u2022]|\d+[.)])\s+")
 OUT_DIR = Path("/kaggle/working/distill")
 SOURCE = "distilled:SmolLM2-360M-Instruct+LoRA<-databricks/databricks-dolly-15k"
 
@@ -89,6 +91,15 @@ def trim_answer(text: str, limit: int = MAX_ANSWER_CHARS) -> str:
     return ""
 
 
+def repetitive(text: str) -> bool:
+    """True when two lines or sentences of two or more words say the same thing once list markers are set aside,
+    as the teacher writes when it loops, such as "1. The Blue Moon 2. The Blue Moon"."""
+    parts = [sentence.rstrip(".!?").strip().lower() for line in text.splitlines()
+             for sentence in re.split(r"(?<=[.!?])\s+", LIST_MARKER.sub("", line.strip()))]
+    parts = [part for part in parts if len(part.split()) >= 2]
+    return len(parts) != len(set(parts))
+
+
 def mostly_ascii(text: str) -> bool:
     """English-script check that still passes letter-free answers such as "13"."""
     letters = [character for character in text if character.isalpha()]
@@ -117,6 +128,9 @@ def build_records(prompts: list[tuple[int, str]], answers: list[str], stems: lis
             reason = "empty_or_invalid"
         elif not mostly_ascii(answer):
             reason = "not_english"
+        # A 160M student trained on a looping answer would learn the loop.
+        elif repetitive(answer):
+            reason = "repetitive"
         elif holdout_conflict(record, stems, normalized):
             reason = "holdout_overlap"
         elif contains_secret(prompt) or contains_secret(answer):

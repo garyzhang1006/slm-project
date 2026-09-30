@@ -88,6 +88,18 @@ class DistillTests(unittest.TestCase):
         self.assertEqual(dropped, {"holdout_overlap": 1, "empty_or_invalid": 1, "not_english": 1,
                                    "secret_pattern": 1})
 
+    def test_answers_that_repeat_a_line_or_sentence_are_dropped(self):
+        # The last distill run kept teacher answers that loop, such as "1. The Blue Moon 2. The Blue Moon".
+        prompts = [(1, "Where should I eat in Yountville?"), (2, "What should I see in Seattle?"),
+                   (3, "How are you?"), (4, "How do I sleep well?")]
+        answers = ["Try these:\n1. The Blue Moon\n2. The Blue Moon",
+                   "- Visit the Space Needle\n- Go to the Space Needle\n- Go to the Space Needle",
+                   "I am doing well. I am doing well.", "1. Sleep eight hours\n2. Keep a regular bedtime"]
+        dropped = {}
+        records = distill_data.build_records(prompts, answers, [], [], dropped)
+        self.assertEqual([record["id"] for record in records], ["distill-4"])
+        self.assertEqual(dropped, {"repetitive": 3})
+
     def test_answers_cut_off_inside_the_first_paragraph_are_dropped(self):
         prompts = [(1, "Which is the biggest country?"), (2, "Why is snow white?"), (3, "Why is grass green?")]
         answers = ["Russia is the biggest country. It is the 1", "Snow scatters all light.\n\nIt also",

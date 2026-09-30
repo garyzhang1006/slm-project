@@ -584,8 +584,9 @@ def opposite_rows() -> list[dict]:
     for word, opposite in OPPOSITES:
         if {word, opposite} & HOLDOUT_OPPOSITES:
             continue
+        # One group for both directions, so the eval split never tests the reverse of a trained pair.
+        group = f"opposite:{word}"
         for first, second in ((word, opposite), (opposite, word)):
-            group = f"opposite:{first}"
             rows += [
                 _row(f"What is the opposite of {first}?", second, "english", group),
                 _row(f"Give the opposite of {first}. Reply with one word.", second, "english", group),

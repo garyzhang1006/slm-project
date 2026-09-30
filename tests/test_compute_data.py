@@ -290,6 +290,11 @@ class ShortFactTests(unittest.TestCase):
         self.assertEqual(answer["Quiet is the opposite of what?"], "loud")
         self.assertEqual(answer["How would you say more than one wolf?"], "wolves")
 
+    def test_both_directions_of_an_opposite_share_a_split_group(self):
+        # Separate groups let split_rows hold out "opposite of quiet" while "opposite of loud" trains.
+        group = {row["prompt"]: row["group"] for row in short_facts.short_fact_rows()}
+        self.assertEqual(group["Loud is the opposite of what?"], group["Quiet is the opposite of what?"])
+
     def test_counting_rows_skip_the_eval_neighbors(self):
         answer = {row["prompt"]: row["answer"] for row in short_facts.short_fact_rows()}
         self.assertEqual(answer["Today is Thursday. What day will it be the day after tomorrow?"], "Saturday")

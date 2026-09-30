@@ -39,14 +39,15 @@ class BenchmarkTests(unittest.TestCase):
         model.config = type("Config", (), {"architecture": "legacy"})()
         result = {"task_accuracy": 1.0, "task_records": 1, "error_accuracy": 1.0,
                   "confidence_bucket_accuracy": 1.0, "exact_match_accuracy": 1.0}
-        argv = ["benchmark", "--model", "a=a.pt", "--data", "d.jsonl", "--device", "cpu"]
+        # Not cpu, which benchmark() also falls back to, so a dropped --device would fail this.
+        argv = ["benchmark", "--model", "a=a.pt", "--data", "d.jsonl", "--device", "meta"]
         with patch("sys.argv", argv), \
                 patch("cognition_slm.benchmark.load_jsonl", return_value=[]), \
                 patch("cognition_slm.benchmark.load_checkpoint", return_value=(model, None)) as load, \
                 patch("cognition_slm.benchmark.evaluate", return_value=result), \
                 patch("builtins.print"):
             main()
-        load.assert_called_once_with(Path("a.pt"), torch.device("cpu"))
+        load.assert_called_once_with(Path("a.pt"), torch.device("meta"))
 
     def test_benchmark_defaults_to_cpu(self):
         import torch

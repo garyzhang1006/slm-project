@@ -94,6 +94,13 @@ class RenderTests(unittest.TestCase):
         self.assertIn("Held-out text bits/byte: 1.100", text)
         self.assertNotIn("—", text)
 
+    def test_eval_of_an_older_sft_checkpoint_is_flagged(self):
+        results = {"pretrain": [], "lora": None, "lora_eval": None, "distill": None,
+                   "sft": {"status": "complete", "sha256": "new"}, "eval": {"sha256": "old"}}
+        self.assertIn("older SFT checkpoint", collect_results.render(results, {}, "now"))
+        results["eval"]["sha256"] = "new"
+        self.assertNotIn("older SFT checkpoint", collect_results.render(results, {}, "now"))
+
     def test_manual_review_cells_stay_on_one_table_row(self):
         report = adapter_report()
         identifier = next(row["id"] for row in HOLDOUT if row["category"] == "unknown")

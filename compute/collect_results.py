@@ -164,6 +164,10 @@ def render(results: dict, rescored: dict, stamp: str, large_rescored: dict | Non
     lines += ["", "## slm-160m eval", ""]
     evaluation = results["eval"]
     if evaluation:
+        # A re-pushed sft replaces the checkpoint before eval reruns on it.
+        used, current = evaluation.get("sha256"), (sft or {}).get("sha256")
+        if used and current and used != current:
+            lines += ["These scores came from an older SFT checkpoint than the SFT report above.", ""]
         lines += [f"- Holdout exact: {exact(evaluation['simple_questions_scores'])}"
                   if evaluation.get("simple_questions_scores") else "- Holdout exact: n/a",
                   f"- Everyday exact: {exact(evaluation['everyday_eval_scores'])}"

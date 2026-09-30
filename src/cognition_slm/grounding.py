@@ -16,6 +16,9 @@ _LETTER = f"(?:[^\\W_{_SINGLE}]|[{_MARKS}])"
 # ranking and highlights, so a highlight always covers a whole ranked word.
 _WORDS = re.compile(f"(?=[^\\W_])[{_SINGLE}]|{_LETTER}+(?:'{_LETTER}+)?")
 _STOP = frozenset("a an the is are was were be been being do does did can could would should will shall may might what which who whom whose when where why how i you he she it we they me us him them my your his her its our their of to in on at by for from with about and or but as that this these those please tell explain answer question according source passage text".split())
+# Hiragana mostly spells grammar (particles and verb endings), and these Han characters spell function and
+# question words, so as single-character terms they would let a question match any passage in its language.
+_STOP |= frozenset(chr(code) for code in range(0x3041, 0x30a0)) | frozenset("的了是在和与也都就很吗呢吧啊么什谁哪怎样这那个为何誰")
 # Past forms map to the base verb before suffix stripping. Ambiguous forms (saw, found, left, felt, rose) are left out.
 _IRREGULAR = {form: base for base, forms in (
     ("become", "became"), ("begin", "began begun"), ("break", "broke broken"), ("bring", "brought"),

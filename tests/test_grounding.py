@@ -42,7 +42,7 @@ class GroundingTests(unittest.TestCase):
              ["भारत", "की", "राजधानी", "है"]),
             ("谁写了哈姆雷特？", "哈姆雷特是莎士比亚写的。", "香蕉含有钾。", ["哈", "姆", "雷", "特", "写"]),
             ("ハムレットを書いたのは誰？", "ハムレットはシェイクスピアが書いた。", "バナナにはカリウムがある。",
-             ["ハムレット", "は", "書", "い", "た"]),
+             ["ハムレット", "書"]),
         ]
         for prompt, passage, unrelated, words in cases:
             with self.subTest(prompt=prompt):
@@ -51,6 +51,11 @@ class GroundingTests(unittest.TestCase):
                 spans = result["sources"][0]["matches"]
                 self.assertEqual([passage[start:end] for start, end in spans], words)
                 self.assertTrue(self.answer(prompt, unrelated)["abstained"])
+
+    def test_particles_and_question_words_are_not_topics_in_chinese_or_japanese(self):
+        # As terms, は, を and 什么 made a question about cats match a passage about dogs.
+        self.assertTrue(self.answer("猫は何を食べますか", "犬は肉を食べます。")["abstained"])
+        self.assertTrue(self.answer("猫吃什么", "狗吃什么都行")["abstained"])
 
     def test_no_reference_or_overlap_abstains(self):
         for source in ("", "Bananas contain potassium."):

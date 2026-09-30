@@ -129,7 +129,8 @@ def load_predictions(path: Path, report_key: str = "simple_questions") -> list[d
         value = [json.loads(line) for line in text.split("\n") if line.strip()]
     if isinstance(value, dict):
         # A one-line JSONL file parses as a single prediction object rather than a report.
-        value = [value] if "id" in value else value.get(report_key, value.get("predictions"))
+        # kaggle_simple_questions_audit.py keeps its answered holdout rows under "rows".
+        value = [value] if "id" in value else value.get(report_key, value.get("predictions", value.get("rows")))
     if not isinstance(value, list) or not all(isinstance(item, dict) for item in value):
         raise ValueError(f"{path}: expected a list of {{id, answer}} objects, JSONL, or a report with {report_key}")
     if not value:

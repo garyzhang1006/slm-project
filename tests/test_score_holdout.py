@@ -125,6 +125,18 @@ class ScoreHoldoutTests(unittest.TestCase):
                              encoding="utf-8")
             self.assertEqual(self.module.load_predictions(jsonl), predictions)
 
+    def test_reads_simple_questions_audit_report(self):
+        # scripts/kaggle_simple_questions_audit.py stores each holdout row with its answer under "rows".
+        audit = {"status": "complete_pending_manual_review",
+                 "rows": [{**row, "answer": row["expected_rubric"]} for row in self.rows]}
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "simple_questions_audit.json"
+            path.write_text(json.dumps(audit))
+            predictions = self.module.load_predictions(path)
+        report = self.module.score_predictions(self.rows, predictions)
+        self.assertEqual(report["total"]["exact"], report["total"]["scored"])
+        self.assertEqual(report["total"]["missing"], 0)
+
     def test_cli_rejects_empty_predictions(self):
         with tempfile.TemporaryDirectory() as directory:
             empty = Path(directory) / "predictions.jsonl"

@@ -396,18 +396,23 @@ class StudioAssetTests(unittest.TestCase):
         search = {"prompt": "when did it open", "grounded": True, "shown": 0,
                   "answers": [{"response": {"abstained": False, "sources": [{"id": "S1", "text": "It opened in 1889."}]}}]}
         failed = {"prompt": "hi", "grounded": False, "tag": "", "shown": 0, "answers": [{"error": "Model is still loading."}]}
-        answer = {"custom": True, "options": {"temperature": 0.3, "max_new_tokens": 64, "top_k": 40, "top_p": 0.9,
-                                              "repetition_penalty": 1, "task_type": "language_generation"},
+        answer = {"custom": True, "model": "Cognition SLM",
+                  "options": {"temperature": 0.3, "max_new_tokens": 64, "top_k": 40, "top_p": 0.9,
+                              "repetition_penalty": 1, "task_type": "language_generation"},
                   "response": {"text": "Hello.", "generated_tokens": 2, "elapsed_seconds": 1}}
         model = {"prompt": "hi", "grounded": False, "tag": "", "shown": 0, "answers": [answer]}
+        # Studio restarted with the adapter after this answer, so the running model is not the one that wrote it.
         probe = ("\n".join(lines) + "\nconst labels = { language_generation: 'Language generation' };\n"
-                 "const state = { status: { model: { name: 'Cognition SLM' } } };\nlet runs = [];\n" + "".join(functions)
+                 "const state = { status: { model: { name: 'SmolLM2-360M + LoRA' } } };\nlet runs = [];\n" + "".join(functions)
                  + f"\nconsole.log(JSON.stringify({json.dumps([[search], [search, failed], [search, model]])}"
                  ".map((items) => { runs = items; return transcript().split('\\n')[2]; })));")
         result = subprocess.run([node, "-e", probe], capture_output=True, text=True, timeout=30, check=True)
         headers = json.loads(result.stdout)
         self.assertTrue(headers[0].startswith("Saved ") and headers[1].startswith("Saved "), headers)
         self.assertTrue(headers[2].startswith("Cognition SLM, saved "), headers)
+        # The name is recorded when the question is sent and kept across a refresh.
+        self.assertIn("answer.model = grounded ? undefined : state.status?.model?.name;", script)
+        self.assertIn("const keep = ({ options, custom, code, model, response,", script)
 
     def test_lone_surrogates_are_sent_as_the_character_the_page_counts(self):
         # TextEncoder counts a lone surrogate as U+FFFD (3 bytes), and the server rejects the raw surrogate.

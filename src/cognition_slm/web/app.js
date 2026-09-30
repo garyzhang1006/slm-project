@@ -536,6 +536,8 @@ async function ask(run, again = false) {
   const answer = { options: grounded ? null : settings(), pending: true };
   answer.custom = !grounded && customModel();
   answer.code = answer.custom && CODE_TASKS.includes(answer.options.task_type);
+  // Studio can restart with another model before a download, so each answer keeps the name of the one that wrote it.
+  answer.model = grounded ? undefined : state.status?.model?.name;
   // Failed tries give way to the new one instead of staying among the answers, wherever they sit.
   run.answers = run.answers.filter((earlier) => !earlier.error);
   run.answers.push(answer);
@@ -594,7 +596,7 @@ $("prompt-form").addEventListener("submit", (event) => {
 
 // The conversation lasts as long as the tab: a refresh keeps it, closing the tab clears it.
 function saveThread() {
-  const keep = ({ options, custom, code, response, error, status, interrupted }) => ({ options, custom, code, response, error, status, interrupted });
+  const keep = ({ options, custom, code, model, response, error, status, interrupted }) => ({ options, custom, code, model, response, error, status, interrupted });
   if (writeStore("sessionStorage", "studio-thread", {
     mode: sourceMode() ? "sources" : "model", source: $("source-text").value, draft: $("prompt").value,
     runs: runs.map(({ prompt, grounded, source_text, tag, answers, shown }) => ({ prompt, grounded, source_text, tag, shown, answers: answers.filter((answer) => !answer.pending).map(keep) })),
@@ -653,9 +655,11 @@ const fenced = (text) => { const fence = "`".repeat(Math.max(3, ...(text.match(/
 const escapeMarkdown = (text) => text.replace(/[\\`*_[\]<&~#]/g, "\\$&");
 
 function transcript() {
-  // Search my text never runs the model, so only a conversation the model answered names it.
-  const answered = runs.some((run) => !run.grounded && run.answers.some((answer) => !answer.pending && !answer.error));
-  const model = answered ? state.status?.model?.name : null;
+  // Search my text never runs the model, so only a conversation the model answered names it, and only when one
+  // model wrote every answer.
+  const [name, ...others] = new Set(runs.flatMap((run) => run.grounded ? []
+    : run.answers.filter((answer) => !answer.pending && !answer.error).map((answer) => answer.model)));
+  const model = typeof name === "string" && !others.length ? name : null;
   const lines = ["# slm studio", "", `${model ? `${escapeMarkdown(model)}, saved` : "Saved"} ${new Date().toLocaleString()}`];
   // Blank lines only separate blocks, so a block never adds a second one; text inside an answer is left as it is.
   const add = (...items) => { for (const item of items) if (item !== "" || lines.at(-1) !== "") lines.push(item); };

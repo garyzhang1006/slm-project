@@ -29,9 +29,15 @@ class DistillTests(unittest.TestCase):
 
     def test_trim_answer_keeps_first_paragraph_and_sentence_ends(self):
         self.assertEqual(distill_data.trim_answer(" Blue light scatters.\n\nMore detail."), "Blue light scatters.")
-        long = "First sentence. " + "word " * 100
-        self.assertEqual(distill_data.trim_answer(long, limit=60), "First sentence.")
+        long = "The first sentence. " + "word " * 100
+        self.assertEqual(distill_data.trim_answer(long, limit=60), "The first sentence.")
         self.assertEqual(distill_data.trim_answer("word " * 100, limit=60), "")
+        # Abbreviations and initials end no sentence, and an opener alone is no answer.
+        for text, kept in (("The city grew. The capital moved to Washington, D.C. in 1800 and ", "The city grew."),
+                           ("The team grew. It was led by Dr. Smith and ", "The team grew."),
+                           ("Sure! Pluto is ", ""), ("Great question! Pluto is ", "")):
+            with self.subTest(text=text):
+                self.assertEqual(distill_data.trim_answer(text + "word " * 100, limit=120), kept)
 
     def test_build_records_filters_and_counts(self):
         holdout = ["What is 4 plus 9? Reply with the number."]

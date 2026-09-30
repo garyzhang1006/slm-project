@@ -33,6 +33,8 @@ DOLLY = "databricks/databricks-dolly-15k"
 CATEGORIES = frozenset({"open_qa", "general_qa", "classification"})
 MAX_PROMPT_CHARS = 300
 MAX_ANSWER_CHARS = 400
+# A period after these words, or after a single letter such as the J of "J. K." or the C of "D.C.", ends no sentence.
+ABBREVIATIONS = frozenset({"mr", "mrs", "ms", "dr", "st", "jr", "sr", "prof", "vs", "etc", "e.g", "i.e", "approx"})
 OUT_DIR = Path("/kaggle/working/distill")
 SOURCE = "distilled:SmolLM2-360M-Instruct+LoRA<-databricks/databricks-dolly-15k"
 
@@ -59,8 +61,15 @@ def trim_answer(text: str, limit: int = MAX_ANSWER_CHARS) -> str:
     if len(paragraph) <= limit:
         return paragraph
     cut = paragraph[:limit]
-    end = max(cut.rfind(". "), cut.rfind("! "), cut.rfind("? "))
-    return cut[:end + 1] if end > 0 else ""
+    for end in range(len(cut) - 2, 0, -1):
+        if cut[end] not in ".!?" or cut[end + 1] != " ":
+            continue
+        word = cut[:end].rsplit(None, 1)[-1].lstrip("(\"'").lower()
+        if cut[end] == "." and (word in ABBREVIATIONS or len(word.rsplit(".", 1)[-1]) == 1 and word[-1:].isalpha()):
+            continue
+        # Kept alone, an opener such as "Sure!" or "Great question!" is a fragment of the answer, not an answer.
+        return cut[:end + 1] if len(cut[:end].split()) >= 3 else ""
+    return ""
 
 
 def mostly_ascii(text: str) -> bool:

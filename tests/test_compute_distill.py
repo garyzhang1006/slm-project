@@ -78,6 +78,24 @@ class MergeDistillTests(unittest.TestCase):
             prompts = [json.loads(line)["prompt"] for line in output.read_text().splitlines()]
             self.assertEqual(prompts, ["Why is grass green?", "How do birds fly?"])
 
+    def test_merge_keeps_rows_with_unicode_line_separators_whole(self):
+        # ensure_ascii=False leaves U+2028 raw, and str.splitlines() would cut the record in half there.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            prompt = "Why is grass\u2028green?"
+            train = root / "train.jsonl"
+            train.write_text(json.dumps({"prompt": prompt, "answer": "a"}, ensure_ascii=False) + "\n", encoding="utf-8")
+            distill = root / "distill.jsonl"
+            distill.write_text(json.dumps({"prompt": "How do\u2028birds fly?", "answer": "a"}, ensure_ascii=False)
+                               + "\n", encoding="utf-8")
+            output = root / "merged.jsonl"
+            stats = stage4_sft.merge_distill(train, train, [distill], output)
+            self.assertEqual(stats["added"], 1)
+            prompts = [json.loads(line)["prompt"] for line in output.read_text(encoding="utf-8").split("\n") if line]
+            self.assertEqual(prompts, [prompt, "How do\u2028birds fly?"])
+            self.assertEqual(stage4_sft.holdout_prompts_in_training(output, ROOT / "data/simple_questions_holdout.json"),
+                             [])
+
     def test_no_distill_attached_leaves_train_alone(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)

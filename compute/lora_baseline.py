@@ -103,7 +103,8 @@ def find_input(name: str, root: Path = Path("/kaggle/input")) -> Path:
 def load_sft_rows(path: Path) -> list[dict]:
     """Read prompt/answer JSONL rows written by compute/stage3_sft_data.py."""
     rows = []
-    for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+    # str.splitlines() would also break at the raw U+2028 that json.dumps(ensure_ascii=False) leaves in a row.
+    for number, line in enumerate(path.read_text(encoding="utf-8").split("\n"), start=1):
         if not line.strip():
             continue
         row = json.loads(line)

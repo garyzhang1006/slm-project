@@ -77,13 +77,16 @@ def probes_in_training(train_path: Path) -> list[str]:
     # Probes that repeat a training prompt measure recall, not general English.
     from compute.stage5_evaluate import ENGLISH_PROBES
 
-    prompts = {normalize(json.loads(line)["prompt"]) for line in train_path.read_text().splitlines() if line.strip()}
+    # Split on "\n" only: str.splitlines() also breaks at the raw U+2028 that ensure_ascii=False leaves in.
+    prompts = {normalize(json.loads(line)["prompt"])
+               for line in train_path.read_text(encoding="utf-8").split("\n") if line.strip()}
     return [identifier for identifier, prompt, _ in ENGLISH_PROBES if normalize(prompt) in prompts]
 
 
 def holdout_prompts_in_training(train_path: Path, holdout_path: Path = ROOT / "data/simple_questions_holdout.json") -> list[str]:
     """Holdout ids whose prompt appears verbatim (up to case and spacing) in the SFT training split."""
-    prompts = {normalize(json.loads(line)["prompt"]) for line in train_path.read_text().splitlines() if line.strip()}
+    prompts = {normalize(json.loads(line)["prompt"])
+               for line in train_path.read_text(encoding="utf-8").split("\n") if line.strip()}
     rows = json.loads(holdout_path.read_text())["rows"]
     return [row["id"] for row in rows if normalize(row["prompt"]) in prompts]
 
@@ -99,13 +102,13 @@ def merge_distill(train_path: Path, eval_path: Path, distill_paths: list[Path], 
         raise RuntimeError(f"Expected at most one distill_train.jsonl, found {[str(path) for path in distill_paths]}")
     if not distill_paths:
         return {"attached": False, "added": 0}
-    train_lines = [line for line in train_path.read_text(encoding="utf-8").splitlines() if line.strip()]
+    train_lines = [line for line in train_path.read_text(encoding="utf-8").split("\n") if line.strip()]
     seen = {_prompt_key(json.loads(line)["prompt"]) for line in train_lines}
     # Eval prompts must stay unseen, or the SFT eval loss would measure memorization.
     held_out = {_prompt_key(json.loads(line)["prompt"])
-                for line in eval_path.read_text(encoding="utf-8").splitlines() if line.strip()}
+                for line in eval_path.read_text(encoding="utf-8").split("\n") if line.strip()}
     added, skipped = [], 0
-    for line in distill_paths[0].read_text(encoding="utf-8").splitlines():
+    for line in distill_paths[0].read_text(encoding="utf-8").split("\n"):
         if not line.strip():
             continue
         key = _prompt_key(json.loads(line)["prompt"])

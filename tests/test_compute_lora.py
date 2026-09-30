@@ -284,6 +284,10 @@ class LoraBaselineTests(unittest.TestCase):
             path.write_text(json.dumps({"prompt": "Hi?", "answer": " "}) + "\n")
             with self.assertRaisesRegex(ValueError, "rows.jsonl:1"):
                 self.module.load_sft_rows(path)
+            # U+2028 stays raw under ensure_ascii=False; the reader must not split the record there.
+            row = {"prompt": "Hi\u2028there?", "answer": "Hello\u2029again."}
+            path.write_text(json.dumps(row, ensure_ascii=False) + "\n", encoding="utf-8")
+            self.assertEqual(self.module.load_sft_rows(path), [row])
             path.write_text("")
             with self.assertRaisesRegex(ValueError, "no rows"):
                 self.module.load_sft_rows(path)

@@ -630,21 +630,37 @@ function newSession() {
 // or the length limit often end inside a code block, which would turn the rest of a downloaded file into code.
 // Likewise a line opening an HTML comment, <?, <!DOCTYPE or a script or style tag hides everything up to a
 // closing marker that may never come, and an inline tag such as the <String> in List<String> vanishes, so
-// outside code blocks and code spans each < that opens a tag is escaped. Lines indented four spaces are left
-// alone, since a viewer may show them as code, where the backslash would show too.
-const escapeHtml = (line) => (/^(?: {4}|\t)/.test(line) ? line : line.replace(/(`+)[^]*?\1|<(?=[A-Za-z/!?])/g, (match) => (match === "<" ? "\\<" : match)));
+// outside code each < that opens a tag is escaped. Backslashes right before it are doubled, or the first
+// would escape the second and leave the tag live; a backslash before a backtick keeps it from opening a span.
+const escapeHtml = (line) => line.replace(/\\`|(`+)[^]*?\1|\\*<(?=[A-Za-z/!?])/g, (match) => (match.endsWith("<") ? `${match.slice(0, -1).replace(/\\/g, "\\\\")}\\<` : match));
 // A question is plain text, so its heading escapes every character Markdown would read as markup.
 const escapeMarkdown = (text) => text.replace(/[\\`*_[\]<&~#]/g, "\\$&");
 
 function markdownAnswer(text) {
   let open = null;
+  // An indented line is code, where < stays as typed since a backslash would show, only where a paragraph has
+  // ended or code runs on; after a paragraph line it continues the paragraph, and in a list it continues the item.
+  let paragraph = false, code = false, list = false;
   const lines = text.split("\n").map((line) => {
     const [, marks, rest] = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/) || [];
-    if (!marks) return open ? line : escapeHtml(line);
-    // Backtick fences can't carry backticks after them, and a closing fence is at least as long as the opening one.
-    if (!open) open = marks[0] === "`" && rest.includes("`") ? null : marks;
-    else if (marks[0] === open[0] && marks.length >= open.length && !rest.trim()) open = null;
-    return line;
+    if (open) {
+      // A closing fence is at least as long as the opening one and carries nothing after it.
+      if (marks && marks[0] === open[0] && marks.length >= open.length && !rest.trim()) open = null;
+      return line;
+    }
+    // Backtick fences can't carry backticks after them.
+    if (marks && !(marks[0] === "`" && rest.includes("`"))) {
+      [open, paragraph, code] = [marks, false, false];
+      return line;
+    }
+    if (!line.trim()) {
+      paragraph = false;
+      return line;
+    }
+    if (/^(?: {4}| {0,3}\t)/.test(line)) code = !list && (code || !paragraph);
+    else [code, list] = [false, /^ {0,3}(?:[-+*]|\d{1,9}[.)])(?:[ \t]|$)/.test(line) || (list && paragraph)];
+    paragraph = !code;
+    return code ? line : escapeHtml(line);
   });
   return [lines.join("\n"), open];
 }

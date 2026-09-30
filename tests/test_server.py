@@ -334,11 +334,11 @@ class StudioAssetTests(unittest.TestCase):
         self.assertIn('window.sessionStorage.removeItem("studio-thread")', save)
         self.assertIn("if (!state.unsaved && runs.length) {", save)
 
-    def test_download_escapes_html_outside_code_and_markup_in_questions(self):
+    def test_download_escapes_html_outside_code_and_markup_in_plain_text(self):
         script = (self.web / "app.js").read_text()
         # In a CommonMark viewer a line opening <!--, <?, <style and the like hides the rest of the file, and an
         # inline tag such as the <String> in List<String> vanishes, in answers and in quoted passages alike.
-        self.assertIn("return open ? line : escapeHtml(line);", script)
+        self.assertIn("return code ? line : escapeHtml(line);", script)
         self.assertIn('source.text.split("\\n").map(escapeHtml).join("\\n> ")', script)
         # A question is plain text, so its heading shows *args and List<String> as typed.
         self.assertIn('add("", `## ${escapeMarkdown(run.prompt.replace(/\\s+/g, " "))}`, "");', script)
@@ -347,15 +347,26 @@ class StudioAssetTests(unittest.TestCase):
         node = shutil.which("node")
         if node is None:
             self.skipTest("node is not installed")
-        lines = [line for line in script.splitlines() if line.startswith(("const escapeHtml = ", "const escapeMarkdown = "))]
-        answers = ["Use List<String> here", "a < b and x<5", "`List<String>` and <b>", "   <!-- hidden", "    List<String> x;"]
-        probe = "\n".join(lines) + (f"\nconsole.log(JSON.stringify([...{json.dumps(answers)}.map(escapeHtml), "
-                                    "escapeMarkdown('*args & List<String> in C#')]));")
+        start = script.index("const escapeHtml = ")
+        end = script.index("\n}\n", script.index("function markdownAnswer(")) + 3
+        cases = [
+            ("Use List<String> here", "Use List\\<String> here"),
+            ("a < b and x<5", "a < b and x<5"),
+            ("`List<String>` and <b>", "`List<String>` and \\<b>"),
+            ("   <!-- hidden", "   \\<!-- hidden"),
+            # An indented line after a paragraph line or in a list item is text, so its tags are escaped too.
+            ("Use a list:\n    List<String> names;", "Use a list:\n    List\\<String> names;"),
+            ("1. Pick a type:\n    - use List<String> here", "1. Pick a type:\n    - use List\\<String> here"),
+            # After a blank line an indented line is code, where a backslash would show.
+            ("Code:\n\n    List<String> x;\nDone <b>", "Code:\n\n    List<String> x;\nDone \\<b>"),
+            ("```\n<b>\n```\n<i>", "```\n<b>\n```\n\\<i>"),
+            # One backslash before <br> would escape the added one and leave the tag live.
+            ("use \\<br> for breaks", "use \\\\\\<br> for breaks"),
+        ]
+        probe = script[start:end] + (f"\nconsole.log(JSON.stringify([...{json.dumps([text for text, _ in cases])}"
+                                     ".map((text) => markdownAnswer(text)[0]), escapeMarkdown('*args & List<String> in C#')]));")
         result = subprocess.run([node, "-e", probe], capture_output=True, text=True, timeout=30, check=True)
-        # Code spans and indented code keep their < as typed, since a backslash there would show.
-        self.assertEqual(json.loads(result.stdout), ["Use List\\<String> here", "a < b and x<5", "`List<String>` and \\<b>",
-                                                     "   \\<!-- hidden", "    List<String> x;",
-                                                     "\\*args \\& List\\<String> in C\\#"])
+        self.assertEqual(json.loads(result.stdout), [written for _, written in cases] + ["\\*args \\& List\\<String> in C\\#"])
 
     def test_unsent_example_leaves_focus_in_the_question_box(self):
         script = (self.web / "app.js").read_text()

@@ -230,6 +230,21 @@ class LoraChainTests(unittest.TestCase):
         self.assertEqual((main["kind"], main["needs"]), ("wait", "lora"))
         self.assertEqual((side["kind"], side["stage"]), ("push", "lora"))
 
+    def test_a_failed_lora_eval_waits_for_the_distill_data_that_sft_needs(self):
+        # The chain stopped at once, which ended --watch while distill_data, all that sft needs, was still running.
+        statuses = {"slm-160m-corpus": "complete", "slm-160m-pretrain-1": "complete", **self.READY,
+                    "slm-lora-eval": "error", "slm-distill-data": "running"}
+        reports = {("slm-160m-pretrain-1", "pretrain_session_1.json"): DONE,
+                   ("slm-lora-baseline", "lora_report.json"): LORA_DONE, **FRESH_FOLLOW_UPS, **SFT_DATA}
+        main, side, _ = run_pipeline.decide_round(lambda slug: statuses.get(slug, "missing"),
+                                                  lambda slug, filename: reports.get((slug, filename)), 30.0)
+        self.assertEqual((main["kind"], side["kind"]), ("wait", "wait"))
+        self.assertIn("lora_eval ended as error", side["reason"])
+        statuses["slm-distill-data"] = "complete"
+        main, side, _ = run_pipeline.decide_round(lambda slug: statuses.get(slug, "missing"),
+                                                  lambda slug, filename: reports.get((slug, filename)), 30.0)
+        self.assertEqual((main["kind"], main["stage"], side["kind"]), ("push", "sft", "stop"))
+
     def test_round_shares_quota_and_stops_when_main_needs_a_stopped_lora_chain(self):
         statuses = {"slm-160m-corpus": "complete", "slm-160m-pretrain-1": "complete", "slm-sft-data": "complete"}
         reports = {("slm-160m-pretrain-1", "pretrain_session_1.json"): RESUME}

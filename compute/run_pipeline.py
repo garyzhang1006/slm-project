@@ -247,10 +247,11 @@ def lora_action(status, report, quota_hours: float) -> dict:
             return push_if_quota(stage, quota_hours, f"{stage} has not run on adapter {adapter[:12]}")
         elif state != "complete":
             stopped.append(f"{stage} ended as {state}; read its log before retrying")
+    # A follow-up still running may be the one the main chain needs, so a failed one waits for it before stopping.
+    if waiting:
+        return action("wait", "; ".join(waiting + stopped))
     if stopped:
         return action("stop", "; ".join(stopped))
-    if waiting:
-        return action("wait", "; ".join(waiting))
     return action("done", f"lora_eval and distill_data both used adapter {adapter[:12]}")
 
 

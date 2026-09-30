@@ -92,11 +92,12 @@ def holdout_prompts_in_training(train_path: Path, holdout_path: Path = ROOT / "d
 
 
 def merge_distill(train_path: Path, eval_path: Path, distill_paths: list[Path], output: Path) -> dict:
-    """Append distilled rows to sft_train, skipping prompts already in train or in eval.
+    """Append distilled rows to sft_train, skipping prompts already in train and questions in eval.
 
     Returns counts; with no distill file attached, output is not written and train_path stays in use.
     """
     from cognition_slm.audit import _prompt_key
+    from compute.stage3_sft_data import question_key
 
     if len(distill_paths) > 1:
         raise RuntimeError(f"Expected at most one distill_train.jsonl, found {[str(path) for path in distill_paths]}")
@@ -104,15 +105,17 @@ def merge_distill(train_path: Path, eval_path: Path, distill_paths: list[Path], 
         return {"attached": False, "added": 0}
     train_lines = [line for line in train_path.read_text(encoding="utf-8").split("\n") if line.strip()]
     seen = {_prompt_key(json.loads(line)["prompt"]) for line in train_lines}
-    # Eval prompts must stay unseen, or the SFT eval loss would measure memorization.
-    held_out = {_prompt_key(json.loads(line)["prompt"])
+    # Eval questions must stay unseen, with or without the sentence cue, or the SFT eval loss would
+    # measure memorization.
+    held_out = {question_key(json.loads(line)["prompt"])
                 for line in eval_path.read_text(encoding="utf-8").split("\n") if line.strip()}
     added, skipped = [], 0
     for line in distill_paths[0].read_text(encoding="utf-8").split("\n"):
         if not line.strip():
             continue
-        key = _prompt_key(json.loads(line)["prompt"])
-        if key in seen or key in held_out:
+        prompt = json.loads(line)["prompt"]
+        key = _prompt_key(prompt)
+        if key in seen or question_key(prompt) in held_out:
             skipped += 1
             continue
         seen.add(key)

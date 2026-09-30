@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from compute import distill_data, stage4_sft  # noqa: E402
+from compute import distill_data, short_facts, stage4_sft  # noqa: E402
 
 LONG = "x" * 500
 
@@ -119,6 +119,20 @@ class MergeDistillTests(unittest.TestCase):
             self.assertEqual(stats["teacher_adapter_sha256"], "abc")
             prompts = [json.loads(line)["prompt"] for line in output.read_text().splitlines()]
             self.assertEqual(prompts, ["Why is grass green?", "How do birds fly?"])
+
+    def test_merge_skips_eval_questions_asked_with_or_without_the_sentence_cue(self):
+        cue = short_facts.SENTENCE_CUE
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            train = self.write(root / "train.jsonl", ["Why is grass green?"])
+            evaluation = self.write(root / "eval.jsonl", ["What is a computer?", "Where do bees live?" + cue])
+            distill = self.write(root / "distill.jsonl", ["What is a computer?" + cue, "Where do bees live?",
+                                                          "How do birds fly?" + cue])
+            output = root / "merged.jsonl"
+            stats = stage4_sft.merge_distill(train, evaluation, [distill], output)
+            self.assertEqual((stats["added"], stats["skipped_duplicate"]), (1, 2))
+            prompts = [json.loads(line)["prompt"] for line in output.read_text().splitlines()]
+            self.assertEqual(prompts, ["Why is grass green?", "How do birds fly?" + cue])
 
     def test_merge_keeps_rows_with_unicode_line_separators_whole(self):
         # ensure_ascii=False leaves U+2028 raw, and str.splitlines() would cut the record in half there.

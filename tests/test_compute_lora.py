@@ -261,6 +261,15 @@ class LoraBaselineTests(unittest.TestCase):
         kept, dropped = self.module.drop_holdout_overlap(rows, screened)
         self.assertEqual((kept, dropped), (rows[3:], 3))
 
+    def test_eval_sentences_without_a_question_mark_are_dropped(self):
+        # Only question sentences became fragments, so an eval task sentence copied without its question trained.
+        rows = [{"prompt": "Give the opposite of tall.", "answer": "short"},
+                {"prompt": "Homework: Split 42 into 7 equal groups. Show work.", "answer": "6"},
+                {"prompt": "Count the legs on a snake.", "answer": "0"},
+                {"prompt": "Give the opposite of wide. Reply with one word.", "answer": "narrow"}]
+        kept, dropped = self.module.drop_holdout_overlap(rows, self.module.screened_rows(ROOT))
+        self.assertEqual((kept, dropped), (rows[3:], 3))
+
     def test_project_rows_survive_the_trainer_screen(self):
         if str(ROOT) not in sys.path:
             sys.path.insert(0, str(ROOT))

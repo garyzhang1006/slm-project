@@ -126,6 +126,11 @@ class QualityRunTests(unittest.TestCase):
             path.write_text(json.dumps({"prompt": "hello there"}) + "\n")
             self.assertEqual(quality._probes_in_training(leaked, path), ["copied"])
 
+    def test_training_report_survives_a_warning_after_it(self):
+        quality = runner("kaggle_500m_quality_run")
+        log = '{"step": 1}\n{\n  "steps": 1200\n}\nException ignored in: <function _remove at 0x1>\n'
+        self.assertEqual(quality._final_training_report(log), {"steps": 1200})
+
     def test_failed_training_log_is_kept(self):
         quality = runner("kaggle_500m_quality_run")
         with tempfile.TemporaryDirectory() as directory:

@@ -61,7 +61,9 @@ def _final_training_report(stdout: str) -> dict:
         start = max(index for index, line in enumerate(lines) if line == "{")
     except ValueError as exc:
         raise RuntimeError("training output did not contain a final JSON report") from exc
-    return json.loads("\n".join(lines[start:]))
+    # stderr is merged into the log, so an interpreter-exit warning may follow the report.
+    report, _ = json.JSONDecoder().raw_decode("\n".join(lines[start:]))
+    return report
 
 
 def _probes_in_training(probes, train_path: Path) -> list[str]:

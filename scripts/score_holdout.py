@@ -68,7 +68,8 @@ def _number(tokens: list[str], i: int) -> tuple[int, int] | None:
 def normalize_answer(text: str) -> str:
     """Casefold, drop punctuation, collapse whitespace and write spelled numbers below a million as digits."""
     text = _GROUPED.sub(lambda match: match.group().replace(",", ""), text)  # "1,000" is one number
-    text = text.casefold().replace("'", "").replace("’", "")
+    # U+2212 is a minus sign too, so "−25" must not read as 25.
+    text = text.casefold().replace("'", "").replace("’", "").replace("\u2212", "-")
     phrases, end = [], None
     for match in _TOKENS.finditer(text):
         if end is None or not _JOINER.fullmatch(text, end, match.start()):

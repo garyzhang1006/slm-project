@@ -55,7 +55,8 @@ PRETRAIN_TOTAL_STEPS = math.ceil(PRETRAIN_TARGET_BYTES / TOKENS_PER_STEP)
 PRETRAIN_SESSION_SECONDS = 11 * 3600
 # Measured, not estimated: pretrain session 1 (Kaggle T4, fp16, 2026-09-26) reported
 # seconds_per_step 8.72 over 4,570 steps. The FLOP-based guess of 5.5 left out attention over 2,048
-# positions. At 8.72 s a pass is about 55 GPU-hours in 6 sessions of about 4,470 steps.
+# positions. At 8.72 s a pass is about 55 GPU-hours in 6 planned sessions of about 4,470 steps; sessions 1
+# and 2 each ran 4,570, so at that pace the sixth session runs only the last 39 steps.
 SECONDS_PER_STEP_ESTIMATE = 8.72
 SESSION_RESERVE_SECONDS = 600
 

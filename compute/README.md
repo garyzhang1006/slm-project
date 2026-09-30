@@ -42,7 +42,7 @@ The model has N = 160,721,679 parameters and the corpus target is D = 1.5 billio
 
 Gradient checkpointing repeats the forward pass, so the real cost is closer to 8 × N × D ≈ 1.93e18 FLOPs. The earlier 500M runs reached about 16 TFLOP/s on a Kaggle T4 at fp16, which gives 1.93e18 / 16e12 ≈ 120,000 seconds, or about 33 GPU-hours.
 
-The step-based view agrees. One optimizer step is batch 8 × accumulation 4 × 2,048 bytes = 65,536 tokens, so one pass over the corpus is 22,889 steps (`PRETRAIN_TOTAL_STEPS` in `stages.py`). Session 1 measured 8.72 seconds per step (`SECONDS_PER_STEP_ESTIMATE`), well above the 5.5 the FLOP count suggested, because attention over 2,048 positions adds FLOPs that 6 × N × D leaves out and costs relatively more on a 160M model. At 8.72 seconds a full pass is about 55 GPU-hours, split into 6 sessions of about 4,470 steps each.
+The step-based view agrees. One optimizer step is batch 8 × accumulation 4 × 2,048 bytes = 65,536 tokens, so one pass over the corpus is 22,889 steps (`PRETRAIN_TOTAL_STEPS` in `stages.py`). Session 1 measured 8.72 seconds per step (`SECONDS_PER_STEP_ESTIMATE`), well above the 5.5 the FLOP count suggested, because attention over 2,048 positions adds FLOPs that 6 × N × D leaves out and costs relatively more on a 160M model. At 8.72 seconds a full pass is about 55 GPU-hours. `pretrain_sessions()` plans 6 sessions of about 4,470 steps, and sessions 1 and 2 each ran 4,570 (`compute/RESULTS.md`), so at that pace five sessions reach 22,850 steps and a short sixth session runs the last 39.
 
 | Stage | Estimated T4 hours |
 |---|---|

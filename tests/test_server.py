@@ -334,41 +334,28 @@ class StudioAssetTests(unittest.TestCase):
         self.assertIn('window.sessionStorage.removeItem("studio-thread")', save)
         self.assertIn("if (!state.unsaved && runs.length) {", save)
 
-    def test_download_escapes_html_outside_code_and_markup_in_plain_text(self):
+    def test_download_writes_answers_and_passages_verbatim(self):
         script = (self.web / "app.js").read_text()
-        # In a CommonMark viewer a line opening <!--, <?, <style and the like hides the rest of the file, and an
-        # inline tag such as the <String> in List<String> vanishes, in answers and in quoted passages alike.
-        self.assertIn("    return escapeHtml(line);\n", script)
-        self.assertIn('source.text.split("\\n").map(escapeHtml).join("\\n> ")', script)
-        # Questions, errors, settings and the model name are plain text, so *args and <answer> show as typed.
+        # The page shows answers and passages as plain text, so the download fences them: a CommonMark viewer
+        # would otherwise drop <String> from List<String>, decode &amp;, eat the backslash in \. and hide a
+        # [1]: url line, and an answer cut off inside a code block would turn the rest of the file into code.
+        self.assertIn('add(...(text ? fenced(text) : ["*No text.*"]), "");', script)
+        self.assertIn('for (const source of sources) add(`**${source.id}**`, "", ...fenced(source.text), "");', script)
+        # Questions, errors, settings and the model name are plain text too, escaped where they sit in Markdown.
         self.assertIn('add("", `## ${escapeMarkdown(run.prompt.replace(/\\s+/g, " "))}`, "");', script)
         self.assertIn('if (answer.error) add(`*${escapeMarkdown(answer.error)}*`, "");', script)
         self.assertIn("${escapeMarkdown(describeSettings(answer.options, answer.custom))}*", script)
         self.assertIn("${model ? `${escapeMarkdown(model)}, saved` : \"Saved\"}", script)
-        self.assertIn("const [plain, dangling] = markdownAnswer(text);", script)
-        self.assertIn("answer.code ? [fence, text, fence] : dangling ? [plain, dangling] : [plain]", script)
         node = shutil.which("node")
         if node is None:
             self.skipTest("node is not installed")
-        start = script.index("const escapeHtml = ")
-        end = script.index("\n}\n", script.index("function markdownAnswer(")) + 3
-        # A zero-width space after each < that opens a tag stops the tag in text and is invisible in code, so
-        # no line needs its context judged; lines inside a fence at the top level stay as typed.
-        cases = [
-            ("Use List<String> here", "Use List<\u200bString> here"),
-            ("a < b and x<5", "a < b and x<5"),
-            ("`List<String>` and <b>", "`List<\u200bString>` and <\u200bb>"),
-            ("   <!-- hidden", "   <\u200b!-- hidden"),
-            ("Use a list:\n    List<String> names;", "Use a list:\n    List<\u200bString> names;"),
-            ("- Example:\n    ```java\n    List<String> names;\n    ```", "- Example:\n    ```java\n    List<\u200bString> names;\n    ```"),
-            ("## Example\n    <div>x</div>", "## Example\n    <\u200bdiv>x<\u200b/div>"),
-            ("```\n<b>\n```\n<i>", "```\n<b>\n```\n<\u200bi>"),
-            ("use \\<br> for breaks", "use \\<\u200bbr> for breaks"),
-        ]
-        probe = script[start:end] + (f"\nconsole.log(JSON.stringify([...{json.dumps([text for text, _ in cases])}"
-                                     ".map((text) => markdownAnswer(text)[0]), escapeMarkdown('*args & List<String> in C#')]));")
+        lines = [line for line in script.splitlines() if line.startswith(("const fenced = ", "const escapeMarkdown = "))]
+        texts = ["write &amp; \\d+\\.\\d+\n\n[1]: https://example.com", "```js\nList<String> x;", "a `` b\n````"]
+        probe = "\n".join(lines) + (f"\nconsole.log(JSON.stringify([...{json.dumps(texts)}.map(fenced), "
+                                    "escapeMarkdown('*args & List<String> in C#')]));")
         result = subprocess.run([node, "-e", probe], capture_output=True, text=True, timeout=30, check=True)
-        self.assertEqual(json.loads(result.stdout), [written for _, written in cases] + ["\\*args \\& List\\<String> in C\\#"])
+        self.assertEqual(json.loads(result.stdout), [["```", texts[0], "```"], ["````", texts[1], "````"],
+                                                     ["`````", texts[2], "`````"], "\\*args \\& List\\<String> in C\\#"])
 
     def test_unsent_example_leaves_focus_in_the_question_box(self):
         script = (self.web / "app.js").read_text()

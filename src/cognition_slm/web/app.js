@@ -626,34 +626,11 @@ function newSession() {
 }
 
 // A Markdown copy of the conversation, with the settings behind each answer, for notes or a results log.
-// A Markdown answer ready to write, and the fence it leaves open, if any. Answers cut off at a stop sequence
-// or the length limit often end inside a code block, which would turn the rest of a downloaded file into code.
-// Likewise a line opening an HTML comment, <?, <!DOCTYPE or a script or style tag hides everything up to a
-// closing marker that may never come, and an inline tag such as the <String> in List<String> vanishes. A
-// backslash before the < would show wherever the line is code, which depends on list and paragraph context,
-// so a zero-width space follows each < that opens a tag instead: it stops the tag in text and is invisible in code.
-const escapeHtml = (line) => line.replace(/<(?=[A-Za-z/!?])/g, "<\u200b");
+// Answers and quoted passages go in fenced blocks, which show their text exactly as the page does: no tag, entity,
+// backslash or indent inside is read as markup, and a fence longer than any backtick run inside stays closed.
+const fenced = (text) => { const fence = "`".repeat(Math.max(3, ...(text.match(/`+/g) || []).map((ticks) => ticks.length + 1))); return [fence, text, fence]; };
 // A question, an error or a setting is plain text, so it escapes every character Markdown would read as markup.
 const escapeMarkdown = (text) => text.replace(/[\\`*_[\]<&~#]/g, "\\$&");
-
-function markdownAnswer(text) {
-  let open = null;
-  const lines = text.split("\n").map((line) => {
-    const [, marks, rest] = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/) || [];
-    if (open) {
-      // A closing fence is at least as long as the opening one and carries nothing after it.
-      if (marks && marks[0] === open[0] && marks.length >= open.length && !rest.trim()) open = null;
-      return line;
-    }
-    // Backtick fences can't carry backticks after them.
-    if (marks && !(marks[0] === "`" && rest.includes("`"))) {
-      open = marks;
-      return line;
-    }
-    return escapeHtml(line);
-  });
-  return [lines.join("\n"), open];
-}
 
 function transcript() {
   const model = state.status?.model?.name;
@@ -671,13 +648,10 @@ function transcript() {
       else if (run.grounded) {
         const sources = response.abstained ? [] : response.sources || [];
         if (!sources.length) add("*No passage in the text matched the question.*", "");
-        for (const source of sources) add(`> **${source.id}** ${source.text.split("\n").map(escapeHtml).join("\n> ")}`, "");
+        for (const source of sources) add(`**${source.id}**`, "", ...fenced(source.text), "");
       } else {
         const text = String(response.text || "").replace(/^\n+/, "").trimEnd();
-        // A fence longer than any backtick run inside the answer keeps code intact.
-        const fence = "`".repeat(Math.max(3, ...(text.match(/`+/g) || []).map((ticks) => ticks.length + 1)));
-        const [plain, dangling] = markdownAnswer(text);
-        add(...(!text ? ["*No text.*"] : answer.code ? [fence, text, fence] : dangling ? [plain, dangling] : [plain]), "");
+        add(...(text ? fenced(text) : ["*No text.*"]), "");
         add(`*${plural(response.generated_tokens, "token")} · ${Number(response.elapsed_seconds).toFixed(1)}s · ${escapeMarkdown(describeSettings(answer.options, answer.custom))}*`, "");
       }
     });

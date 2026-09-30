@@ -105,6 +105,15 @@ class GroundingTests(unittest.TestCase):
             with self.subTest(prompt=prompt):
                 self.assertEqual(self.answer(prompt, passage)["sources"][0]["text"], passage)
 
+    def test_first_person_be_is_not_a_topic(self):
+        # Every other form of be was a stop word, so "am" made first-person questions need a word no passage has.
+        passage = "Members can borrow up to 12 books at a time."
+        for prompt in ("Am I a member?", "How many books am I allowed to borrow?"):
+            with self.subTest(prompt=prompt):
+                self.assertEqual(self.answer(prompt, passage)["sources"][0]["text"], passage)
+        self.assertEqual(self.answer("Is it open at 9 am?", "The library opens at 9 am.")["sources"][0]["text"],
+                         "The library opens at 9 am.")
+
     def test_question_words_typed_without_apostrophes_are_not_topics(self):
         # "theres" stemmed to the topic "ther", and "whats" to "what", so these questions abstained.
         passage = "Members can borrow up to 12 books at a time."

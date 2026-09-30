@@ -296,15 +296,18 @@ def _directive_key(topic: str) -> str:
 
 
 def _contradiction_observation(messages: tuple[ContextMessage, ...]) -> ContextObservation | None:
-    directives: dict[str, list[tuple[bool, int, str]]] = {}
+    directives: dict[str, list[tuple[bool, int, str, int]]] = {}
     for index, message in enumerate(messages):
         content = message.content.replace("\u2019", "'").replace("\u2018", "'")
         for sentence in re.split(r"[.!?\n]+", content):
             for match in _DIRECTIVE_PATTERN.finditer(sentence):
                 key = _directive_key(match.group("topic"))
                 if key:
+                    # The topic stops at 100 characters, which can split a token below the length its
+                    # secret pattern needs; the excerpt redacts the rest of the sentence before cutting.
+                    # Keep an offset, not a copy: one unpunctuated message can hold hundreds of matches.
                     directives.setdefault(key, []).append(
-                        (match.group("negative") is None, index, match.group(0))
+                        (match.group("negative") is None, index, sentence, match.start())
                     )
     evidence: list[str] = []
     for entries in directives.values():
@@ -313,8 +316,8 @@ def _contradiction_observation(messages: tuple[ContextMessage, ...]) -> ContextO
             # Always show both sides of the conflict, then fill in message order.
             positions = [next(i for i, entry in enumerate(entries) if entry[0] is polarity) for polarity in (True, False)]
             positions += [i for i in range(len(entries)) if i not in positions][:1]
-            for _, index, directive in (entries[i] for i in sorted(positions)):
-                evidence.append(f"{messages[index].role}: {_safe_excerpt(directive)}")
+            for _, index, sentence, start in (entries[i] for i in sorted(positions)):
+                evidence.append(f"{messages[index].role}: {_safe_excerpt(sentence[start:])}")
     if not evidence:
         return None
     return ContextObservation(

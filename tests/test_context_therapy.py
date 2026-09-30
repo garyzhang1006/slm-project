@@ -276,5 +276,18 @@ class ContextTherapyTests(unittest.TestCase):
         self.assertEqual(len(conflict.evidence), 3)
         self.assertIn("user: Never use tabs", conflict.evidence)
 
+    def test_conflict_evidence_redacts_a_token_split_by_the_topic_limit(self):
+        # The token starts 85 characters into the topic, so the 100 character topic keeps only its first 15.
+        secret = "sk-" + "Z" * 30
+        topic = "use " + "a" * 80 + " " + secret
+        messages = [{"role": "user", "content": f"Always {topic}."}, {"role": "user", "content": f"Never {topic}."}]
+        conflict = next(
+            item for item in ContextTherapist().assess(messages).observations if item.code == "contradictory_directives"
+        )
+        self.assertEqual(len(conflict.evidence), 2)
+        for evidence in conflict.evidence:
+            self.assertIn("[REDACTED]", evidence)
+            self.assertNotIn("sk-Z", evidence)
+
 if __name__ == "__main__":
     unittest.main()

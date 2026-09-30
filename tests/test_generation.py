@@ -101,6 +101,30 @@ class GenerationTests(unittest.TestCase):
                 main()
             load.assert_not_called()
 
+    def test_multiple_candidates_return_the_highest_scoring_text(self):
+        tokenizer = ByteTokenizer()
+        low, high = (tokenizer.encode(text, add_bos=False, add_eos=False)[0] for text in ("a", "b"))
+
+        class PrefersHigh(torch.nn.Module):
+            def __init__(self):
+                super().__init__()
+                self.config = SimpleNamespace(block_size=2048)
+                self.anchor = torch.nn.Parameter(torch.zeros(1))
+
+            def forward(self, ids, attention_mask=None):
+                logits = torch.full((*ids.shape, tokenizer.vocab_size), -10.0)
+                logits[:, -1, low], logits[:, -1, high] = -2.0, 0.0
+                return SimpleNamespace(logits=logits)
+
+        # The first candidate is the less likely one, so a result of "bb" shows scoring chose it.
+        outputs = iter([[low, low], [high, high], [low, high]])
+        with patch("cognition_slm.generate.generate_ids",
+                   side_effect=lambda _m, ids, _t, **kw: torch.cat([ids, torch.tensor([next(outputs)])], dim=1)) as generate:
+            text = generate_text(PrefersHigh(), tokenizer, "Say hi.", task_type="language_generation",
+                                 num_candidates=3)
+        self.assertEqual(generate.call_count, 3)
+        self.assertEqual(text, "bb")
+
     def test_syntax_bonus_can_prefer_valid_code(self):
         texts = ["def add(a, b)\n    return a + b", "def add(a, b):\n    return a + b"]
         self.assertEqual(

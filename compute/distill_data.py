@@ -59,6 +59,10 @@ def trim_answer(text: str, limit: int = MAX_ANSWER_CHARS) -> str:
     """First paragraph, cut back to a sentence end when it runs past limit; '' when nothing usable is left."""
     paragraph = text.strip().split("\n\n", 1)[0].strip()
     if len(paragraph) <= limit:
+        # A lead-in such as "Here are some examples:" or an opener such as "Sure!" before more paragraphs
+        # only introduces the answer, so kept alone it is no answer.
+        if paragraph.endswith(":") or ("\n\n" in text.strip() and len(paragraph.split()) < 3):
+            return ""
         return paragraph
     cut = paragraph[:limit]
     for end in range(len(cut) - 2, 0, -1):

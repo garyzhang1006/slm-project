@@ -39,6 +39,13 @@ class DistillTests(unittest.TestCase):
             with self.subTest(text=text):
                 self.assertEqual(distill_data.trim_answer(text + "word " * 100, limit=120), kept)
 
+    def test_trim_answer_drops_openers_and_lead_ins_before_the_answer(self):
+        for text in ("Great question!\n\nThe Nile is the longest river in Africa.", "Sure!\n\nParis.",
+                     "Here are some examples:\n\n1. Oak\n2. Pine", "Here are some examples:"):
+            with self.subTest(text=text):
+                self.assertEqual(distill_data.trim_answer(text), "")
+        self.assertEqual(distill_data.trim_answer("Paris is the capital.\n\nIt is in France."), "Paris is the capital.")
+
     def test_build_records_filters_and_counts(self):
         holdout = ["What is 4 plus 9? Reply with the number."]
         stems = distill_data.holdout_stems(holdout)

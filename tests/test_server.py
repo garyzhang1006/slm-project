@@ -334,16 +334,28 @@ class StudioAssetTests(unittest.TestCase):
         self.assertIn('window.sessionStorage.removeItem("studio-thread")', save)
         self.assertIn("if (!state.unsaved && runs.length) {", save)
 
-    def test_download_escapes_comment_openers_outside_code_fences(self):
+    def test_download_escapes_html_outside_code_and_markup_in_questions(self):
         script = (self.web / "app.js").read_text()
-        # A line opening <!--, <?, <style and the like with no closing marker hides the rest of the file in a
-        # CommonMark viewer, in answers and in quoted passages alike.
-        opener = r"const HTML_BLOCK_OPENER = /^( {0,3})(<(?:!--|\?|![A-Za-z]|!\[CDATA\[|(?:script|pre|style|textarea)(?=[\s>]|$)))/i;"
-        self.assertIn(opener, script)
-        self.assertIn("return open ? line : escapeHtmlBlock(line);", script)
-        self.assertIn('source.text.split("\\n").map(escapeHtmlBlock).join("\\n> ")', script)
+        # In a CommonMark viewer a line opening <!--, <?, <style and the like hides the rest of the file, and an
+        # inline tag such as the <String> in List<String> vanishes, in answers and in quoted passages alike.
+        self.assertIn("return open ? line : escapeHtml(line);", script)
+        self.assertIn('source.text.split("\\n").map(escapeHtml).join("\\n> ")', script)
+        # A question is plain text, so its heading shows *args and List<String> as typed.
+        self.assertIn('add("", `## ${escapeMarkdown(run.prompt.replace(/\\s+/g, " "))}`, "");', script)
         self.assertIn("const [plain, dangling] = markdownAnswer(text);", script)
         self.assertIn("answer.code ? [fence, text, fence] : dangling ? [plain, dangling] : [plain]", script)
+        node = shutil.which("node")
+        if node is None:
+            self.skipTest("node is not installed")
+        lines = [line for line in script.splitlines() if line.startswith(("const escapeHtml = ", "const escapeMarkdown = "))]
+        answers = ["Use List<String> here", "a < b and x<5", "`List<String>` and <b>", "   <!-- hidden", "    List<String> x;"]
+        probe = "\n".join(lines) + (f"\nconsole.log(JSON.stringify([...{json.dumps(answers)}.map(escapeHtml), "
+                                    "escapeMarkdown('*args & List<String> in C#')]));")
+        result = subprocess.run([node, "-e", probe], capture_output=True, text=True, timeout=30, check=True)
+        # Code spans and indented code keep their < as typed, since a backslash there would show.
+        self.assertEqual(json.loads(result.stdout), ["Use List\\<String> here", "a < b and x<5", "`List<String>` and \\<b>",
+                                                     "   \\<!-- hidden", "    List<String> x;",
+                                                     "\\*args \\& List\\<String> in C\\#"])
 
     def test_unsent_example_leaves_focus_in_the_question_box(self):
         script = (self.web / "app.js").read_text()

@@ -20,9 +20,9 @@ class GroundingTests(unittest.TestCase):
         self.assertEqual(spans[0], [2, 8])
 
     def test_matches_include_words_with_curly_apostrophes(self):
-        passage = "Members can\u2019t print on Sundays."
-        spans = self.answer("Why can't members print?", passage)["sources"][0]["matches"]
-        self.assertEqual([passage[start:end] for start, end in spans], ["Members", "can\u2019t", "print"])
+        passage = "O\u2019Brien can\u2019t print on Sundays."
+        spans = self.answer("Why can't O'Brien print?", passage)["sources"][0]["matches"]
+        self.assertEqual([passage[start:end] for start, end in spans], ["O\u2019Brien", "print"])
 
     def test_matches_cover_words_that_casefolding_changes(self):
         passage = "The Straße length and the café menu."
@@ -95,6 +95,14 @@ class GroundingTests(unittest.TestCase):
             with self.subTest(prompt=prompt):
                 self.assertEqual(self.answer(prompt, passage)["sources"][0]["text"], passage)
         self.assertTrue(self.answer("How much is there?", passage)["abstained"])
+
+    def test_negated_auxiliaries_are_not_topics(self):
+        # As a term, "can't" made "Why can't I print?" need a word the passage lacks, so it abstained.
+        passage = "Printing costs 10 cents per page."
+        for prompt in ("Why can't I print?", "Why can\u2019t I print?", "Why cant I print?", "Why won't it print?",
+                       "Why doesn't it print?"):
+            with self.subTest(prompt=prompt):
+                self.assertEqual(self.answer(prompt, passage)["sources"][0]["text"], passage)
 
     def test_question_words_typed_without_apostrophes_are_not_topics(self):
         # "theres" stemmed to the topic "ther", and "whats" to "what", so these questions abstained.

@@ -13,10 +13,14 @@ _MARKS = "".join(chr(code) for code in range(0x300, 0x20000) if unicodedata.cate
 _SINGLE = "\u3041-\u309f\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\U00020000-\U0003134f"
 _LETTER = f"(?:[^\\W_{_SINGLE}]|[{_MARKS}])"
 # A clock time with am or pm is one word, so "9 am" can rank apart from "9 pm" while "am" alone stays a stop word.
-_TIME = re.compile(r"(\d{1,2}) ?([aApP])\.?[mM]\b\.?")
+# Minutes and a range share the am or pm, as in "9:30 am" and "9-11 am".
+_CLOCK = r"\d{1,2}(?::\d\d)?(?: ?[-\u2013] ?\d{1,2}(?::\d\d)?)? ?[aApP]\.?[mM]\b\.?"
+_TIME = re.compile(_CLOCK)
+# Hours are the numbers not written after a colon.
+_HOUR = re.compile(r"(?<![:\d])\d{1,2}")
 # Words are runs of letters, digits and marks in any script, found the same way in questions,
 # ranking and highlights, so a highlight always covers a whole ranked word.
-_WORDS = re.compile(f"\\d{{1,2}} ?[aApP]\\.?[mM]\\b\\.?|(?=[^\\W_])[{_SINGLE}]|{_LETTER}+(?:'{_LETTER}+)?")
+_WORDS = re.compile(f"{_CLOCK}|(?=[^\\W_])[{_SINGLE}]|{_LETTER}+(?:'{_LETTER}+)?")
 _STOP = frozenset("a an the am is are was were be been being do does did can could would should will shall may might what which who whom whose when where why how i you he she it we they me us him them my your his her its our their of to in on at by for from with about and or but as that this these those please tell explain answer question according source passage text many much any some there".split())
 # Questions typed without apostrophes spell "what's" as "whats", which would otherwise stem into a topic.
 _STOP |= frozenset("whats wheres whos hows whens whys theres thats".split())
@@ -81,10 +85,10 @@ def _terms(text: str) -> set[str]:
     words = _WORDS.findall("".join(char for char in folded if unicodedata.category(char) != "Mn"))
     terms = set()
     for word in (word.removesuffix("'s") for word in words):
-        time = _TIME.fullmatch(word)
-        if time:
-            # "9 am" is both 9 and 9am, so it still matches a bare 9 but ranks above "9 pm".
-            terms |= {time.group(1), time.group(1) + time.group(2) + "m"}
+        if _TIME.fullmatch(word):
+            # "9:30 am" keeps 9 and 30 and adds 9am, so it still matches a bare 9 but ranks above "9:30 pm".
+            meridiem = word.replace(".", "")[-2] + "m"
+            terms |= set(re.findall(r"\d+", word)) | {hour + meridiem for hour in _HOUR.findall(word)}
         elif word not in _STOP:
             terms.add(_stem(_IRREGULAR.get(word, word)))
     return terms

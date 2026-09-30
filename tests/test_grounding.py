@@ -96,6 +96,13 @@ class GroundingTests(unittest.TestCase):
                 self.assertEqual(self.answer(prompt, passage)["sources"][0]["text"], passage)
         self.assertTrue(self.answer("How much is there?", passage)["abstained"])
 
+    def test_question_words_typed_without_apostrophes_are_not_topics(self):
+        # "theres" stemmed to the topic "ther", and "whats" to "what", so these questions abstained.
+        passage = "Members can borrow up to 12 books at a time."
+        for prompt in ("Theres any books?", "Whats borrowed?", "Wheres the books?"):
+            with self.subTest(prompt=prompt):
+                self.assertEqual(self.answer(prompt, passage)["sources"][0]["text"], passage)
+
     def test_partial_topic_match_abstains(self):
         self.assertTrue(self.answer("Explain solar panel battery storage", "Solar panels collect light.")["abstained"])
 

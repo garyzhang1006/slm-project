@@ -47,6 +47,13 @@ class StageTableTests(unittest.TestCase):
         self.assertTrue(stages.STAGES["lora"]["internet"])
         self.assertEqual(stages.stage_attaches("lora_eval"), ["slm-lora-baseline"])
 
+    def test_stages_that_download_at_run_time_have_internet(self):
+        stages = module("stages")
+        # These runners pip install, stream datasets or fetch Hugging Face models as they run, so a kernel pushed
+        # without internet would fail only after waiting in the queue.
+        online = {name for name, spec in stages.STAGES.items() if spec["internet"]}
+        self.assertEqual(online, {"corpus", "sft_data", "lora", "distill_data", "lora_eval", "lora_1b7", "lora_1b7_eval"})
+
     def test_planned_steps(self):
         stages = module("stages")
         self.assertEqual(stages.planned_steps(1000, 10, 100), 90)

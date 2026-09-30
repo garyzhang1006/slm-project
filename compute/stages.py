@@ -28,10 +28,10 @@ STAGES = {
     # for 360M (step 2500 of 6485) and epoch 1 for 1.7B (step 1250 of 3891), and only got worse after that.
     "lora": {"runner": "compute/lora_baseline.py", "slug": "slm-lora-baseline",
              "internet": True, "gpu": True, "attaches": ["slm-sft-data"]},
-    # Scores base SmolLM2 and the trained adapter on the 252 everyday questions; internet for the base model.
     # The LoRA teacher answers Dolly questions whose human answers were too long for stage 3.
     "distill_data": {"runner": "compute/distill_data.py", "slug": "slm-distill-data",
                      "internet": True, "gpu": True, "attaches": ["slm-lora-baseline"]},
+    # Scores base SmolLM2 and the trained adapter on the 252 everyday questions; internet for the base model.
     "lora_eval": {"runner": "compute/lora_eval.py", "slug": "slm-lora-eval",
                   "internet": True, "gpu": True, "attaches": ["slm-lora-baseline"]},
     # The same runners on SmolLM2-1.7B-Instruct; "args" is appended to the runner's command line. Its one epoch

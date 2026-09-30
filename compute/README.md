@@ -97,8 +97,8 @@ Before sft, `distill_data` has the LoRA-tuned SmolLM2 (from the `lora` stage) an
 ```bash
 python3 compute/package.py --stage distill_data --out /tmp/slm-distill
 kaggle kernels push -p /tmp/slm-distill
-# --pretrain-session names the last finished pretrain session (default: the estimated count, 6)
-python3 compute/package.py --stage sft --pretrain-session 4 --out /tmp/slm-sft
+# --pretrain-session K names the last pretrain session whose report says status complete (default: the estimated count, 6)
+python3 compute/package.py --stage sft --pretrain-session K --out /tmp/slm-sft
 kaggle kernels push -p /tmp/slm-sft --accelerator NvidiaTeslaT4
 
 python3 compute/package.py --stage eval --out /tmp/slm-eval

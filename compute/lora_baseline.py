@@ -169,6 +169,17 @@ def collate(examples: list[tuple[list[int], list[int]]], pad_id: int) -> dict[st
     return batch
 
 
+def window_weights(window: list[list[tuple[list[int], list[int]]]]) -> list[float]:
+    """Each micro-batch's share of the answer tokens in one accumulation window.
+
+    The model's loss is a mean over its own micro-batch, so scaling by these shares makes the update match one
+    combined batch, the same per-token average evaluation_loss reports.
+    """
+    # The causal loss shifts labels left by one, so a first-position label never counts.
+    counts = [sum(label != IGNORE_INDEX for _, labels in rows for label in labels[1:]) for rows in window]
+    return [count / sum(counts) for count in counts]
+
+
 def planned_optimizer_steps(rows: int, batch_size: int, accumulation: int, epochs: float, max_steps: int) -> int:
     per_epoch = math.ceil(rows / (batch_size * accumulation))
     return max(1, min(max_steps, math.ceil(per_epoch * epochs)))
@@ -420,23 +431,27 @@ def main(argv: list[str] | None = None) -> None:
     stopped_reason = "planned_steps"
     model.train()
     while step < total_steps:
-        if not order:
-            order = list(range(len(examples)))
-            random.shuffle(order)
-        indices, order = order[:args.batch_size], order[args.batch_size:]
-        batch = {key: torch.tensor(value, device="cuda")
-                 for key, value in collate([examples[index] for index in indices], tokenizer.pad_token_id).items()}
-        loss = model(**batch).loss / args.gradient_accumulation_steps
-        if not torch.isfinite(loss):
-            # Stop at once: a non-finite loss corrupts the adapter and would waste the rest of the GPU session.
-            report.update(status="failed_nonfinite_loss", failed_at_step=step)
-            write_json(destination, report)
-            raise RuntimeError(f"Non-finite training loss at optimizer step {step} (micro-batch {micro}); "
-                               f"see {destination}")
-        loss.backward()
-        micro += 1
-        if micro % args.gradient_accumulation_steps:
-            continue
+        window = []
+        for _ in range(args.gradient_accumulation_steps):
+            if not order:
+                order = list(range(len(examples)))
+                random.shuffle(order)
+            indices, order = order[:args.batch_size], order[args.batch_size:]
+            window.append([examples[index] for index in indices])
+        window_loss = 0.0
+        for rows, weight in zip(window, window_weights(window)):
+            batch = {key: torch.tensor(value, device="cuda")
+                     for key, value in collate(rows, tokenizer.pad_token_id).items()}
+            loss = model(**batch).loss * weight
+            if not torch.isfinite(loss):
+                # Stop at once: a non-finite loss corrupts the adapter and would waste the rest of the GPU session.
+                report.update(status="failed_nonfinite_loss", failed_at_step=step)
+                write_json(destination, report)
+                raise RuntimeError(f"Non-finite training loss at optimizer step {step} (micro-batch {micro}); "
+                                   f"see {destination}")
+            loss.backward()
+            window_loss += loss.item()
+            micro += 1
         for group in optimizer.param_groups:
             group["lr"] = learning_rate_at(step, total_steps, warmup, args.learning_rate)
         torch.nn.utils.clip_grad_norm_(trainable, 1.0)
@@ -444,7 +459,7 @@ def main(argv: list[str] | None = None) -> None:
         optimizer.zero_grad(set_to_none=True)
         step += 1
         if step % 50 == 0 or step == total_steps:
-            entry = {"step": step, "loss": loss.item() * args.gradient_accumulation_steps,
+            entry = {"step": step, "loss": window_loss,
                      "learning_rate": optimizer.param_groups[0]["lr"],
                      "elapsed_seconds": round(time.monotonic() - started, 1)}
             report["training"]["log"].append(entry)

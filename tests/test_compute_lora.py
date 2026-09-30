@@ -175,6 +175,17 @@ class LoraBaselineTests(unittest.TestCase):
         self.assertEqual(self.module.mask_prompt([1, 2, 3], [4, 5], max_length=4), ([1, 2, 3, 4], [-100] * 3 + [4]))
         self.assertIsNone(self.module.mask_prompt([1, 2, 3], [4], max_length=3))
 
+    def test_window_weights_share_the_update_by_answer_tokens(self):
+        # The model's loss is a mean per micro-batch, so equal weights would give each token of a short-answer
+        # micro-batch ten times the pull of one in a long-answer micro-batch.
+        short, long = [([0] * 17, [-100] + [5] * 16)], [([0] * 161, [-100] + [5] * 160)]
+        self.assertEqual(self.module.window_weights([short, long]), [16 / 176, 160 / 176])
+        # The causal loss shifts labels left by one, so a first-position label never counts.
+        self.assertEqual(self.module.window_weights([[([0, 0], [5, 6])], [([0, 0], [-100, 6])]]), [0.5, 0.5])
+        source = RUNNER.read_text()
+        self.assertIn("for rows, weight in zip(window, window_weights(window)):", source)
+        self.assertIn("loss = model(**batch).loss * weight", source)
+
     def test_collate_pads_without_loss_or_attention(self):
         batch = self.module.collate([([1, 2, 3], [-100, 2, 3]), ([7], [7])], pad_id=0)
         self.assertEqual(batch["input_ids"], [[1, 2, 3], [7, 0, 0]])

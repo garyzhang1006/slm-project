@@ -26,6 +26,15 @@ class CheckpointTests(unittest.TestCase):
                     resumed, _ = load_checkpoint_payload(torch, path)
                     self.assertIn("optimizer_state_dict", resumed)
 
+    def test_a_file_that_is_not_a_checkpoint_is_a_value_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            for name, content in (("notes.md", b"# not a checkpoint\n"), ("empty.pt", b"")):
+                with self.subTest(name=name):
+                    path = Path(directory) / name
+                    path.write_bytes(content)
+                    with self.assertRaisesRegex(ValueError, "is not a readable cognition_slm checkpoint"):
+                        load_checkpoint_payload(torch, path)
+
     def test_invalid_weight_mapping_rejected(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "invalid.pt"

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import pickle
 import zipfile
 
 from .config import ModelConfig
@@ -11,8 +12,12 @@ from .config import ModelConfig
 def load_checkpoint_payload(torch, path: str | Path, *, inference_only: bool = False) -> tuple[dict, ModelConfig]:
     """Safely load checkpoints, lazily reading ZIP tensors during inference."""
     # Legacy non-ZIP checkpoints do not support mmap. Resume keeps eager loading.
-    checkpoint = torch.load(path, map_location="cpu", weights_only=True,
-                            mmap=inference_only and zipfile.is_zipfile(path))
+    try:
+        checkpoint = torch.load(path, map_location="cpu", weights_only=True,
+                                mmap=inference_only and zipfile.is_zipfile(path))
+    except (pickle.UnpicklingError, EOFError, RuntimeError) as exc:
+        # A text file or a truncated save lands here; the CLIs report ValueError as a usage error.
+        raise ValueError(f"{path} is not a readable cognition_slm checkpoint: {exc}") from exc
     if not isinstance(checkpoint, dict):
         raise ValueError("checkpoint must be a dictionary")
     required = {"model_config", "model_state_dict"}

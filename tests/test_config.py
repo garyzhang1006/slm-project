@@ -53,6 +53,11 @@ class ConfigTests(unittest.TestCase):
                                   ({"n_layer": True}, "n_layer must be an integer"),
                                   ({"rope_theta": float("nan")}, "rope_theta must be a finite"),
                                   ({"rope_theta": float("inf")}, "rope_theta must be a finite"),
-                                  ({"n_kv_head": 1}, "unknown fields: n_kv_head")):
+                                  ({"n_kv_head": 1}, "unknown fields: n_kv_head"),
+                                  ({"task_types": "abc"}, "task_types must be a list"),
+                                  ({"task_types": 5}, "task_types must be a list"),
+                                  ({"error_categories": []}, "error_categories must be a non-empty list"),
+                                  ({"task_types": ["qa", "qa"]}, "task_types must be a non-empty list of distinct"),
+                                  ({"dropout": "0.1"}, "dropout must be a number")):
             with self.subTest(override=override), self.assertRaisesRegex(ValueError, message):
                 ModelConfig.from_dict({**base, **override})

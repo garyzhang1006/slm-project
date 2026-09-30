@@ -73,8 +73,14 @@ class ModelConfig:
             raise ValueError("n_layer, n_head, and n_embd must be positive")
         if self.n_embd % self.n_head:
             raise ValueError("n_embd must be divisible by n_head")
-        if not 0.0 <= self.dropout < 1.0:
-            raise ValueError("dropout must be in [0, 1)")
+        if (isinstance(self.dropout, bool) or not isinstance(self.dropout, (int, float))
+                or not 0.0 <= self.dropout < 1.0):
+            raise ValueError(f"dropout must be a number in [0, 1), got {self.dropout!r}")
+        for name in ("task_types", "error_categories"):
+            labels = getattr(self, name)
+            if (not isinstance(labels, (tuple, list)) or not labels or len(set(labels)) != len(labels)
+                    or not all(isinstance(label, str) and label for label in labels)):
+                raise ValueError(f"{name} must be a non-empty list of distinct label names, got {labels!r}")
         if self.architecture not in ARCHITECTURES:
             raise ValueError(f"architecture must be one of {ARCHITECTURES}")
         if (isinstance(self.rope_theta, bool) or not isinstance(self.rope_theta, (int, float))
@@ -102,8 +108,12 @@ class ModelConfig:
         # Configs saved before GPT-2 residual scaling existed were initialized unscaled.
         values.setdefault("scaled_residual_init", False)
         # Checkpoints created before language_generation used five task classes.
-        values["task_types"] = tuple(values.get("task_types", LEGACY_TASK_TYPES))
-        values["error_categories"] = tuple(values.get("error_categories", ERROR_CATEGORIES))
+        for name, default in (("task_types", LEGACY_TASK_TYPES), ("error_categories", ERROR_CATEGORIES)):
+            labels = values.get(name, default)
+            # tuple("abc") would silently become three one-letter classes.
+            if not isinstance(labels, (tuple, list)):
+                raise ValueError(f"{name} must be a list of label names, got {labels!r}")
+            values[name] = tuple(labels)
         config = cls(**values)
         config.validate()
         return config

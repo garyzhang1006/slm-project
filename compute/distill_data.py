@@ -77,8 +77,9 @@ def trim_answer(text: str, limit: int = MAX_ANSWER_CHARS) -> str:
     listed = NUMBERED_LIST.search(paragraph)
     if listed and listed.start() < limit:
         cut = paragraph[:listed.start() + 1]
-    for end in range(len(cut) - 2, 0, -1):
-        if cut[end] not in ".!?" or cut[end + 1] != " ":
+    # The character after the cut still counts, so a sentence that ends right at the limit is kept.
+    for end in range(len(cut) - 1, 0, -1):
+        if cut[end] not in ".!?" or paragraph[end + 1] != " ":
             continue
         word = cut[:end].rsplit(None, 1)[-1].lstrip("(\"'").lower()
         if cut[end] == "." and (word in ABBREVIATIONS or len(word.rsplit(".", 1)[-1]) == 1 and word[-1:].isalpha()):

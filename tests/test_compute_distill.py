@@ -39,6 +39,11 @@ class DistillTests(unittest.TestCase):
             with self.subTest(text=text):
                 self.assertEqual(distill_data.trim_answer(text + "word " * 100, limit=120), kept)
 
+    def test_trim_answer_keeps_a_sentence_that_ends_at_the_limit(self):
+        # The last character before the cut was never checked as a sentence end, so this answer was dropped.
+        sentence = ("word " * 11).strip() + "."
+        self.assertEqual(distill_data.trim_answer(sentence + " More text follows here.", limit=len(sentence)), sentence)
+
     def test_trim_answer_drops_openers_and_lead_ins_before_the_answer(self):
         for text in ("Great question!\n\nThe Nile is the longest river in Africa.", "Sure!\n\nParis.",
                      "That's a great question!\n\nThe Nile is long.", "Sure, here goes!\n\nThe Nile.",

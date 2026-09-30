@@ -303,6 +303,17 @@ def train(args: argparse.Namespace) -> dict:
             "status": "dry-run",
         }
 
+    output_path = Path(args.out)
+    # A bad --out would otherwise fail at the first save, after the steps that save was meant to keep.
+    if output_path.is_dir():
+        raise ValueError(f"--out {output_path} is a directory; name a checkpoint file such as {output_path / 'model.pt'}")
+    try:
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        descriptor, probe = tempfile.mkstemp(prefix=f".{output_path.name}.", dir=output_path.parent)
+        os.close(descriptor)
+        Path(probe).unlink()
+    except OSError as exc:
+        raise ValueError(f"cannot write --out {output_path}: {exc}") from exc
     source_path = Path(pretrain_text or args.data).resolve()
     source_sha256 = file_sha256(source_path)
     data_changed = False
@@ -442,7 +453,6 @@ def train(args: argparse.Namespace) -> dict:
             torch.set_rng_state(checkpoint["torch_rng_state"].cpu())
         _restore_cuda_rng(torch, checkpoint, device)
     model.train()
-    output_path = Path(args.out)
     parameter_count = sum(parameter.numel() for parameter in model.parameters())
     successful_optimizer_steps = 0
     skipped_optimizer_steps = 0

@@ -255,6 +255,19 @@ class TrainingIntegrationTests(unittest.TestCase):
             resumed = train(self.args("resumed.pt", resume=str(legacy), steps=2))
         self.assertEqual(resumed["resumed_from_step"], 1)
 
+    def test_unwritable_out_fails_before_any_step(self):
+        from unittest.mock import patch
+        from cognition_slm.train import train
+
+        blocker = self.root / "file.txt"
+        blocker.write_text("x")
+        for out, message in ((blocker / "model.pt", "cannot write --out"), (self.root, "is a directory")):
+            args = self.args(steps=1)
+            args.out = str(out)
+            with self.subTest(out=out.name), patch("cognition_slm.train._batch", side_effect=AssertionError("trained")):
+                with self.assertRaisesRegex(ValueError, message):
+                    train(args)
+
     def test_allow_data_change_requires_resume(self):
         import contextlib
         import io

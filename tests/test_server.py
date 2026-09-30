@@ -7,6 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
+from cognition_slm.grounding import MAX_PROMPT_BYTES, MAX_SOURCE_BYTES
 from cognition_slm.server import DEFAULT_PARAMETERS, MAX_BODY_BYTES, ModelRuntime, WorkbenchServer, default_checkpoint, main, validate_request
 
 
@@ -181,6 +182,22 @@ class StudioAssetTests(unittest.TestCase):
         options, _ = validate_request({"prompt": "hello", "top_p": 0.9, "repetition_penalty": 1,
                                        "stop_sequences": ["\n"]})
         self.assertEqual(options["stop_sequences"], ["\n"])
+
+    def test_page_limits_match_the_server(self):
+        html = (self.web / "index.html").read_text()
+        script = (self.web / "app.js").read_text()
+        limits = re.search(r"const LIMITS = \{ source: (\d+), question: (\d+) \};", script)
+        self.assertEqual((int(limits.group(1)), int(limits.group(2))), (MAX_SOURCE_BYTES, MAX_PROMPT_BYTES))
+        # The page's top-k check, its message and the input box all stop at the largest value the server takes.
+        top_k = int(re.search(r"config\.top_k <= (\d+);", script).group(1))
+        self.assertIn(f"Top K must be a whole number from 0 to {top_k}.", script)
+        self.assertIn(f'id="top-k" type="number" min="0" max="{top_k}"', html)
+        max_tokens = int(re.search(r'id="max-tokens" type="range" min="\d+" max="(\d+)"', html).group(1))
+        for key, largest in (("top_k", top_k), ("max_new_tokens", max_tokens)):
+            with self.subTest(key=key):
+                self.assertEqual(validate_request({"prompt": "hello", key: largest})[0][key], largest)
+                with self.assertRaises(ValueError):
+                    validate_request({"prompt": "hello", key: largest + 1})
 
     def test_app_sends_validated_field_names(self):
         script = (self.web / "app.js").read_text()

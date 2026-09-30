@@ -100,7 +100,8 @@ class GroundingTests(unittest.TestCase):
         # As a term, "can't" made "Why can't I print?" need a word the passage lacks, so it abstained.
         passage = "Printing costs 10 cents per page."
         for prompt in ("Why can't I print?", "Why can\u2019t I print?", "Why cant I print?", "Why won't it print?",
-                       "Why doesn't it print?"):
+                       "Why doesn't it print?", "Why hasn't it printed?", "Why haven't I printed?", "Why mustn't I print?",
+                       "Why have I printed?"):
             with self.subTest(prompt=prompt):
                 self.assertEqual(self.answer(prompt, passage)["sources"][0]["text"], passage)
 

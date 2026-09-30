@@ -19,8 +19,9 @@ _STOP = frozenset("a an the is are was were be been being do does did can could 
 # Questions typed without apostrophes spell "what's" as "whats", which would otherwise stem into a topic.
 _STOP |= frozenset("whats wheres whos hows whens whys theres thats".split())
 # A negated auxiliary says no more about the topic than the auxiliary does, so "Why can't I print?" asks about printing.
-_STOP |= frozenset(f"{word}{end}" for word in "do does did is are was were could would should might".split()
-                   for end in ("n't", "nt")) | frozenset("can't cant won't wont shan't".split())
+_STOP |= frozenset("have has had must".split())
+_STOP |= frozenset(f"{word}{end}" for word in "do does did is are was were has have had could would should might must".split()
+                   for end in ("n't", "nt")) | frozenset("can't cant won't wont shan't shant ain't aint".split())
 # Hiragana mostly spells grammar (particles and verb endings), and these Han characters spell function and
 # question words, so as single-character terms they would let a question match any passage in its language.
 _STOP |= frozenset(chr(code) for code in range(0x3041, 0x30a0)) | frozenset("的了是在和与也都就很吗呢吧啊么什谁哪怎样这那个为何誰")

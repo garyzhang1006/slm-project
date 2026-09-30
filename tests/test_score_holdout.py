@@ -47,6 +47,8 @@ class ScoreHoldoutTests(unittest.TestCase):
         # Times written with dots or :00 match the plain form, and other minutes stay apart.
         self.assertEqual([normalize(text) for text in ("2 p.m.", "2:00 PM", "7 a.m", "2:30 pm")],
                          ["2 pm", "2 pm", "7 am", "2 30 pm"])
+        # The same with no space after the digit.
+        self.assertEqual([normalize(text) for text in ("2:00pm", "2p.m.", "3a.m", "2:00:30")], ["2 pm", "2 pm", "3 am", "2 30"])
         self.assertEqual(normalize("1,000 meters, or 2,500,000"), "1000 meters or 2500000")
         self.assertEqual(normalize("1,2, 3"), "1 2 3")
         thousand = {"id": "k", "category": "counting_time", "expected_rubric": "1000"}

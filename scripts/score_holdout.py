@@ -28,8 +28,9 @@ _TOKENS = re.compile(r"(?:(?<!\w)-)?(?:\d+(?:\.\d+)?|(?<![\w.])\.\d+)|[^\W\d_]+"
 _GROUPED = re.compile(r"\b\d{1,3}(?:,\d{3})+\b")
 # Subscript digits spell the same number, so CO₂ reads as CO2. Superscripts stay, since 5² is not 52.
 _SUBSCRIPTS = str.maketrans("₀₁₂₃₄₅₆₇₈₉", "0123456789")
-_MERIDIEM = re.compile(r"\b([ap])\. ?m\b\.?")
-_CLOCK = re.compile(r"\b(\d{1,2}):00\b")
+# A digit may touch the time on either side, as in "2p.m." and "2:00pm".
+_MERIDIEM = re.compile(r"(?<![^\W\d_])([ap])\. ?m\b\.?")
+_CLOCK = re.compile(r"\b(\d{1,2}):00(?!\d)")
 # Spelled numbers continue only across spaces and hyphens, so "One hundred. Ten decades" stays two numbers.
 _JOINER = re.compile(r"[\s-]*")
 

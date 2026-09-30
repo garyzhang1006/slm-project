@@ -1,5 +1,6 @@
 import json
 from pathlib import Path
+import re
 import sys
 import tempfile
 import unittest
@@ -122,6 +123,13 @@ class RenderTests(unittest.TestCase):
         self.assertIn("| category | base exact |", large)
         small = text.split("## SmolLM2-360M-Instruct: LoRA vs base", 1)[1].split("## LoRA adapter", 1)[0]
         self.assertIn("No finished lora_eval report yet.", small)
+
+    def test_readme_quotes_the_everyday_scores_in_results(self):
+        # A re-score with wider answer keys moved RESULTS.md to 149 and 102, and README kept 141 and 100.
+        results = (ROOT / "compute/RESULTS.md").read_text()
+        small, large = re.findall(r"everyday_eval: base \d+/252 exact and \d+/252 contains, LoRA (\d+)/252 exact",
+                                  results)
+        self.assertIn(f"({large} and {small} of 252)", (ROOT / "README.md").read_text())
 
     def test_main_writes_the_file(self):
         with tempfile.TemporaryDirectory() as directory:

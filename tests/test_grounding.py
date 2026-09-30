@@ -141,16 +141,21 @@ class GroundingTests(unittest.TestCase):
         for prompt, first, second in (("Which room is free at 11 pm?", "Room A is free 11-1 pm for lunch meetings.",
                                        "Room B is free at 11 pm for the late study group."),
                                       ("Which room is free at 11 am?", "Room B is free at 11 pm for the late study group.",
-                                       "Room A is free 11-1 pm for lunch meetings.")):
+                                       "Room A is free 11-1 pm for lunch meetings."),
+                                      ("Which room is free at 11 am?", "Room B is free at 11 pm for the late study group.",
+                                       "Room A is free 11:30-12:30 pm for lunch meetings.")):
             with self.subTest(prompt=prompt):
                 self.assertEqual(self.answer(prompt, f"{first}\n\n{second}")["sources"][0]["text"], second)
 
-    def test_clock_ranges_that_end_at_12_stay_in_their_half_of_the_day(self):
-        # 12 counted as 0, so every first hour looked past it and "9-12 am" was read as starting at 9 pm.
+    def test_clock_ranges_that_end_right_on_12_match_either_half_of_the_day(self):
+        # "9-12 am" is written for a morning and for 9 pm to midnight, and "10-12 pm" for 10 am to noon and for an
+        # evening, so each range must rank for both; one fixed reading put the other one's passages below a wrong time.
         for prompt, first, second in (("Which room is free at 9 am?", "Room B is free at 9 pm for the study group.",
                                        "Room A is free 9-12 am for meetings."),
-                                      ("Which room is free at 9 pm?", "Room A is free 9-12 am for meetings.",
-                                       "Room B is free at 9 pm for the study group.")):
+                                      ("Which room is free at 9 pm?", "Room B is free at 9 am for the study group.",
+                                       "Room A is free 9-12 am for meetings."),
+                                      ("Which room is free at 10 am?", "Room B is free at 10 pm for the study group.",
+                                       "Room A is free 10-12 pm for meetings.")):
             with self.subTest(prompt=prompt):
                 self.assertEqual(self.answer(prompt, f"{first}\n\n{second}")["sources"][0]["text"], second)
 

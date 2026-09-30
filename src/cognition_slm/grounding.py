@@ -88,11 +88,16 @@ def _terms(text: str) -> set[str]:
         if _TIME.fullmatch(word):
             # "9:30 am" keeps 9 and 30 and adds 9am, so it still matches a bare 9 but ranks above "9:30 pm".
             meridiem = word.replace(".", "")[-2] + "m"
+            other = "pm" if meridiem == "am" else "am"
             hours = _HOUR.findall(word)
-            # The am or pm follows the last hour, so a first hour past it, as in "11-1 pm", is in the other half of the day.
-            # A range that ends at 12, as in "9-12 am", is read the way people write it, as one half of the day.
-            if len(hours) == 2 and int(hours[0]) % 12 > int(hours[1]):
-                terms.add(hours.pop(0) + ("pm" if meridiem == "am" else "am"))
+            # "12 am" and "12 pm" are each written for both noon and midnight, so the first hour of a range that ends
+            # right on 12, as in "9-12 am", gets both halves of the day.
+            if len(hours) == 2 and re.findall(r"\d+(?::\d\d)?", word)[-1] in ("12", "12:00"):
+                terms.add(hours[0] + other)
+            # Otherwise the am or pm follows the last hour, so a first hour past it, as in "11-1 pm" or
+            # "11:30-12:30 pm", is in the other half of the day.
+            elif len(hours) == 2 and int(hours[0]) % 12 > int(hours[1]) % 12:
+                terms.add(hours.pop(0) + other)
             terms |= set(re.findall(r"\d+", word)) | {hour + meridiem for hour in hours}
         elif word not in _STOP:
             terms.add(_stem(_IRREGULAR.get(word, word)))

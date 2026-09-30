@@ -604,6 +604,8 @@ def load_messages(path: str | Path) -> list[Mapping[str, Any]]:
         payload = json.loads(text)
     except json.JSONDecodeError as exc:
         raise ValueError(f"{source}: invalid JSON: {exc.msg}") from exc
+    except RecursionError as exc:
+        raise ValueError(f"{source}: JSON nests too deeply to load; flatten it to a messages array") from exc
     raw_messages = payload.get("messages") if isinstance(payload, Mapping) else payload
     if not isinstance(raw_messages, list):
         raise ValueError(f"{source}: expected a JSON array or object with a messages array")

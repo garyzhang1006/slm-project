@@ -170,6 +170,18 @@ class ContextTherapyTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "messages array"):
                 load_messages(wrong_shape_path)
 
+    def test_deeply_nested_json_is_a_cli_error_instead_of_a_crash(self):
+        with tempfile.TemporaryDirectory() as directory:
+            nested_path = Path(directory) / "nested.json"
+            nested_path.write_text("[" * 200_000 + "]" * 200_000)
+            with self.assertRaisesRegex(ValueError, "nests too deeply"):
+                load_messages(nested_path)
+            stderr = StringIO()
+            with patch("sys.argv", ["context-therapist", "--input", str(nested_path)]), patch("sys.stderr", stderr):
+                with self.assertRaises(SystemExit):
+                    main()
+            self.assertIn("nests too deeply", stderr.getvalue())
+
     def test_assessment_rejects_invalid_budget_and_focus(self):
         messages = [{"role": "user", "content": "task"}]
         with self.assertRaisesRegex(ValueError, "token_budget must be positive"):

@@ -1,3 +1,4 @@
+import math
 import unittest
 
 
@@ -29,6 +30,15 @@ class EvaluationTests(unittest.TestCase):
         self.assertEqual(metrics["confusion_matrix"], [[1, 1], [1, 1]])
         self.assertGreater(metrics["ece"], 0.0)
         self.assertLess(metrics["ece"], 1.0)
+
+    def test_calibration_error_weights_each_bin_by_its_absolute_gap(self):
+        # Two records sure at 0.6 and right, two sure at 0.9 and wrong: 0.5 * 0.4 + 0.5 * 0.9. Signed gaps
+        # would cancel to 0.25, and dropping the bin weight would give 1.3.
+        from cognition_slm.evaluate import classification_metrics
+
+        logits = torch.tensor([[math.log(1.5), 0.0]] * 2 + [[math.log(9.0), 0.0]] * 2)
+        metrics = classification_metrics(logits, torch.tensor([0, 0, 1, 1]))
+        self.assertAlmostEqual(metrics["ece"], 0.65, places=5)
 
     def test_macro_f1_ignores_classes_absent_from_targets_and_predictions(self):
         from cognition_slm.evaluate import classification_metrics

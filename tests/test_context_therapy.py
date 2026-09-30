@@ -176,6 +176,11 @@ class ContextTherapyTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "messages array"):
                 load_messages(wrong_shape_path)
 
+            latin1_path = Path(directory) / "latin1.json"
+            latin1_path.write_bytes('[{"role": "user", "content": "caf\xe9"}]'.encode("latin-1"))
+            with self.assertRaisesRegex(ValueError, "latin1.json: not valid UTF-8"):
+                load_messages(latin1_path)
+
     def test_deeply_nested_json_is_a_cli_error_instead_of_a_crash(self):
         with tempfile.TemporaryDirectory() as directory:
             nested_path = Path(directory) / "nested.json"

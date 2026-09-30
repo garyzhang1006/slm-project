@@ -603,10 +603,14 @@ class ContextTherapist:
 def load_messages(path: str | Path) -> list[Mapping[str, Any]]:
     """Load a JSON array or an object containing a ``messages`` array."""
     source = str(path)
-    if source == "-":
-        text = sys.stdin.read()
-    else:
-        text = Path(path).read_text(encoding="utf-8")
+    try:
+        if source == "-":
+            text = sys.stdin.read()
+        else:
+            text = Path(path).read_text(encoding="utf-8")
+    except UnicodeDecodeError as exc:
+        # UnicodeDecodeError is a ValueError, so main would print the bare codec message with no file name.
+        raise ValueError(f"{source}: not valid UTF-8 ({exc.reason}); save the file as UTF-8") from exc
     try:
         payload = json.loads(text)
     except json.JSONDecodeError as exc:

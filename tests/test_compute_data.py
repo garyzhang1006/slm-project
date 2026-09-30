@@ -211,6 +211,9 @@ class ShortFactTests(unittest.TestCase):
         self.assertEqual(answers["It is 2 o'clock now. What time was it 4 hours ago?"], "10 o'clock")
         self.assertEqual(answers["It is 12 o'clock now. What time will it be in 1 hour?"], "1 o'clock")
         self.assertFalse([prompt for prompt in answers if " 1 hours" in prompt])
+        # Mass nouns take no article, as in "Is spinach a vegetable?".
+        self.assertFalse([prompt for prompt in answers if re.search(r"\ban? (lettuce|spinach|broccoli|celery)\b", prompt, re.I)])
+        self.assertEqual(answers["Is spinach a kind of vegetable or a kind of animal?"], "vegetable")
         self.assertEqual(answers["What is half of 34?"], "17")
         self.assertEqual(answers["Is 57 odd or even?"], "odd")
         self.assertEqual(answers["Kyiv is the capital of which country?"], "Ukraine")

@@ -349,6 +349,8 @@ COUNT_FACTS = (
 )
 MONTH_DAYS = (("January", 31), ("March", 31), ("May", 31), ("June", 30), ("July", 31), ("August", 31),
               ("September", 30), ("October", 31), ("November", 30), ("December", 31))
+# Mass nouns take no article: "Is spinach a vegetable?", never "Is a spinach a vegetable?".
+MASS_NOUNS = frozenset({"lettuce", "spinach", "broccoli", "celery"})
 KIND_PHRASES = {"fruit": "a fruit", "vegetable": "a vegetable", "animal": "an animal", "tool": "a tool",
                 "clothing": "a piece of clothing", "vehicle": "a vehicle"}
 # Pairs of world-knowledge questions, one answered yes and one no, so a yes/no answer depends on the
@@ -591,6 +593,12 @@ def comparison_rows() -> list[dict]:
     return rows
 
 
+def _with_article(item: str) -> str:
+    if item in MASS_NOUNS:
+        return item
+    return f"{'an' if item[0] in 'aeiou' else 'a'} {item}"
+
+
 def yes_no_rows() -> list[dict]:
     """World-knowledge yes/no questions with a bare "yes" or "no", balanced within each group."""
     cases = [(f"yes-no:{index}", question, answer)
@@ -599,9 +607,8 @@ def yes_no_rows() -> list[dict]:
     for position, (kind, items) in enumerate(KINDS.items()):
         other = kinds[(position + 2) % len(kinds)]
         for item in items:
-            article = "an" if item[0] in "aeiou" else "a"
-            cases += [(f"kind:{item}", f"Is {article} {item} {KIND_PHRASES[kind]}?", "yes"),
-                      (f"kind:{item}", f"Is {article} {item} {KIND_PHRASES[other]}?", "no")]
+            cases += [(f"kind:{item}", f"Is {_with_article(item)} {KIND_PHRASES[kind]}?", "yes"),
+                      (f"kind:{item}", f"Is {_with_article(item)} {KIND_PHRASES[other]}?", "no")]
     rows = []
     for group, question, answer in cases:
         for form in YES_NO_FORMS:
@@ -937,16 +944,13 @@ def world_rows() -> list[dict]:
     kinds = list(KINDS)
     for position, (kind, items) in enumerate(KINDS.items()):
         for item in items:
-            article = "an" if item[0] in "aeiou" else "a"
-            group = f"kind:{item}"
-            rows.append(_row(f"Which group does {article} {item} belong to: fruit, vegetable, animal, tool, "
+            named, group = _with_article(item), f"kind:{item}"
+            rows.append(_row(f"Which group does {named} belong to: fruit, vegetable, animal, tool, "
                              "clothing or vehicle?", kind, "fact", group))
             for step in (1, 3):
                 other = kinds[(position + step) % len(kinds)]
-                rows.append(_row(f"Is {article} {item} a kind of {kind} or a kind of {other}?", kind, "fact",
-                                 group))
-                rows.append(_row(f"Is {article} {item} a kind of {other} or a kind of {kind}?", kind, "fact",
-                                 group))
+                rows.append(_row(f"Is {named} a kind of {kind} or a kind of {other}?", kind, "fact", group))
+                rows.append(_row(f"Is {named} a kind of {other} or a kind of {kind}?", kind, "fact", group))
     return rows
 
 

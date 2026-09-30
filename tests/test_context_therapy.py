@@ -222,6 +222,17 @@ class ContextTherapyTests(unittest.TestCase):
                     main()
             self.assertEqual(conversation.read_text(), original)
 
+    def test_excerpts_redact_every_token_the_data_audit_catches(self):
+        secrets = ["github_pat_" + "a" * 30, "hf_" + "b" * 34, "sk_live_" + "c" * 24, "ASIA" + "D" * 16,
+                   "glpat-" + "e" * 20, "npm_" + "f" * 36, "xoxb-" + "1" * 12, "AIza" + "g" * 35,
+                   "eyJ" + "h" * 12 + ".eyJ" + "i" * 12 + "." + "j" * 12]
+        body = "MIIEowIBAAKCAQEA" + "k" * 40
+        pem = f"-----BEGIN RSA PRIVATE KEY-----\n{body}\n-----END RSA PRIVATE KEY-----"
+        for secret, leaked in [(secret, secret) for secret in secrets] + [(pem, body)]:
+            with self.subTest(secret=secret[:6]):
+                report = ContextTherapist().build_handoff([{"role": "user", "content": f"Token {secret}"}]).to_dict()
+                self.assertNotIn(leaked, json.dumps(report))
+
     def test_negated_verification_does_not_count_as_evidence(self):
         for content in ("Fixed it. I have not tested or run anything.", "Fixed it. I haven\u2019t run the tests.",
                         "Done. Tests have not been run.", "Fixed it. No tests were run."):

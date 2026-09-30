@@ -66,7 +66,7 @@ Place `repair_prompt()` in a trusted controller or system/developer channel for 
 
 The default estimate counts encoded bytes with `ByteTokenizer`. That is useful for this repository's 259-token byte vocabulary, but it is only an approximation for another provider. Set `token_budget` conservatively or provide an adapter around the target model's tokenizer.
 
-Input is bounded at 512 messages, 100,000 characters per message, and 2,000,000 characters total. Diagnostic excerpts redact common GitHub, OpenAI-style, and AWS access-token patterns. The full message contents are not copied into the report.
+Input is bounded at 512 messages, 100,000 characters per message, and 2,000,000 characters total. Diagnostic excerpts redact the access-token patterns the data audit checks (GitHub, Hugging Face, OpenAI-style, AWS, Slack, Google, Stripe, GitLab, npm and JWT) and whole PEM private keys. The full message contents are not copied into the report.
 
 These checks are conservative heuristics. They can miss paraphrased conflicts, misread ordinary prose as a directive, or flag a claim whose evidence is outside the visible history. A downstream model still needs source checks, tests, or a human decision when the report says `unverified` or `conflicted`.
 

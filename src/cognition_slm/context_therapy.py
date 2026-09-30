@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Mapping
 
+from .audit import SECRET_PATTERNS
 from .tokenizer import ByteTokenizer
 
 
@@ -18,10 +19,12 @@ ALLOWED_ROLES = frozenset({"system", "developer", "user", "assistant", "tool"})
 MAX_MESSAGES = 512
 MAX_MESSAGE_CHARS = 100_000
 MAX_TOTAL_CHARS = 2_000_000
+# The data audit's token list, plus whole PEM private keys: its header pattern alone would leave the key
+# body in the excerpt.
 _SECRET_PATTERNS = (
-    re.compile(r"gh[pousr]_[A-Za-z0-9_]{20,}"),
-    re.compile(r"sk-[A-Za-z0-9_-]{20,}"),
-    re.compile(r"AKIA[0-9A-Z]{16}"),
+    re.compile(r"-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY(?: BLOCK)?-----.*?"
+               r"(?:-----END (?:[A-Z0-9]+ )*PRIVATE KEY(?: BLOCK)?-----|$)", re.S),
+    *SECRET_PATTERNS,
 )
 _DIRECTIVE_PATTERN = re.compile(
     r"(?ix)\b(?:(?P<negative>(?:must|should)\s+(?:not|never)|(?:must|should)n't|do\s+not|don't|"

@@ -653,7 +653,9 @@ const fenced = (text) => { const fence = "`".repeat(Math.max(3, ...(text.match(/
 const escapeMarkdown = (text) => text.replace(/[\\`*_[\]<&~#]/g, "\\$&");
 
 function transcript() {
-  const model = state.status?.model?.name;
+  // Search my text never runs the model, so only a conversation the model answered names it.
+  const answered = runs.some((run) => !run.grounded && run.answers.some((answer) => !answer.pending && !answer.error));
+  const model = answered ? state.status?.model?.name : null;
   const lines = ["# slm studio", "", `${model ? `${escapeMarkdown(model)}, saved` : "Saved"} ${new Date().toLocaleString()}`];
   // Blank lines only separate blocks, so a block never adds a second one; text inside an answer is left as it is.
   const add = (...items) => { for (const item of items) if (item !== "" || lines.at(-1) !== "") lines.push(item); };

@@ -380,6 +380,33 @@ class StudioAssetTests(unittest.TestCase):
         self.assertEqual(markdown.count("*Code generation*"), 1)
         self.assertIn("Task type Language generation", markdown)
 
+    def test_download_names_the_model_only_when_it_answered(self):
+        # A --sources-only server still reports a model name, but search my text never ran that model.
+        node = shutil.which("node")
+        if node is None:
+            self.skipTest("node is not installed")
+        script = (self.web / "app.js").read_text()
+        lines = [line for line in script.splitlines() if line.startswith(("const plural = ", "const fenced = ", "const escapeMarkdown = "))]
+        functions = []
+        for name in ("tagFor", "describeSettings", "transcript"):
+            start = script.index(f"function {name}(")
+            functions.append(script[start:script.index("\n}\n", start) + 3])
+        search = {"prompt": "when did it open", "grounded": True, "shown": 0,
+                  "answers": [{"response": {"abstained": False, "sources": [{"id": "S1", "text": "It opened in 1889."}]}}]}
+        failed = {"prompt": "hi", "grounded": False, "tag": "", "shown": 0, "answers": [{"error": "Model is still loading."}]}
+        answer = {"custom": True, "options": {"temperature": 0.3, "max_new_tokens": 64, "top_k": 40, "top_p": 0.9,
+                                              "repetition_penalty": 1, "task_type": "language_generation"},
+                  "response": {"text": "Hello.", "generated_tokens": 2, "elapsed_seconds": 1}}
+        model = {"prompt": "hi", "grounded": False, "tag": "", "shown": 0, "answers": [answer]}
+        probe = ("\n".join(lines) + "\nconst labels = { language_generation: 'Language generation' };\n"
+                 "const state = { status: { model: { name: 'Cognition SLM' } } };\nlet runs = [];\n" + "".join(functions)
+                 + f"\nconsole.log(JSON.stringify({json.dumps([[search], [search, failed], [search, model]])}"
+                 ".map((items) => { runs = items; return transcript().split('\\n')[2]; })));")
+        result = subprocess.run([node, "-e", probe], capture_output=True, text=True, timeout=30, check=True)
+        headers = json.loads(result.stdout)
+        self.assertTrue(headers[0].startswith("Saved ") and headers[1].startswith("Saved "), headers)
+        self.assertTrue(headers[2].startswith("Cognition SLM, saved "), headers)
+
     def test_lone_surrogates_are_sent_as_the_character_the_page_counts(self):
         # TextEncoder counts a lone surrogate as U+FFFD (3 bytes), and the server rejects the raw surrogate.
         script = (self.web / "app.js").read_text()

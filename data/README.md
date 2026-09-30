@@ -25,6 +25,8 @@ The committed demo records are synthetic and project-authored. They are marked `
 python -m cognition_slm.audit --train data/demo.jsonl --eval data/eval.jsonl --report reports/audit.md
 ```
 
+`scripts/prepare_data.py --input IN --output OUT --source SOURCE --license LICENSE` validates a file into this format. Its `--source` and `--license` fill in only records that lack those fields, and a record that names its own source or license keeps it.
+
 Current snapshot:
 
 - `data/demo.jsonl`: 57 training records across coding, language generation, algorithm reasoning, and metacognitive review.

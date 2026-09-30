@@ -60,6 +60,26 @@ class PrepareKaggleTests(unittest.TestCase):
         self.assertNotIn("/tmp/slm-kaggle-500m-quality}", source)
 
 
+class PrepareDataTests(unittest.TestCase):
+    def test_flags_fill_only_missing_provenance(self):
+        prepare_data = runner("prepare_data")
+        base = {"prompt": "Name a color.", "answer": "Blue.", "task_type": "language_generation",
+                "confidence": 0.9, "error_category": "none"}
+        records = [{"id": "bare", **base}, {"id": "blank", **base, "source": " ", "license": ""},
+                   {"id": "own", **base, "source": "wiki-dump", "license": "CC-BY-SA-4.0"}]
+        with tempfile.TemporaryDirectory() as directory:
+            source, output = Path(directory) / "in.jsonl", Path(directory) / "out.jsonl"
+            source.write_text("".join(json.dumps(record) + "\n" for record in records))
+            with contextlib.redirect_stdout(io.StringIO()):
+                prepare_data.main(["--input", str(source), "--output", str(output),
+                                   "--source", "project-synthetic", "--license", "CC0-1.0"])
+            rows = [json.loads(line) for line in output.read_text().split("\n") if line]
+        written = {row["id"]: (row["source"], row["license"]) for row in rows}
+        self.assertEqual(written, {"bare": ("project-synthetic", "CC0-1.0"),
+                                   "blank": ("project-synthetic", "CC0-1.0"),
+                                   "own": ("wiki-dump", "CC-BY-SA-4.0")})
+
+
 class LongRunHorizonTests(unittest.TestCase):
     def test_stage_horizon_is_reachable_within_budget(self):
         long_run = runner("kaggle_long_run")

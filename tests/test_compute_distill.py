@@ -44,6 +44,12 @@ class DistillTests(unittest.TestCase):
         self.assertEqual(records[0]["license"], "CC-BY-SA-3.0")
         self.assertEqual(dropped, {"holdout_overlap": 1, "empty_or_invalid": 1, "not_english": 1})
 
+    def test_one_sentence_answers_carry_the_sentence_cue(self):
+        prompts = [(1, "Which country has the most people?"), (2, "Which planet is red?")]
+        records = distill_data.build_records(prompts, ["India has the most people.", "Mars"], [], [], {})
+        self.assertEqual([record["prompt"] for record in records],
+                         ["Which country has the most people? Answer in a full sentence.", "Which planet is red?"])
+
     def test_refuses_to_run_off_kaggle(self):
         if Path("/kaggle/working").is_dir():
             self.skipTest("running on Kaggle")

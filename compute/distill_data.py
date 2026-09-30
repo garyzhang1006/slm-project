@@ -23,8 +23,10 @@ if str(ROOT) not in sys.path:
 from compute.lora_baseline import (GENERATION_BATCH_SIZE, base_model, encode,  # noqa: E402
                                    ensure_dependencies, find_input, left_pad)
 from compute.stage1_corpus import HOLDOUT_PATH, contains_secret, digest, normalize_overlap, write_json  # noqa: E402
+from compute.short_facts import SENTENCE_CUE  # noqa: E402
 from compute.stage3_sft_data import (EVERYDAY_EVAL_PATH, MAX_DOLLY_RESPONSE_CHARS, SOURCES,  # noqa: E402
-                                     _load_rows, holdout_conflict, holdout_stems, sft_record, write_jsonl)
+                                     _load_rows, holdout_conflict, holdout_stems, one_sentence_answer,
+                                     sft_record, write_jsonl)
 
 DOLLY = "databricks/databricks-dolly-15k"
 # Categories that ask a question a short answer can settle; brainstorming and creative writing do not.
@@ -74,6 +76,9 @@ def build_records(prompts: list[tuple[int, str]], answers: list[str], stems: lis
     records = []
     for (index, prompt), raw in zip(prompts, answers):
         answer = trim_answer(raw)
+        # The same rule as stage 3's Dolly rows, so no bare question trains to a full sentence.
+        if answer and one_sentence_answer(prompt, answer):
+            prompt += SENTENCE_CUE
         record = sft_record(f"distill-{index}", prompt, answer, SOURCE, SOURCES[DOLLY]["license"]) if answer else None
         if record is None:
             reason = "empty_or_invalid"

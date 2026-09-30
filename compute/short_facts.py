@@ -28,12 +28,13 @@ HOLDOUT_ARITHMETIC = {
 HOLDOUT_COMPARISONS = {(8, 3), (3, 8)}
 # The same facts asked by data/everyday_eval.json: 16 + 16, splits, packs and "3 less than 2", the
 # sums its reading passages ask (6 + 2 flowers, 3 - 1 pears, 10 - 4 marbles, 12 - 12 muffins, 4 apples
-# at 2 dollars), and the 3 hours from 9 in the morning until noon.
+# at 2 dollars), and the times it asks: the 3 hours from 9 in the morning until noon, the 48 hours in
+# two days and the 30 minutes in half an hour.
 EVERYDAY_ARITHMETIC = {
     "plus": {(16, 16), (6, 2), (2, 6), (9, 3), (3, 9)},
     "minus": {(3, 1), (10, 4), (12, 12), (12, 9)},
-    "times": {(5, 6), (6, 5), (2, 4), (4, 2)},
-    "divided by": {(72, 8), (20, 4), (42, 7)},
+    "times": {(5, 6), (6, 5), (2, 4), (4, 2), (2, 24), (24, 2)},
+    "divided by": {(72, 8), (20, 4), (42, 7), (60, 2)},
 }
 EVERYDAY_COMPARISONS = {(3, 2), (2, 3)}
 

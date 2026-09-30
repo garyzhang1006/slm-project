@@ -179,7 +179,9 @@ class ShortFactTests(unittest.TestCase):
                        "How many legs do two dogs have in total?",
                        # everyday-v1-050 asks the hours from 9 in the morning until noon, which is 12 - 9.
                        "What is 12 minus 9? Reply with the number.",
-                       "Beth had 12 stickers and lost 9 of them. How many stickers are left?"):
+                       "Beth had 12 stickers and lost 9 of them. How many stickers are left?",
+                       # everyday-v1-034 and v1-033 ask the hours in two days and the minutes in half an hour.
+                       "What is double 24?", "What is half of 48?", "What is double 30?", "What is half of 60?"):
             self.assertNotIn(prompt, prompts)
         self.assertIn("Ivan has 6 stickers and finds 3 more. How many stickers does Ivan have now?", prompts)
 

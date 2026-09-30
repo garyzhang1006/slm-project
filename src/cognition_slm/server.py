@@ -325,7 +325,8 @@ def main() -> None:
     parser.add_argument("--sources-only", action="store_true", help="Serve reference excerpts without loading or running model weights.")
     parser.add_argument("--open", action="store_true", help="Open Studio in the default browser once the server is listening.")
     parser.add_argument("--lora-adapter", type=Path, default=None,
-                        help="Serve SmolLM2-360M-Instruct with this LoRA adapter folder (needs transformers and peft), "
+                        help="Serve a SmolLM2 LoRA adapter folder on the base model its base_model.json names, "
+                             "SmolLM2-360M-Instruct when it names none (needs transformers and peft), "
                              "or a lora-merged folder (transformers only).")
     args = parser.parse_args()
     if not 1 <= args.port <= 65535:

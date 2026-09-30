@@ -46,6 +46,43 @@ class DistillTests(unittest.TestCase):
         self.assertEqual(dropped, {"holdout_overlap": 1, "empty_or_invalid": 1, "not_english": 1,
                                    "secret_pattern": 1})
 
+    def test_answers_cut_off_inside_the_first_paragraph_are_dropped(self):
+        prompts = [(1, "Which is the biggest country?"), (2, "Why is snow white?"), (3, "Why is grass green?")]
+        answers = ["Russia is the biggest country. It is the 1", "Snow scatters all light.\n\nIt also",
+                   "Grass has chlorophyll."]
+        dropped = {}
+        records = distill_data.build_records(prompts, answers, [], [], dropped, [False, False, True])
+        self.assertEqual([record["answer"] for record in records], ["Snow scatters all light.", "Grass has chlorophyll."])
+        self.assertEqual(dropped, {"cut_off": 1})
+
+    def test_generate_flags_answers_that_ran_into_max_new_tokens(self):
+        import torch
+
+        class Tokenizer:
+            chat_template = None
+            pad_token_id = eos_token_id = 0
+
+            def __call__(self, text, add_special_tokens):
+                return type("Encoded", (), {"input_ids": [ord(character) for character in text[-3:]]})()
+
+            def decode(self, ids, skip_special_tokens):
+                return "".join(chr(int(value)) for value in ids if int(value) != 0)
+
+        class Model:
+            device = "cpu"
+
+            def train(self, mode):
+                pass
+
+            def generate(self, input_ids, attention_mask, **settings):
+                # The first row ends with the end token, the second fills max_new_tokens without one.
+                new = torch.tensor([[ord("A"), ord("."), 0], [ord("B"), ord("C"), ord("D")]])
+                return torch.cat([input_ids, new[:input_ids.shape[0]]], dim=1)
+
+        answers, finished = distill_data.generate(torch, Model(), Tokenizer(), ["one?", "two?"], 3)
+        self.assertEqual(answers, ["A.", "BCD"])
+        self.assertEqual(finished, [True, False])
+
     def test_one_sentence_answers_carry_the_sentence_cue(self):
         prompts = [(1, "Which country has the most people?"), (2, "Which planet is red?")]
         records = distill_data.build_records(prompts, ["India has the most people.", "Mars"], [], [], {})

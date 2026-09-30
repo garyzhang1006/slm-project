@@ -70,11 +70,18 @@ def mostly_ascii(text: str) -> bool:
 
 
 def build_records(prompts: list[tuple[int, str]], answers: list[str], stems: list[str],
-                  holdout_prompts: list[str], dropped: dict[str, int]) -> list[dict]:
-    """Turn generated answers into stage 3 records, counting every rejection reason in dropped."""
+                  holdout_prompts: list[str], dropped: dict[str, int],
+                  finished: list[bool] | None = None) -> list[dict]:
+    """Turn generated answers into stage 3 records, counting every rejection reason in dropped.
+
+    finished[i] is False when max_new_tokens, not the end token, stopped answer i."""
     normalized = [normalize_overlap(prompt) for prompt in holdout_prompts]
     records = []
-    for (index, prompt), raw in zip(prompts, answers):
+    for (index, prompt), raw, done in zip(prompts, answers, finished or [True] * len(answers)):
+        # Stopped inside its first paragraph, the answer may end mid-sentence, such as "It is the 1".
+        if not done and "\n\n" not in raw.strip():
+            dropped["cut_off"] = dropped.get("cut_off", 0) + 1
+            continue
         answer = trim_answer(raw)
         # The same rule as stage 3's Dolly rows, so no bare question trains to a full sentence.
         if answer and one_sentence_answer(prompt, answer):
@@ -95,10 +102,11 @@ def build_records(prompts: list[tuple[int, str]], answers: list[str], stems: lis
     return records
 
 
-def generate(torch, model, tokenizer, prompts: list[str], max_new_tokens: int) -> list[str]:
-    """Greedy full answers (not first lines), batched and left-padded like lora_baseline.generate_answers."""
+def generate(torch, model, tokenizer, prompts: list[str], max_new_tokens: int) -> tuple[list[str], list[bool]]:
+    """Greedy full answers (not first lines), batched and left-padded like lora_baseline.generate_answers,
+    and for each whether the model ended it with the end token rather than running into max_new_tokens."""
     model.train(False)
-    answers = []
+    answers, finished = [], []
     with torch.no_grad():
         for start in range(0, len(prompts), GENERATION_BATCH_SIZE):
             ids, mask = left_pad([encode(tokenizer, prompt) for prompt in prompts[start:start + GENERATION_BATCH_SIZE]],
@@ -107,10 +115,12 @@ def generate(torch, model, tokenizer, prompts: list[str], max_new_tokens: int) -
             output = model.generate(input_ids=ids, attention_mask=torch.tensor(mask, device=model.device),
                                     do_sample=False, max_new_tokens=max_new_tokens,
                                     pad_token_id=tokenizer.pad_token_id, eos_token_id=tokenizer.eos_token_id)
-            answers += [tokenizer.decode(row, skip_special_tokens=True) for row in output[:, ids.shape[1]:]]
+            new = output[:, ids.shape[1]:]
+            answers += [tokenizer.decode(row, skip_special_tokens=True) for row in new]
+            finished += (new == tokenizer.eos_token_id).any(dim=1).tolist()
             if start // GENERATION_BATCH_SIZE % 25 == 0:
                 print(json.dumps({"generated": len(answers), "of": len(prompts)}), flush=True)
-    return answers
+    return answers, finished
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -158,9 +168,9 @@ def main(argv: list[str] | None = None) -> None:
     # fp32, as in training: fp16 overflowed SmolLM2 activations.
     model = AutoModelForCausalLM.from_pretrained(model_id, revision=model_revision, torch_dtype=torch.float32)
     model = PeftModel.from_pretrained(model.to("cuda"), str(adapter))
-    answers = generate(torch, model, tokenizer, [prompt for _, prompt in prompts], args.max_new_tokens)
+    answers, finished = generate(torch, model, tokenizer, [prompt for _, prompt in prompts], args.max_new_tokens)
     dropped: dict[str, int] = {}
-    records = build_records(prompts, answers, stems, holdout_prompts, dropped)
+    records = build_records(prompts, answers, stems, holdout_prompts, dropped, finished)
     path = args.out_dir / "distill_train.jsonl"
     write_jsonl(records, path)
     write_json(args.out_dir / "distill_manifest.json", {

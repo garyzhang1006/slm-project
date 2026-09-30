@@ -14,11 +14,18 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[1]
 
 
+PACKAGED = (("src/cognition_slm", "*.py"), ("compute", "*.py"), ("tests", "*.py"), ("data", "*.json*"))
+
+
 def prepare(output: Path, owner: str, slug: str, runner: str) -> None:
+    # A run.py or JSON written into a packaged folder would ship, stale, in every later bundle.
+    for folder, _ in PACKAGED:
+        if output.resolve().is_relative_to((ROOT / folder).resolve()):
+            raise ValueError(f"--out {output} is inside {folder}/, which is packaged; "
+                             "choose a folder outside it, such as /tmp/slm-kernel")
     files = [ROOT / name for name in ("pyproject.toml", "README.md", "LICENSE")]
     # Tests import compute/ at module level, so the regression suite needs it for every runner.
-    for folder, pattern in (("src/cognition_slm", "*.py"), ("compute", "*.py"), ("tests", "*.py"),
-                            ("data", "*.json*")):
+    for folder, pattern in PACKAGED:
         files.extend(sorted((ROOT / folder).glob(pattern)))
     for filename in ("index.html", "style.css", "app.js"):
         files.append(ROOT / "src/cognition_slm/web" / filename)
@@ -102,4 +109,7 @@ if __name__ == "__main__":
         help="Kaggle entrypoint; quality runner trains a Studio checkpoint.",
     )
     args = parser.parse_args()
-    prepare(args.out, args.owner, args.slug, args.runner)
+    try:
+        prepare(args.out, args.owner, args.slug, args.runner)
+    except ValueError as exc:
+        parser.error(str(exc))

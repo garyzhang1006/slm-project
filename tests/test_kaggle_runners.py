@@ -33,6 +33,15 @@ class PrepareKaggleTests(unittest.TestCase):
         needed = {str(path.relative_to(ROOT)) for path in (ROOT / "compute").glob("*.py")}
         self.assertLessEqual(needed | {"scripts/kaggle_elementary_run.py"}, manifest)
 
+    def test_output_inside_a_packaged_folder_is_refused(self):
+        # A run.py written into compute/ or tests/ would ship, stale, in every later bundle.
+        prepare = runner("prepare_kaggle")
+        for folder in ("compute", "tests", "data", "src/cognition_slm"):
+            output = ROOT / folder / "kernel-bundle"
+            with self.subTest(folder=folder), self.assertRaisesRegex(ValueError, "packaged"):
+                prepare.prepare(output, "someone", "slug", "kaggle_run.py")
+            self.assertFalse(output.exists())
+
     def test_parent_kernels_belong_to_the_owner(self):
         # README.md tells users to pass their own --owner, so chained runners must attach that account's kernels.
         prepare = runner("prepare_kaggle")

@@ -209,6 +209,8 @@ class ShortFactTests(unittest.TestCase):
         answers = {row["prompt"]: row["answer"] for row in short_facts.short_fact_rows()}
         self.assertEqual(answers["It is 11 o'clock now. What time will it be in 3 hours?"], "2 o'clock")
         self.assertEqual(answers["It is 2 o'clock now. What time was it 4 hours ago?"], "10 o'clock")
+        self.assertEqual(answers["It is 12 o'clock now. What time will it be in 1 hour?"], "1 o'clock")
+        self.assertFalse([prompt for prompt in answers if " 1 hours" in prompt])
         self.assertEqual(answers["What is half of 34?"], "17")
         self.assertEqual(answers["Is 57 odd or even?"], "odd")
         self.assertEqual(answers["Kyiv is the capital of which country?"], "Ukraine")

@@ -789,10 +789,11 @@ def clock_rows() -> list[dict]:
             if (hour, delta) in ((12, 2), (9, 3)):
                 continue
             later, earlier = (hour + delta - 1) % 12 + 1, (hour - delta - 1) % 12 + 1
+            hours = "1 hour" if delta == 1 else f"{delta} hours"
             rows += [
-                _row(f"It is {hour} o'clock now. What time will it be in {delta} hours?",
+                _row(f"It is {hour} o'clock now. What time will it be in {hours}?",
                      f"{later} o'clock", "math", _pair("clock", hour, later)),
-                _row(f"It is {hour} o'clock now. What time was it {delta} hours ago?",
+                _row(f"It is {hour} o'clock now. What time was it {hours} ago?",
                      f"{earlier} o'clock", "math", _pair("clock", earlier, hour)),
             ]
     return rows

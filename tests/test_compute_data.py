@@ -313,6 +313,16 @@ class ShortFactTests(unittest.TestCase):
                 self.assertEqual(group[forward], group[backward])
         self.assertNotEqual(group["What day comes after Thursday?"], group["What day comes before Thursday?"])
 
+    def test_both_orders_of_a_sum_product_or_comparison_share_a_split_group(self):
+        group = {row["prompt"]: row["group"] for row in short_facts.short_fact_rows()}
+        for first, second in (("What is 2 + 5?", "What is 5 + 2?"), ("What is 4 x 6?", "What is 6 x 4?"),
+                              ("Which is larger, 1 or 4?", "Which is larger, 4 or 1?"),
+                              ("Is 1 bigger than 4? Answer yes or no.", "Is 4 bigger than 1? Answer yes or no.")):
+            with self.subTest(first=first):
+                self.assertEqual(group[first], group[second])
+        # Subtraction keeps its order: 7 - 2 and 7 - 5 are different facts.
+        self.assertNotEqual(group["What is 7 - 2?"], group["What is 7 - 5?"])
+
     def test_counting_rows_skip_the_eval_neighbors(self):
         answer = {row["prompt"]: row["answer"] for row in short_facts.short_fact_rows()}
         self.assertEqual(answer["Today is Thursday. What day will it be the day after tomorrow?"], "Saturday")

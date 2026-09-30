@@ -523,9 +523,12 @@ def arithmetic_rows() -> list[dict]:
     for operation, a, b, result in cases:
         if (a, b) in HOLDOUT_ARITHMETIC[operation] | EVERYDAY_ARITHMETIC[operation]:
             continue
+        # a + b and b + a state one fact, as the holdout exclusions above already treat them, so both orders
+        # share a group and the eval split never holds out one while the other trains.
+        first, second = sorted((a, b)) if operation in ("plus", "times") else (a, b)
         for template in ARITHMETIC_TEMPLATES[operation]:
             rows.append(_row(template.replace("{a}", str(a)).replace("{b}", str(b)), str(result),
-                             "math", f"arithmetic:{operation}:{a}:{b}"))
+                             "math", f"arithmetic:{operation}:{first}:{second}"))
     return rows
 
 
@@ -535,7 +538,8 @@ def comparison_rows() -> list[dict]:
         for b in range(13):
             if a == b or (a, b) in HOLDOUT_COMPARISONS | EVERYDAY_COMPARISONS:
                 continue
-            group, answer = f"compare:{a}:{b}", "yes" if a > b else "no"
+            # One group for both orders: "which is larger, 1 or 4" and "4 or 1" ask the same thing.
+            group, answer = f"compare:{min(a, b)}:{max(a, b)}", "yes" if a > b else "no"
             rows += [
                 _row(f"Answer yes or no: Is {NUMBER_WORDS[a]} greater than {NUMBER_WORDS[b]}?",
                      answer, "instruction", group),

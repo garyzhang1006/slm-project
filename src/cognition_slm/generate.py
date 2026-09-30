@@ -11,7 +11,7 @@ import torch
 from .checkpoint import load_checkpoint_payload
 from .code_eval import CODE_TASK_TYPES, python_syntax_valid
 from .config import TASK_TYPES
-from .data import format_prompt, validate_record
+from .data import CognitionExample, format_prompt, validate_record
 from .model import CognitionSLM, KVCache
 from .tokenizer import ByteTokenizer
 
@@ -190,6 +190,21 @@ def load_checkpoint(path: str | Path, device: torch.device) -> tuple[CognitionSL
     return model, ByteTokenizer(vocab_size=config.vocab_size)
 
 
+def _prompt_record(prompt: str, task_type: str) -> CognitionExample:
+    return validate_record(
+        {
+            "id": "generation",
+            "prompt": prompt,
+            "answer": "placeholder",
+            "task_type": task_type,
+            "confidence": 0.5,
+            "error_category": "none",
+            "source": "runtime",
+            "license": "runtime",
+        }
+    )
+
+
 def generate_text(
     model: CognitionSLM,
     tokenizer: ByteTokenizer,
@@ -207,18 +222,7 @@ def generate_text(
 ) -> str:
     if num_candidates < 1:
         raise ValueError("num_candidates must be positive")
-    record = validate_record(
-        {
-            "id": "generation",
-            "prompt": prompt,
-            "answer": "placeholder",
-            "task_type": task_type,
-            "confidence": 0.5,
-            "error_category": "none",
-            "source": "runtime",
-            "license": "runtime",
-        }
-    )
+    record = _prompt_record(prompt, task_type)
     prompt_ids = tokenizer.encode(format_prompt(record), add_eos=False)
     if len(prompt_ids) >= model.config.block_size:
         raise ValueError(
@@ -289,10 +293,12 @@ def main() -> None:
     # Checked before the checkpoint loads, which can take a while, rather than inside generation.
     if not 0 <= args.temperature < math.inf or args.top_k < 0 or args.max_new_tokens < 1:
         parser.error("--temperature must be finite and non-negative, --top-k non-negative and --max-new-tokens positive")
-    device = _device(args.device)
-    model, tokenizer = load_checkpoint(args.checkpoint, device)
-    print(
-        generate_text(
+    try:
+        _prompt_record(args.prompt, args.task_type)
+        device = _device(args.device)
+        model, tokenizer = load_checkpoint(args.checkpoint, device)
+        # The prompt's fit within block_size is only known once the checkpoint config is loaded.
+        text = generate_text(
             model,
             tokenizer,
             args.prompt,
@@ -306,7 +312,9 @@ def main() -> None:
             repetition_penalty=args.repetition_penalty,
             stop_sequences=args.stop,
         )
-    )
+    except (OSError, ValueError) as exc:
+        parser.error(str(exc))
+    print(text)
 
 
 if __name__ == "__main__":

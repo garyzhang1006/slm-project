@@ -1,3 +1,5 @@
+from pathlib import Path
+import tempfile
 import unittest
 from types import SimpleNamespace
 from unittest.mock import patch
@@ -100,6 +102,31 @@ class GenerationTests(unittest.TestCase):
                  patch("sys.stderr"), self.assertRaises(SystemExit):
                 main()
             load.assert_not_called()
+
+    def test_cli_rejects_an_empty_prompt_before_loading_the_checkpoint(self):
+        for prompt in ("", " "):
+            argv = ["cognition-slm-generate", "--checkpoint", "x.pt", "--prompt", prompt]
+            with self.subTest(prompt=prompt), patch("sys.argv", argv), \
+                 patch("cognition_slm.generate.load_checkpoint") as load, \
+                 patch("sys.stderr"), self.assertRaises(SystemExit) as raised:
+                main()
+            self.assertEqual(raised.exception.code, 2)
+            load.assert_not_called()
+
+    def test_cli_reports_a_long_prompt_or_missing_checkpoint_as_a_usage_error(self):
+        model = SimpleNamespace(config=SimpleNamespace(block_size=64))
+        argv = ["cognition-slm-generate", "--checkpoint", "x.pt", "--prompt", "x" * 100, "--device", "cpu"]
+        with patch("sys.argv", argv), \
+             patch("cognition_slm.generate.load_checkpoint", return_value=(model, ByteTokenizer())), \
+             patch("sys.stderr"), self.assertRaises(SystemExit) as raised:
+            main()
+        self.assertEqual(raised.exception.code, 2)
+        with tempfile.TemporaryDirectory() as directory:
+            argv = ["cognition-slm-generate", "--checkpoint", str(Path(directory) / "missing.pt"),
+                    "--prompt", "hi", "--device", "cpu"]
+            with patch("sys.argv", argv), patch("sys.stderr"), self.assertRaises(SystemExit) as raised:
+                main()
+        self.assertEqual(raised.exception.code, 2)
 
     def test_multiple_candidates_return_the_highest_scoring_text(self):
         tokenizer = ByteTokenizer()

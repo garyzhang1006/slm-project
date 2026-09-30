@@ -1,6 +1,6 @@
 # Results
 
-Collected from Kaggle kernel reports on 2026-09-29 14:58 by `compute/collect_results.py`. Regenerate it rather than editing by hand.
+Collected from Kaggle kernel reports on 2026-09-30 15:32 by `compute/collect_results.py`. Regenerate it rather than editing by hand.
 
 ## slm-160m pretraining
 
@@ -20,14 +20,14 @@ Collected from Kaggle kernel reports on 2026-09-29 14:58 by `compute/collect_res
 
 These predictions came from a different adapter than the LoRA report above.
 
-- everyday_eval: base 7/252 exact and 181/252 contains, LoRA 100/252 exact and 191/252 contains
+- everyday_eval: base 7/252 exact and 181/252 contains, LoRA 102/252 exact and 191/252 contains
 - simple_questions: base 5/22 exact and 19/22 contains, LoRA 16/22 exact and 20/22 contains
 
-Exact means the whole reply is an accepted answer. Contains means an accepted answer appears as whole words in the reply, which credits full-sentence answers such as "Water freezes at 0 degrees Celsius." but can also credit a reply that names the answer and then contradicts it.
+Exact means the whole reply is an accepted answer, or sentences that each are one. Contains means an accepted answer appears as whole words in the reply, which credits full-sentence answers such as "Water freezes at 0 degrees Celsius." but can also credit a reply that names the answer and then contradicts it.
 
 | category | base exact | LoRA exact | base contains | LoRA contains | scored |
 |---|---|---|---|---|---|
-| abstain | 0 | 0 | 1 | 16 | 20 |
+| abstain | 0 | 2 | 1 | 16 | 20 |
 | arithmetic | 0 | 23 | 20 | 24 | 28 |
 | colors_animals | 0 | 2 | 17 | 14 | 26 |
 | counting_time | 0 | 10 | 22 | 22 | 26 |
@@ -56,14 +56,14 @@ These rows ask the model to admit it doesn't know, so a person judges them and t
 
 These predictions came from a different adapter than the LoRA report above.
 
-- everyday_eval: base 8/252 exact and 213/252 contains, LoRA 141/252 exact and 234/252 contains
+- everyday_eval: base 8/252 exact and 213/252 contains, LoRA 149/252 exact and 234/252 contains
 - simple_questions: base 4/22 exact and 20/22 contains, LoRA 18/22 exact and 21/22 contains
 
-Exact means the whole reply is an accepted answer. Contains means an accepted answer appears as whole words in the reply, which credits full-sentence answers such as "Water freezes at 0 degrees Celsius." but can also credit a reply that names the answer and then contradicts it.
+Exact means the whole reply is an accepted answer, or sentences that each are one. Contains means an accepted answer appears as whole words in the reply, which credits full-sentence answers such as "Water freezes at 0 degrees Celsius." but can also credit a reply that names the answer and then contradicts it.
 
 | category | base exact | LoRA exact | base contains | LoRA contains | scored |
 |---|---|---|---|---|---|
-| abstain | 0 | 0 | 1 | 17 | 20 |
+| abstain | 0 | 8 | 1 | 17 | 20 |
 | arithmetic | 0 | 27 | 27 | 28 | 28 |
 | colors_animals | 0 | 5 | 26 | 25 | 26 |
 | counting_time | 0 | 12 | 24 | 25 | 26 |

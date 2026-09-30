@@ -102,7 +102,9 @@ def oasst_pairs(raws) -> list[tuple[str, dict]]:
     best: dict[str, dict] = {}
     for raw in messages:
         parent = raw.get("parent_id")
-        if raw.get("role") != "assistant" or parent not in roots or raw.get("lang") != "en":
+        # A reply that failed review is dropped, as a root that failed it is.
+        if raw.get("role") != "assistant" or parent not in roots or raw.get("lang") != "en" \
+                or raw.get("review_result") is False:
             continue
         toxicity = (raw.get("detoxify") or {}).get("toxicity")
         if toxicity is not None and toxicity > MAX_OASST_TOXICITY:

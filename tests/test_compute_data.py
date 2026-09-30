@@ -453,6 +453,9 @@ class SftDataTests(unittest.TestCase):
             message("a4", "p2", "assistant", "de", "Ein Wort.", rank=0),
             message("p3", None, "prompter", "en", "Say something rude.", review_result=True),
             message("a5", "p3", "assistant", "en", "Rude reply.", rank=0, detoxify={"toxicity": 0.9}),
+            # A reply that failed review never becomes an answer, even as the only one.
+            message("p4", None, "prompter", "en", "What is a verb?", review_result=True),
+            message("a6", "p4", "assistant", "en", "Buy cheap watches here.", rank=None, review_result=False),
         ])
         self.assertEqual([record["id"] for _, record in rows], ["oasst-a1"])
         self.assertEqual(rows[0][1]["license"], "Apache-2.0")

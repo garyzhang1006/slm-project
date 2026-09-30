@@ -52,7 +52,9 @@ class LoraBaselineTests(unittest.TestCase):
             pad_token_id = eos_token_id = 0
 
             def __call__(self, text, add_special_tokens):
-                return type("Encoded", (), {"input_ids": [ord(character) for character in text[-3:]]})()
+                # Only the question text, so each row gets its own ids and a reordered answer shows up.
+                question = text.split("Question: ", 1)[1].split("\nAnswer:", 1)[0]
+                return type("Encoded", (), {"input_ids": [ord(character) for character in question]})()
 
             def decode(self, ids, skip_special_tokens):
                 return "".join(chr(int(value)) for value in ids if int(value) != 0)
@@ -72,12 +74,12 @@ class LoraBaselineTests(unittest.TestCase):
                 return torch.cat([input_ids, last, tail], dim=1)
 
         model = Model()
-        prompts = [f"q{index}" for index in range(5)]
+        prompts = ["Is it a?", "Longer question ending in b", "c", "Pick d", "Say e"]
         answers = self.module.generate_answers(torch, model, Tokenizer(), prompts, 4, batch_size=2)
         self.assertEqual(model.calls, [2, 2, 1])
         self.assertFalse(model.mode)
         self.assertEqual(len(answers), 5)
-        self.assertEqual(answers, [":"] * 5)
+        self.assertEqual(answers, ["?", "b", "c", "d", "e"])
 
     def test_best_adapter_keeps_lowest_loss_and_restores_it(self):
         import torch

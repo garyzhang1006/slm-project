@@ -22,7 +22,7 @@ Allowed task types and error categories are defined in `src/cognition_slm/config
 The committed demo records are synthetic and project-authored. They are marked `CC0-1.0` for this mini project. For real training, keep source and license metadata per record, preserve an isolated evaluation split, and run:
 
 ```bash
-python -m cognition_slm.audit --train data/demo.jsonl --eval data/eval.jsonl --report reports/audit.md
+python -m cognition_slm.audit --train data/demo.jsonl --eval data/eval.jsonl --report artifacts/audit.md
 ```
 
 `scripts/prepare_data.py --input IN --output OUT --source SOURCE --license LICENSE` validates a file into this format. Its `--source` and `--license` fill in only records that lack those fields, and a record that names its own source or license keeps it.

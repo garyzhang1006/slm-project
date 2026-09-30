@@ -67,6 +67,15 @@ class GroundingTests(unittest.TestCase):
         spans = self.answer("Where is Paris?", passage)["sources"][0]["matches"]
         self.assertEqual([passage[start:end] for start, end in spans], [bold])
 
+    def test_symbols_that_decompose_to_letters_are_highlighted(self):
+        # Ranking reads ㎏ as kg under NFKD, so the highlight has to find it the same way.
+        for prompt, passage, words in (("Cost per kg?", "Rice: 3 dollars per \u338f.", ["per", "\u338f"]),
+                                       ("How big is the flat in m2?", "The flat is 40 \u33a1.", ["flat", "\u33a1"]),
+                                       ("find the file", "We \ufb01nd the \ufb01le.", ["\ufb01nd", "\ufb01le"])):
+            with self.subTest(prompt=prompt):
+                spans = self.answer(prompt, passage)["sources"][0]["matches"]
+                self.assertEqual([passage[start:end] for start, end in spans], words)
+
     def test_no_reference_or_overlap_abstains(self):
         for source in ("", "Bananas contain potassium."):
             self.assertTrue(self.answer("Where is Paris?", source)["abstained"])

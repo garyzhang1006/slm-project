@@ -79,9 +79,21 @@ def _matches(passage: str, query: set[str], pairs: bool = False) -> list[list[in
             else:
                 spans.append([start, end])
         return spans
-    # Curly apostrophes are swapped one for one, as _terms does, so a word like can’t stays whole and offsets hold.
-    words = _WORDS.finditer(passage.replace("\u2019", "'"))
-    return [[match.start(), match.end()] for match in words if _terms(match.group()) & query]
+    # Symbols such as ㎏ or ﬁ become letters only under NFKD, as in _terms, so words are found in each character's
+    # decomposition and mapped back to the characters they came from. Curly apostrophes become straight ones, so a
+    # word like can’t stays whole.
+    origins, pieces = [], []
+    for index, char in enumerate(passage.replace("\u2019", "'")):
+        piece = unicodedata.normalize("NFKD", char)
+        pieces.append(piece)
+        origins += [index] * len(piece)
+    spans: list[list[int]] = []
+    for match in _WORDS.finditer("".join(pieces)):
+        start, end = origins[match.start()], origins[match.end() - 1] + 1
+        # ½ decomposes to 1⁄2, two words from one character, which get one span.
+        if (not spans or start >= spans[-1][1]) and _terms(passage[start:end]) & query:
+            spans.append([start, end])
+    return spans
 
 
 def source_excerpts(request: dict) -> dict:

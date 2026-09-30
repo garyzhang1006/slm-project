@@ -21,6 +21,12 @@ class CodeEvaluationTests(unittest.TestCase):
         self.assertEqual(result.required_symbol_recall, 1.0)
         self.assertEqual(result.static_score, 1.0)
 
+    def test_assess_python_scores_partial_recall(self):
+        # One of two expected functions: recall counts over the expected names, and the score is halfway to full credit.
+        result = assess_python("def add(a, b):\n    return a + b", "def add(a, b): pass\ndef sub(a, b): pass")
+        self.assertEqual(result.required_symbol_recall, 0.5)
+        self.assertEqual(result.static_score, 0.75)
+
     def test_assess_python_rejects_invalid_syntax_without_execution(self):
         result = assess_python("def add(a, b)\n    return a + b", "def add(a, b): return a + b")
         self.assertFalse(result.syntax_valid)

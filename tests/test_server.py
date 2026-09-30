@@ -271,15 +271,16 @@ class StudioAssetTests(unittest.TestCase):
     def test_byte_token_limits_apply_only_to_byte_level_models(self):
         script = (self.web / "app.js").read_text()
         # promptTokens counts bytes, which overcounts a BPE model's tokens, so LoRA models are checked by the server.
-        self.assertIn("return customModel() && Boolean(context) && promptTokens(prompt) + config.max_new_tokens > context;", script)
+        self.assertIn("return customModel() && Boolean(context) && promptTokens(prompt) + config.max_new_tokens > context ? TOO_LONG : \"\";", script)
         self.assertIn("[count, context && customModel() ? Math.max(context - config.max_new_tokens, 0) : 0,", script)
 
     def test_try_again_checks_the_context_window_like_send(self):
         script = (self.web / "app.js").read_text()
         # Try again can follow a raise in Answer length, so it must stop where Send stops, with the same message.
-        self.assertIn('const overflow = !grounded && overflows($("prompt").value, config);', script)
-        self.assertIn("!run.grounded && overflows(run.prompt, settings()) ? notify(TOO_LONG, true) : ask(run, true)", script)
-        self.assertIn("overflow ? TOO_LONG", script)
+        self.assertIn('const overflow = !grounded && tooLong($("prompt").value, config);', script)
+        self.assertIn("const problem = !run.grounded && tooLong(run.prompt, settings());\n"
+                      "    return problem ? notify(problem, true) : ask(run, true);", script)
+        self.assertIn('const problem = grounded ? "" : overflow ? overflow', script)
 
     def test_notices_clear_when_their_cause_changes(self):
         script = (self.web / "app.js").read_text()
@@ -321,8 +322,8 @@ class StudioAssetTests(unittest.TestCase):
             self.skipTest("node is not installed")
         lines = [line for line in script.splitlines()
                  if line.startswith(("const encoder = ", "const bytes = ", "const wellFormed = ", "const cleanPrompt = ",
-                                     "const MAX_BODY = "))]
-        start = script.index("function overflows(")
+                                     "const MAX_BODY = ", "const TOO_LONG = ", "const TOO_BIG = "))]
+        start = script.index("function tooLong(")
         function = script[start:script.index("\n}\n", start) + 3]
         config = {"task_type": "language_generation", "temperature": 0.3, "max_new_tokens": 64, "top_k": 40,
                   "top_p": 0.9, "repetition_penalty": 1, "stop_sequences": ["\n"]}
@@ -332,10 +333,13 @@ class StudioAssetTests(unittest.TestCase):
         probe = ("\n".join(lines) + "\nconst state = { status: { model: { architecture: 'llama+lora' } } };\n"
                  "const customModel = () => false;\n" + function
                  + f"\nconst config = {json.dumps(config)};\n"
-                 f"console.log(JSON.stringify([overflows({largest}, config), "
-                 f"overflows({largest} + 'x', config), overflows('hello', config)]));")
+                 f"console.log(JSON.stringify([tooLong({largest}, config), tooLong({largest} + 'x', config), "
+                 f"tooLong({largest} + 'x', {{ ...config, max_new_tokens: 16 }}), tooLong('hello', config)]));")
         result = subprocess.run([node, "-e", probe], capture_output=True, text=True, timeout=30, check=True)
-        self.assertEqual(json.loads(result.stdout), [False, True, False])
+        # Lowering Answer length cannot clear it, so the notice asks only for a shorter question.
+        too_big = re.search(r'^const TOO_BIG = "([^"]+)";', script, re.M).group(1)
+        self.assertNotIn("Answer length", too_big)
+        self.assertEqual(json.loads(result.stdout), ["", too_big, too_big, ""])
 
     def test_lone_surrogates_are_sent_as_the_character_the_page_counts(self):
         # TextEncoder counts a lone surrogate as U+FFFD (3 bytes), and the server rejects the raw surrogate.

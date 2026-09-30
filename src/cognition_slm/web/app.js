@@ -132,15 +132,18 @@ function promptTokens(text) {
 // can report that as a lost connection, so the page never sends one.
 const MAX_BODY = 84064;
 
+// The notice for a question the page won't send, or "" when it fits. Answer length adds at most three bytes
+// to the body, so only a shorter question clears the size limit.
 // promptTokens counts byte tokens. A BPE model such as SmolLM2 with LoRA needs far fewer, so for those the
 // page would block questions that fit, and the server's own token check decides instead.
-function overflows(prompt, config) {
-  if (bytes(JSON.stringify({ prompt: cleanPrompt(prompt), ...config })) > MAX_BODY) return true;
+function tooLong(prompt, config) {
+  if (bytes(JSON.stringify({ prompt: cleanPrompt(prompt), ...config })) > MAX_BODY) return TOO_BIG;
   const context = state.status?.model?.context_window;
-  return customModel() && Boolean(context) && promptTokens(prompt) + config.max_new_tokens > context;
+  return customModel() && Boolean(context) && promptTokens(prompt) + config.max_new_tokens > context ? TOO_LONG : "";
 }
 
 const TOO_LONG = "Shorten your question, or lower Answer length in Settings.";
+const TOO_BIG = "Shorten your question. It is too long for Studio to send.";
 
 function sourceMode() {
   return $("mode-sources").checked;
@@ -168,7 +171,7 @@ function syncComposer() {
   const sourceBytes = bytes($("source-text").value);
   const questionBytes = bytes(cleanPrompt($("prompt").value));
   const sourceOverflow = grounded && (sourceBytes > LIMITS.source || questionBytes > LIMITS.question);
-  const overflow = !grounded && overflows($("prompt").value, config);
+  const overflow = !grounded && tooLong($("prompt").value, config);
   const validK = Number.isInteger(config.top_k) && config.top_k >= 0 && config.top_k <= 259;
   const validStops = !config.stop_sequences || (config.stop_sequences.length <= 4 && config.stop_sequences.every((item) => encoder.encode(item).length <= 64));
   const busy = Boolean(state.status?.busy);
@@ -219,7 +222,7 @@ function syncComposer() {
   for (const button of document.querySelectorAll('[data-action="retry"]')) button.disabled = !retryAllowed(button.dataset.grounded === "true");
   $("generate").setAttribute("aria-label", state.busy ? "Working on an answer" : grounded ? "Search" : "Send");
 
-  const problem = grounded ? "" : overflow ? TOO_LONG
+  const problem = grounded ? "" : overflow ? overflow
     : !validK ? "Top K must be a whole number from 0 to 259. Change it in Settings, under Advanced."
     : !validStops ? "Stop sequences: use at most 4 entries in Settings, under Advanced, each at most 64 UTF-8 bytes."
     : "";
@@ -364,7 +367,10 @@ function retryButton(run, labelled = false) {
   button.dataset.grounded = String(run.grounded);
   button.disabled = !retryAllowed(run.grounded);
   // Answer length may have gone up since the question was sent, so the earlier question gets Send's check.
-  button.addEventListener("click", () => (!run.grounded && overflows(run.prompt, settings()) ? notify(TOO_LONG, true) : ask(run, true)));
+  button.addEventListener("click", () => {
+    const problem = !run.grounded && tooLong(run.prompt, settings());
+    return problem ? notify(problem, true) : ask(run, true);
+  });
   return button;
 }
 

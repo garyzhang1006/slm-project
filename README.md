@@ -85,7 +85,7 @@ python3 -m venv .venv
   --task-type code_generation --temperature 0.8 --num-candidates 4 --syntax-bonus 0.5
 ```
 
-to compare the two block types, train a second model with `--architecture legacy` and run `cognition_slm.benchmark --model modern=artifacts/demo.pt --model legacy=artifacts/legacy-demo.pt --data data/eval.jsonl`. add `--device cuda` if you have an nvidia gpu.
+to compare the two block types, train a second model with `--architecture legacy --out artifacts/legacy-demo.pt` and run `cognition_slm.benchmark --model modern=artifacts/demo.pt --model legacy=artifacts/legacy-demo.pt --data data/eval.jsonl`. add `--device cuda` if you have an nvidia gpu.
 
 ### resuming a run
 

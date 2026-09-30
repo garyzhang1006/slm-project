@@ -34,6 +34,24 @@ class GroundingTests(unittest.TestCase):
         spans = self.answer("Where is Istanbul?", passage)["sources"][0]["matches"]
         self.assertEqual([passage[start:end] for start, end in spans], ["İstanbul"])
 
+    def test_questions_in_other_scripts_find_their_passage(self):
+        cases = [
+            ("Кто написал Евгения Онегина?", "Пушкин написал Евгения Онегина.", "Бананы содержат калий.",
+             ["написал", "Евгения", "Онегина"]),
+            ("भारत की राजधानी क्या है?", "भारत की राजधानी नई दिल्ली है।", "केले में पोटेशियम होता है।",
+             ["भारत", "की", "राजधानी", "है"]),
+            ("谁写了哈姆雷特？", "哈姆雷特是莎士比亚写的。", "香蕉含有钾。", ["哈", "姆", "雷", "特", "写"]),
+            ("ハムレットを書いたのは誰？", "ハムレットはシェイクスピアが書いた。", "バナナにはカリウムがある。",
+             ["ハムレット", "は", "書", "い", "た"]),
+        ]
+        for prompt, passage, unrelated, words in cases:
+            with self.subTest(prompt=prompt):
+                result = self.answer(prompt, passage + "\n\n" + unrelated)
+                self.assertEqual([source["text"] for source in result["sources"]], [passage])
+                spans = result["sources"][0]["matches"]
+                self.assertEqual([passage[start:end] for start, end in spans], words)
+                self.assertTrue(self.answer(prompt, unrelated)["abstained"])
+
     def test_no_reference_or_overlap_abstains(self):
         for source in ("", "Bananas contain potassium."):
             self.assertTrue(self.answer("Where is Paris?", source)["abstained"])

@@ -3,13 +3,18 @@
 from __future__ import annotations
 
 import re
+import unicodedata
 
 MAX_SOURCE_BYTES = 12_000
 MAX_PROMPT_BYTES = 2_000
-_WORDS = re.compile(r"[a-z0-9]+(?:'[a-z]+)?", re.IGNORECASE)
-# Highlights take runs of any letters or digits from the raw passage, so a word that casefolding
-# changes (Straße, café) stays whole and _terms judges it the way ranking does.
-_RUNS = re.compile(r"[^\W_]+(?:'[^\W_]+)?")
+# Python's \w leaves out combining marks, which would split words in scripts such as Hindi.
+_MARKS = "".join(chr(code) for code in range(0x300, 0x20000) if unicodedata.category(chr(code))[0] == "M")
+# Han and hiragana have no spaces between words, so each of their characters is a term of its own.
+_SINGLE = "\u3041-\u309f\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\U00020000-\U0003134f"
+_LETTER = f"(?:[^\\W_{_SINGLE}]|[{_MARKS}])"
+# Words are runs of letters, digits and marks in any script, found the same way in questions,
+# ranking and highlights, so a highlight always covers a whole ranked word.
+_WORDS = re.compile(f"(?=[^\\W_])[{_SINGLE}]|{_LETTER}+(?:'{_LETTER}+)?")
 _STOP = frozenset("a an the is are was were be been being do does did can could would should will shall may might what which who whom whose when where why how i you he she it we they me us him them my your his her its our their of to in on at by for from with about and or but as that this these those please tell explain answer question according source passage text".split())
 # Past forms map to the base verb before suffix stripping. Ambiguous forms (saw, found, left, felt, rose) are left out.
 _IRREGULAR = {form: base for base, forms in (
@@ -42,8 +47,9 @@ def _stem(word: str) -> str:
 
 
 def _terms(text: str) -> set[str]:
-    # Casefolding turns the dotted capital I into i plus a combining dot, which _WORDS would split on.
-    words = _WORDS.findall(text.casefold().replace("i\u0307", "i").replace("\u2019", "'"))
+    # Dropping accents after NFKD lets cafe match café, and the dotted capital I casefolds to i plus a dot.
+    folded = unicodedata.normalize("NFKD", text.casefold().replace("\u2019", "'"))
+    words = _WORDS.findall("".join(char for char in folded if unicodedata.category(char) != "Mn"))
     words = (word.removesuffix("'s") for word in words)
     return {_stem(_IRREGULAR.get(word, word)) for word in words if word not in _STOP}
 
@@ -51,7 +57,7 @@ def _terms(text: str) -> set[str]:
 def _matches(passage: str, query: set[str]) -> list[list[int]]:
     """Start and end offsets, in code points, of the passage words that share a term with the question."""
     # Curly apostrophes are swapped one for one, as _terms does, so a word like can’t stays whole and offsets hold.
-    words = _RUNS.finditer(passage.replace("\u2019", "'"))
+    words = _WORDS.finditer(passage.replace("\u2019", "'"))
     return [[match.start(), match.end()] for match in words if _terms(match.group()) & query]
 
 

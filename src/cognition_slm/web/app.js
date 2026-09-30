@@ -116,8 +116,12 @@ function describeSettings(options, custom) {
     `Up to ${plural(options.max_new_tokens, "token")}`, stops ? `Stops at ${stops}` : "No stop sequences"].join(" · ");
 }
 
+// The server rejects control characters other than tab and line breaks, which pasted text sometimes carries,
+// so the question is counted exactly as it will be sent.
+const cleanPrompt = (text) => text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, " ").trim();
+
 function promptTokens(text) {
-  const prompt = text.trim();
+  const prompt = cleanPrompt(text);
   if (!prompt) return 0;
   return 1 + encoder.encode(`<task_type>${settings().task_type}</task_type>\n<instruction>\n${prompt}\n</instruction>\n<answer>\n`).length;
 }
@@ -155,7 +159,7 @@ function syncComposer() {
   const current = phase();
   const context = state.status?.model?.context_window;
   const sourceBytes = bytes($("source-text").value);
-  const questionBytes = bytes($("prompt").value.trim());
+  const questionBytes = bytes(cleanPrompt($("prompt").value));
   const sourceOverflow = grounded && (sourceBytes > LIMITS.source || questionBytes > LIMITS.question);
   const overflow = !grounded && overflows($("prompt").value, config);
   const validK = Number.isInteger(config.top_k) && config.top_k >= 0 && config.top_k <= 259;
@@ -556,8 +560,7 @@ $("prompt-form").addEventListener("submit", (event) => {
   if ($("generate").disabled) return;
   const grounded = sourceMode();
   const task = $("task-type").value;
-  // The server rejects control characters other than tab and line breaks, which pasted text sometimes carries.
-  runs.push({ prompt: $("prompt").value.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, " ").trim(), grounded, source_text: grounded ? $("source-text").value : "",
+  runs.push({ prompt: cleanPrompt($("prompt").value), grounded, source_text: grounded ? $("source-text").value : "",
     tag: grounded ? "Searched your text" : customModel() && task !== "language_generation" ? labels[task] : "", answers: [], shown: 0 });
   $("prompt").value = "";
   autosize();

@@ -261,6 +261,14 @@ class StudioAssetTests(unittest.TestCase):
         self.assertIn("const result = await response.json().catch(() => null);", script)
         self.assertIn("if (!result) throw new Error(", script)
 
+    def test_question_is_counted_as_it_will_be_sent(self):
+        # A question of control characters alone would count as text, enable Send and go out empty.
+        script = (self.web / "app.js").read_text()
+        self.assertIn(r'const cleanPrompt = (text) => text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, " ").trim();', script)
+        self.assertIn("const prompt = cleanPrompt(text);", script)
+        self.assertIn('const questionBytes = bytes(cleanPrompt($("prompt").value));', script)
+        self.assertIn('runs.push({ prompt: cleanPrompt($("prompt").value), grounded,', script)
+
     def test_failed_thread_save_drops_the_stale_copy_and_says_so(self):
         script = (self.web / "app.js").read_text()
         # A full sessionStorage keeps the last copy that fit, which a refresh would restore without a word.

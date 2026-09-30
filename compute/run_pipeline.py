@@ -67,11 +67,23 @@ def action(kind: str, reason: str, **fields) -> dict:
 
 
 def push_if_quota(stage: str, quota_hours: float, reason: str, **fields) -> dict:
-    needed = STAGE_HOURS[stage]
+    """fields may carry hours, the GPU hours this push needs when that is less than STAGE_HOURS[stage]."""
+    needed = fields.get("hours", STAGE_HOURS[stage])
     if quota_hours < needed:
         return action("wait", f"{reason}, but only {quota_hours:.2f} GPU hours remain and {stage} needs "
                               f"{needed:.1f}; waiting for the weekly quota reset", stage=stage, **fields)
     return action("push", reason, stage=stage, **fields)
+
+
+def pretrain_hours(session_report: dict) -> float:
+    """GPU hours the session after session_report needs: the full cap, or less when few steps remain,
+    so a last session of about 39 steps does not wait for 12 hours of quota."""
+    values = [session_report.get(key) for key in ("total_steps", "step_reached", "seconds_per_step")]
+    if not all(type(value) in (int, float) and value > 0 for value in values):
+        return STAGE_HOURS["pretrain"]
+    total, reached, seconds_per_step = values
+    # A quarter extra in case the next GPU runs slower than the measured one, plus an hour for setup and the save.
+    return min(STAGE_HOURS["pretrain"], max(0, total - reached) * seconds_per_step * 1.25 / 3600 + 1.0)
 
 
 def next_action(status, report, quota_hours: float) -> dict:
@@ -97,7 +109,8 @@ def next_action(status, report, quota_hours: float) -> dict:
         if last >= MAX_PRETRAIN_SESSIONS:
             return action("stop", f"{last} pretrain sessions and still not done; check the step budget")
         return push_if_quota("pretrain", quota_hours, f"pretrain session {last} reached step "
-                             f"{session_report.get('step_reached')}", session=last + 1)
+                             f"{session_report.get('step_reached')}", session=last + 1,
+                             hours=round(pretrain_hours(session_report), 2))
     if session_report.get("status") != "complete":
         return action("stop", f"pretrain session {last} report status is {session_report.get('status')!r}")
 
@@ -287,7 +300,7 @@ def decide_round(status, report, quota_hours: float) -> list[dict]:
     for chooser in (next_action, lora_action, large_lora_action):
         decision = chooser(status, report, quota_hours)
         if decision["kind"] == "push":
-            quota_hours -= STAGE_HOURS[decision["stage"]]
+            quota_hours -= decision.get("hours", STAGE_HOURS[decision["stage"]])
         decisions.append(decision)
     main, side = decisions[0], decisions[1]
     if main.get("needs") == "lora" and side["kind"] == "stop":

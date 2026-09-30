@@ -1,7 +1,7 @@
 "use strict";
 
 const $ = (id) => document.getElementById(id);
-const state = { status: null, offline: false, busy: false, slow: false, notice: null, stopEdited: false, stopTask: "language_generation", started: false };
+const state = { status: null, offline: false, busy: false, slow: false, notice: null, stopEdited: false, stopTask: "language_generation", started: false, answered: 0 };
 // Every question asked in this tab with each answer it got, so a turn can be drawn again from data.
 const runs = [];
 const encoder = new TextEncoder();
@@ -544,7 +544,10 @@ async function ask(run, again = false) {
     clearTimeout(slow); clearInterval(clock);
     state.busy = false; state.slow = false;
     // Searches never hold the model, and a 409 means another request still does.
-    if (state.status && !grounded && answer.status !== 409) state.status.busy = false;
+    if (!grounded && answer.status !== 409) {
+      state.answered += 1;
+      if (state.status) state.status.busy = false;
+    }
     announce(drawAnswer(run));
     arrive(run.answer);
     // Leaving the page cancels the request; saving now would record that as a failure.
@@ -720,10 +723,15 @@ function reuse(run) {
 
 async function pollStatus() {
   const before = phase();
+  const answered = state.answered;
   try {
     const response = await fetch("/api/status", { cache: "no-store" });
     if (!response.ok) throw new Error(`Status request failed with ${response.status}.`);
-    state.status = await response.json();
+    const status = await response.json();
+    // A poll the server answered while this page's own request held the model would undo the busy = false
+    // set when that answer arrived.
+    if (state.answered !== answered && status?.busy) status.busy = false;
+    state.status = status;
     state.offline = false;
   } catch {
     state.offline = true;

@@ -145,6 +145,16 @@ class GroundingTests(unittest.TestCase):
         self.assertFalse(self.answer("Open at 08:30 am?", "Opens at 08:30.")["abstained"])
         self.assertFalse(self.answer("Is it open at 9:05 am?", "Opens at 9:05.")["abstained"])
 
+    def test_search_quotes_at_most_three_passages_densest_first(self):
+        # The README promises up to three passages, and among equal overlaps the passage with fewer other words
+        # ranks first; no test gave more than two matches or two overlaps of different density.
+        long = "The launch date, after many meetings and several long reviews by the whole team, is Monday."
+        short = "The launch date is Friday."
+        others = [f"The launch date moved again in week {number}." for number in range(3)]
+        sources = self.answer("What is the launch date?", "\n\n".join([long, *others, short]))["sources"]
+        self.assertEqual(len(sources), 3)
+        self.assertEqual(sources[0]["text"], short)
+
     def test_clock_ranges_that_cross_noon_start_in_the_other_half_of_the_day(self):
         # "11-1 pm" gave 11 the pm, so a lunch-time range ranked first for a late-night question.
         for prompt, first, second in (("Which room is free at 11 pm?", "Room A is free 11-1 pm for lunch meetings.",

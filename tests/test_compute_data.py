@@ -205,6 +205,8 @@ class ShortFactTests(unittest.TestCase):
         self.assertEqual(answers["Kyiv is the capital of which country?"], "Ukraine")
         self.assertEqual(answers["Should you say a hour or an hour?"], "an hour")
         self.assertEqual(answers["Is a mango a kind of fruit or a kind of tool?"], "fruit")
+        # A kiwi is also a bird, so "Is a kiwi an animal?" -> "no" taught a false statement.
+        self.assertFalse([prompt for prompt in answers if "a kiwi" in prompt and "animal" in prompt])
 
     def test_bare_questions_get_short_answers_and_sentences_are_asked_for(self):
         answers = {row["prompt"]: row["answer"] for row in short_facts.short_fact_rows()}

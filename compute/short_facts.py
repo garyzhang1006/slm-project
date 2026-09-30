@@ -256,7 +256,7 @@ LANGUAGES = (
     ("Poland", "Polish"), ("Sweden", "Swedish"), ("the Netherlands", "Dutch"), ("Turkey", "Turkish"),
 )
 KINDS = {
-    "fruit": ("grape", "pear", "plum", "melon", "kiwi", "apricot", "pineapple", "mango"),
+    "fruit": ("grape", "pear", "plum", "melon", "fig", "apricot", "pineapple", "mango"),
     "vegetable": ("onion", "cabbage", "lettuce", "spinach", "broccoli", "celery", "pea", "potato"),
     "animal": ("frog", "camel", "squirrel", "fox", "tiger", "wolf", "rabbit", "owl"),
     "tool": ("hammer", "saw", "screwdriver", "wrench", "drill", "shovel", "rake"),

@@ -229,6 +229,18 @@ class ContextTherapyTests(unittest.TestCase):
             self.assertEqual(json.loads(output_path.read_text())["state"], "conflicted")
 
 
+    def test_cli_reports_an_unwritable_output_as_a_usage_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            conversation = Path(directory) / "ctx.json"
+            conversation.write_text(json.dumps([{"role": "user", "content": "Use Python."}]))
+            stderr = StringIO()
+            argv = ["context-therapist", "--input", str(conversation), "--output", directory]
+            with patch("sys.argv", argv), redirect_stdout(StringIO()), patch("sys.stderr", stderr):
+                with self.assertRaises(SystemExit) as raised:
+                    main()
+            self.assertEqual(raised.exception.code, 2)
+            self.assertIn("cannot write --output", stderr.getvalue())
+
     def test_cli_refuses_to_write_the_report_over_its_input(self):
         with tempfile.TemporaryDirectory() as directory:
             conversation = Path(directory) / "ctx.json"

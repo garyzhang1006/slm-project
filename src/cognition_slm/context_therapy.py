@@ -637,8 +637,11 @@ def main() -> None:
     rendered = json.dumps(handoff.to_dict(), indent=2)
     if args.output:
         output = Path(args.output)
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(rendered + "\n", encoding="utf-8")
+        try:
+            output.parent.mkdir(parents=True, exist_ok=True)
+            output.write_text(rendered + "\n", encoding="utf-8")
+        except OSError as exc:
+            parser.error(f"cannot write --output {output}: {exc}")
     print(rendered)
 
 

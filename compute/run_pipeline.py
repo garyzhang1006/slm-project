@@ -290,7 +290,14 @@ class Kaggle:
             self.run("kernels", "output", f"{self.owner}/{slug}", "-p", directory,
                      "--file-pattern", re.escape(filename) + "$", check=False)
             matches = list(Path(directory).rglob(filename))
-            return json.loads(matches[0].read_text()) if len(matches) == 1 else None
+            if len(matches) != 1:
+                return None
+            # A truncated download or a non-object reads as missing, so the watcher waits a round for it.
+            try:
+                value = json.loads(matches[0].read_text())
+            except ValueError:
+                return None
+            return value if isinstance(value, dict) else None
 
     def push(self, decision: dict) -> str:
         from compute.package import prepare

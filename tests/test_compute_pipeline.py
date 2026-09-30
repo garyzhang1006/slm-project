@@ -211,6 +211,28 @@ class LargeLoraChainTests(unittest.TestCase):
         self.assertEqual(decide(statuses, reports, chooser=large)["kind"], "stop")
 
 
+class KaggleReportTests(unittest.TestCase):
+    def report(self, text):
+        kaggle = run_pipeline.Kaggle("someone")
+
+        def run(*args, check=True):
+            # Stands in for `kaggle kernels output -p <dir>`, which downloads the file into that folder.
+            (Path(args[args.index("-p") + 1]) / "lora_report.json").write_text(text)
+            return ""
+
+        kaggle.run = run
+        return kaggle.report("slm-lora", "lora_report.json")
+
+    def test_report_reads_a_downloaded_object(self):
+        self.assertEqual(self.report('{"status": "complete"}'), {"status": "complete"})
+
+    def test_truncated_or_non_object_report_reads_as_missing(self):
+        # The watcher retries only RuntimeError and OSError, so a JSONDecodeError here would end the watch.
+        for text in ("", '{"status": "comp', "[1, 2]"):
+            with self.subTest(text=text):
+                self.assertIsNone(self.report(text))
+
+
 class MainTests(unittest.TestCase):
     def test_dry_run_never_pushes(self):
         fake = mock.Mock()

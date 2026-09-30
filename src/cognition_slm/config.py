@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import math
+import sys
 from dataclasses import asdict, dataclass, fields
 from typing import Any
 
@@ -85,7 +85,7 @@ class ModelConfig:
         if self.architecture not in ARCHITECTURES:
             raise ValueError(f"architecture must be one of {ARCHITECTURES}")
         if (isinstance(self.rope_theta, bool) or not isinstance(self.rope_theta, (int, float))
-                or not 0.0 < self.rope_theta < math.inf):
+                or not 0.0 < self.rope_theta <= sys.float_info.max):
             raise ValueError(f"rope_theta must be a finite positive number, got {self.rope_theta!r}")
         if self.architecture == "modern" and (self.n_embd // self.n_head) % 2:
             raise ValueError("modern architecture requires an even attention head dimension")

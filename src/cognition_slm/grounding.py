@@ -90,7 +90,8 @@ def _terms(text: str) -> set[str]:
             meridiem = word.replace(".", "")[-2] + "m"
             hours = _HOUR.findall(word)
             # The am or pm follows the last hour, so a first hour past it, as in "11-1 pm", is in the other half of the day.
-            if len(hours) == 2 and int(hours[0]) % 12 > int(hours[1]) % 12:
+            # A range that ends at 12, as in "9-12 am", is read the way people write it, as one half of the day.
+            if len(hours) == 2 and int(hours[0]) % 12 > int(hours[1]):
                 terms.add(hours.pop(0) + ("pm" if meridiem == "am" else "am"))
             terms |= set(re.findall(r"\d+", word)) | {hour + meridiem for hour in hours}
         elif word not in _STOP:

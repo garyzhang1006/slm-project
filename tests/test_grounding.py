@@ -145,6 +145,15 @@ class GroundingTests(unittest.TestCase):
             with self.subTest(prompt=prompt):
                 self.assertEqual(self.answer(prompt, f"{first}\n\n{second}")["sources"][0]["text"], second)
 
+    def test_clock_ranges_that_end_at_12_stay_in_their_half_of_the_day(self):
+        # 12 counted as 0, so every first hour looked past it and "9-12 am" was read as starting at 9 pm.
+        for prompt, first, second in (("Which room is free at 9 am?", "Room B is free at 9 pm for the study group.",
+                                       "Room A is free 9-12 am for meetings."),
+                                      ("Which room is free at 9 pm?", "Room A is free 9-12 am for meetings.",
+                                       "Room B is free at 9 pm for the study group.")):
+            with self.subTest(prompt=prompt):
+                self.assertEqual(self.answer(prompt, f"{first}\n\n{second}")["sources"][0]["text"], second)
+
     def test_contracted_pronouns_are_not_topics(self):
         # "i'm", "i've" and "where'd" stayed topics, so questions matched fewer of their terms and abstained.
         for prompt, passage in (("I'm looking for printing costs", "Printing costs 10 cents per page."),

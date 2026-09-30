@@ -35,13 +35,13 @@ class LauncherTests(unittest.TestCase):
     def test_sources_only_bypasses_broken_model_dependencies(self):
         arguments = ["--port", "8767", "--sources-only"]
         self.assertEqual(self.run_launcher(arguments, False),
-                         [["-m", "cognition_slm.server", *arguments]])
+                         [["-m", "cognition_slm.server", "--open", *arguments]])
 
     def test_model_mode_keeps_dependency_checks_and_arguments(self):
         arguments = ["--checkpoint", "/tmp/model with spaces.pt"]
         calls = self.run_launcher(arguments, True)
         self.assertEqual([call[0] for call in calls], ["-c", "-c", "-m"])
-        self.assertEqual(calls[-1], ["-m", "cognition_slm.server", *arguments])
+        self.assertEqual(calls[-1], ["-m", "cognition_slm.server", "--open", *arguments])
 
 
 if __name__ == "__main__":

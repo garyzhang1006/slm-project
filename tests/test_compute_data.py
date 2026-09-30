@@ -378,6 +378,14 @@ class SftDataTests(unittest.TestCase):
         self.assertTrue(conflict("Nora has a red hat", "Yes."))
         self.assertFalse(conflict("How many days are in two weeks?", "14"))
 
+    def test_filter_drops_rows_holding_secrets(self):
+        rows = [("g0", sft.sft_record("r0", "Name a color.", "Blue.", "s", "CC0-1.0")),
+                ("g1", sft.sft_record("r1", "What is the key?", "AKIA" + "A" * 16, "s", "CC0-1.0"))]
+        dropped = {}
+        kept = sft.filter_rows(rows, corpus.holdout_stems(HOLDOUT_PROMPTS), HOLDOUT_PROMPTS, dropped)
+        self.assertEqual([record["id"] for _, record in kept], ["r0"])
+        self.assertEqual(dropped, {"secret_pattern": 1})
+
     def test_split_keeps_groups_together_and_caps_eval(self):
         rows = [(f"g{index // 3}", {"id": f"r{index}"}) for index in range(3000)]
         train, evaluation = sft.split_rows(rows, eval_modulus=10, max_eval=60)

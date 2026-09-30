@@ -36,13 +36,14 @@ class DistillTests(unittest.TestCase):
         holdout = ["What is 4 plus 9? Reply with the number."]
         stems = distill_data.holdout_stems(holdout)
         prompts = [(1, "Why do cats purr?"), (2, "What is 4 plus 9? Reply with the number."),
-                   (3, "Name a color."), (4, "Say hi.")]
-        answers = ["Cats purr when they are content.", "13", "", "Привет мир"]
+                   (3, "Name a color."), (4, "Say hi."), (5, "What is the key?")]
+        answers = ["Cats purr when they are content.", "13", "", "Привет мир", "AKIA" + "A" * 16]
         dropped = {}
         records = distill_data.build_records(prompts, answers, stems, holdout, dropped)
         self.assertEqual([record["id"] for record in records], ["distill-1"])
         self.assertEqual(records[0]["license"], "CC-BY-SA-3.0")
-        self.assertEqual(dropped, {"holdout_overlap": 1, "empty_or_invalid": 1, "not_english": 1})
+        self.assertEqual(dropped, {"holdout_overlap": 1, "empty_or_invalid": 1, "not_english": 1,
+                                   "secret_pattern": 1})
 
     def test_one_sentence_answers_carry_the_sentence_cue(self):
         prompts = [(1, "Which country has the most people?"), (2, "Which planet is red?")]

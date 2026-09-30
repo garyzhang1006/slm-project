@@ -188,6 +188,22 @@ class MergeDistillTests(unittest.TestCase):
             prompts = [json.loads(line)["prompt"] for line in output.read_text().splitlines()]
             self.assertEqual(prompts, ["Why is grass green?", "How do birds fly?" + cue])
 
+    def test_merge_drops_rows_that_distill_data_now_rejects(self):
+        # The last distill run predates the lead-in and loop filters, and sft would have merged its rows as they were.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            train = self.write(root / "train.jsonl", ["Why is grass green?"])
+            distill = root / "distill.jsonl"
+            rows = [("How do I sort trash?", "Sure! Here's a simple way to segregate your trash:"),
+                    ("Where should I eat?", "Try these:\n1. The Blue Moon\n2. The Blue Moon"),
+                    ("How do birds fly?", "Birds flap their wings to push air down.")]
+            distill.write_text("".join(json.dumps({"prompt": prompt, "answer": answer}) + "\n" for prompt, answer in rows))
+            output = root / "merged.jsonl"
+            stats = stage4_sft.merge_distill(train, train, [distill], output)
+            self.assertEqual((stats["added"], stats["skipped_by_filters"]), (1, 2))
+            prompts = [json.loads(line)["prompt"] for line in output.read_text().splitlines()]
+            self.assertEqual(prompts, ["Why is grass green?", "How do birds fly?"])
+
     def test_merge_keeps_rows_with_unicode_line_separators_whole(self):
         # ensure_ascii=False leaves U+2028 raw, and str.splitlines() would cut the record in half there.
         with tempfile.TemporaryDirectory() as directory:

@@ -97,6 +97,7 @@ def merge_distill(train_path: Path, eval_path: Path, distill_paths: list[Path], 
     Returns counts; with no distill file attached, output is not written and train_path stays in use.
     """
     from cognition_slm.audit import _prompt_key
+    from compute.distill_data import repetitive, trim_answer
     from compute.stage3_sft_data import question_key
 
     if len(distill_paths) > 1:
@@ -109,11 +110,17 @@ def merge_distill(train_path: Path, eval_path: Path, distill_paths: list[Path], 
     # measure memorization.
     held_out = {question_key(json.loads(line)["prompt"])
                 for line in eval_path.read_text(encoding="utf-8").split("\n") if line.strip()}
-    added, skipped = [], 0
+    added, skipped, filtered = [], 0, 0
     for line in distill_paths[0].read_text(encoding="utf-8").split("\n"):
         if not line.strip():
             continue
-        prompt = json.loads(line)["prompt"]
+        row = json.loads(line)
+        # A distill run older than distill_data's current filters kept lead-ins such as "Here is a recipe:" and
+        # looping lists; the adapter hash that marks it fresh says nothing about that, so they are dropped here.
+        if not trim_answer(row["answer"]) or repetitive(row["answer"]):
+            filtered += 1
+            continue
+        prompt = row["prompt"]
         key = _prompt_key(prompt)
         if key in seen or question_key(prompt) in held_out:
             skipped += 1
@@ -125,6 +132,7 @@ def merge_distill(train_path: Path, eval_path: Path, distill_paths: list[Path], 
     manifest = distill_paths[0].parent / "distill_manifest.json"
     teacher = json.loads(manifest.read_text(encoding="utf-8")).get("teacher", {}) if manifest.exists() else {}
     return {"attached": True, "path": str(distill_paths[0]), "added": len(added), "skipped_duplicate": skipped,
+            "skipped_by_filters": filtered,
             "teacher_adapter_sha256": teacher.get("adapter_sha256")}
 
 

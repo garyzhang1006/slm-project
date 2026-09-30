@@ -305,6 +305,13 @@ function syncScrollButton() {
   $("scroll-latest").hidden = !runs.length || below < 120;
 }
 
+// Try again uses the current settings, so a question's tag names the task type of the answer on show.
+function tagFor(run, answer = run.answers[run.shown]) {
+  if (!answer?.options) return run.tag;
+  const task = answer.custom && answer.options.task_type;
+  return task && task !== "language_generation" ? labels[task] || "" : "";
+}
+
 function addTurn(run, restored = false) {
   run.turn = element("article", restored ? "turn restored" : "turn");
   const row = element("div", "question-row");
@@ -313,8 +320,8 @@ function addTurn(run, restored = false) {
   run.question = element("p", "question", run.prompt);
   run.question.tabIndex = -1;
   row.append(edit, run.question);
-  run.turn.append(row);
-  if (run.tag) run.turn.append(element("p", "question-tag", run.tag));
+  run.tagLine = element("p", "question-tag");
+  run.turn.append(row, run.tagLine);
   run.answer = element("div", "answer");
   run.answer.tabIndex = -1;
   run.turn.append(run.answer);
@@ -456,6 +463,8 @@ function highlighted(text, spans) {
 // Draws the answer a turn is showing and returns what a screen reader should hear about it.
 function drawAnswer(run) {
   const answer = run.answers[run.shown];
+  run.tagLine.textContent = tagFor(run);
+  run.tagLine.hidden = !run.tagLine.textContent;
   if (answer.pending) {
     const typing = element("div", "typing");
     const elapsed = element("span", "elapsed");
@@ -650,8 +659,10 @@ function transcript() {
   const add = (...items) => { for (const item of items) if (item !== "" || lines.at(-1) !== "") lines.push(item); };
   for (const run of runs) {
     add("", `## ${escapeMarkdown(run.prompt.replace(/\s+/g, " "))}`, "");
-    if (run.tag) add(`*${run.tag}*`, "");
     const answers = run.answers.filter((answer) => !answer.pending);
+    // Answers made with different task types name theirs in their own settings lines instead.
+    const [tag, ...others] = new Set(answers.map((answer) => tagFor(run, answer)));
+    if (tag && !others.length) add(`*${tag}*`, "");
     answers.forEach((answer, index) => {
       if (answers.length > 1) add(`**Answer ${index + 1} of ${answers.length}**`, "");
       const response = answer.response;

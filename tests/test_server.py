@@ -341,6 +341,32 @@ class StudioAssetTests(unittest.TestCase):
         self.assertNotIn("Answer length", too_big)
         self.assertEqual(json.loads(result.stdout), ["", too_big, too_big, ""])
 
+    def test_question_tag_follows_the_task_type_of_the_answer_on_show(self):
+        # Try again uses the current task type, but the tag and the saved Markdown kept the first answer's.
+        node = shutil.which("node")
+        if node is None:
+            self.skipTest("node is not installed")
+        script = (self.web / "app.js").read_text()
+        lines = [line for line in script.splitlines() if line.startswith(("const plural = ", "const fenced = ", "const escapeMarkdown = "))]
+        functions = []
+        for name in ("tagFor", "describeSettings", "transcript"):
+            start = script.index(f"function {name}(")
+            functions.append(script[start:script.index("\n}\n", start) + 3])
+        options = {"temperature": 0.3, "max_new_tokens": 64, "top_k": 40, "top_p": 0.9, "repetition_penalty": 1}
+        answers = [{"custom": True, "options": {**options, "task_type": task}, "response": {"text": "x", "generated_tokens": 1, "elapsed_seconds": 1}}
+                   for task in ("code_generation", "language_generation")]
+        runs = [{"prompt": "reverse a list", "grounded": False, "tag": "Code generation", "shown": 1, "answers": answers},
+                {"prompt": "sort a list", "grounded": False, "tag": "Code generation", "shown": 0, "answers": answers[:1]}]
+        probe = ("\n".join(lines) + "\nconst labels = { code_generation: 'Code generation', language_generation: 'Language generation' };\n"
+                 "const state = {};\n" + "".join(functions) + f"\nconst runs = {json.dumps(runs)};\n"
+                 "console.log(JSON.stringify([tagFor(runs[0]), tagFor(runs[0], runs[0].answers[0]), transcript()]));")
+        result = subprocess.run([node, "-e", probe], capture_output=True, text=True, timeout=30, check=True)
+        shown, first, markdown = json.loads(result.stdout)
+        self.assertEqual((shown, first), ("", "Code generation"))
+        # Only the turn whose answers share a task type gets the tag line; the other names each in its settings.
+        self.assertEqual(markdown.count("*Code generation*"), 1)
+        self.assertIn("Task type Language generation", markdown)
+
     def test_lone_surrogates_are_sent_as_the_character_the_page_counts(self):
         # TextEncoder counts a lone surrogate as U+FFFD (3 bytes), and the server rejects the raw surrogate.
         script = (self.web / "app.js").read_text()

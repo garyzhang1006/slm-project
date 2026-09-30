@@ -59,9 +59,16 @@ python -m cognition_slm.train \
 python -m cognition_slm.evaluate \
   --checkpoint artifacts/demo.pt \
   --data data/eval.jsonl
+python -m cognition_slm.train \
+  --data data/demo.jsonl \
+  --eval-data data/eval.jsonl \
+  --architecture legacy \
+  --out artifacts/legacy-demo.pt \
+  --steps 60 \
+  --eval-every 20
 python -m cognition_slm.benchmark \
-  --model legacy=artifacts/legacy.pt \
-  --model modern=artifacts/modern.pt \
+  --model modern=artifacts/demo.pt \
+  --model legacy=artifacts/legacy-demo.pt \
   --data data/eval.jsonl
 ```
 

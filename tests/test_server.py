@@ -272,8 +272,12 @@ class StudioAssetTests(unittest.TestCase):
 
     def test_download_escapes_comment_openers_outside_code_fences(self):
         script = (self.web / "app.js").read_text()
-        # A line opening <!-- with no --> after it hides the rest of the file in a CommonMark viewer.
-        self.assertIn(r'return open ? line : line.replace(/^( {0,3})<!--/, "$1\\<!--");', script)
+        # A line opening <!--, <?, <style and the like with no closing marker hides the rest of the file in a
+        # CommonMark viewer, in answers and in quoted passages alike.
+        opener = r"const HTML_BLOCK_OPENER = /^( {0,3})(<(?:!--|\?|![A-Za-z]|!\[CDATA\[|(?:script|pre|style|textarea)(?=[\s>]|$)))/i;"
+        self.assertIn(opener, script)
+        self.assertIn("return open ? line : escapeHtmlBlock(line);", script)
+        self.assertIn('source.text.split("\\n").map(escapeHtmlBlock).join("\\n> ")', script)
         self.assertIn("const [plain, dangling] = markdownAnswer(text);", script)
         self.assertIn("answer.code ? [fence, text, fence] : dangling ? [plain, dangling] : [plain]", script)
 

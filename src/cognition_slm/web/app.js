@@ -620,13 +620,16 @@ function newSession() {
 // A Markdown copy of the conversation, with the settings behind each answer, for notes or a results log.
 // A Markdown answer ready to write, and the fence it leaves open, if any. Answers cut off at a stop sequence
 // or the length limit often end inside a code block, which would turn the rest of a downloaded file into code.
-// Likewise a line opening an HTML comment hides everything up to a --> that may never come, so outside
-// code blocks, where text is shown as it is, its < is escaped.
+// Likewise a line opening an HTML comment, <?, <!DOCTYPE, CDATA or a script, pre, style or textarea tag
+// hides everything up to a closing marker that may never come, so outside code blocks its < is escaped.
+const HTML_BLOCK_OPENER = /^( {0,3})(<(?:!--|\?|![A-Za-z]|!\[CDATA\[|(?:script|pre|style|textarea)(?=[\s>]|$)))/i;
+const escapeHtmlBlock = (line) => line.replace(HTML_BLOCK_OPENER, "$1\\$2");
+
 function markdownAnswer(text) {
   let open = null;
   const lines = text.split("\n").map((line) => {
     const [, marks, rest] = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/) || [];
-    if (!marks) return open ? line : line.replace(/^( {0,3})<!--/, "$1\\<!--");
+    if (!marks) return open ? line : escapeHtmlBlock(line);
     // Backtick fences can't carry backticks after them, and a closing fence is at least as long as the opening one.
     if (!open) open = marks[0] === "`" && rest.includes("`") ? null : marks;
     else if (marks[0] === open[0] && marks.length >= open.length && !rest.trim()) open = null;
@@ -651,7 +654,7 @@ function transcript() {
       else if (run.grounded) {
         const sources = response.abstained ? [] : response.sources || [];
         if (!sources.length) add("*No passage in the text matched the question.*", "");
-        for (const source of sources) add(`> **${source.id}** ${source.text.replace(/\n/g, "\n> ")}`, "");
+        for (const source of sources) add(`> **${source.id}** ${source.text.split("\n").map(escapeHtmlBlock).join("\n> ")}`, "");
       } else {
         const text = String(response.text || "").replace(/^\n+/, "").trimEnd();
         // A fence longer than any backtick run inside the answer keeps code intact.

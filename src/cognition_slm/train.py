@@ -245,14 +245,27 @@ def train(args: argparse.Namespace) -> dict:
         raise ValueError("pass exactly one of --data or --pretrain-text")
     if pretrain_eval_text and args.eval_data:
         raise ValueError("--eval-data cannot be combined with --pretrain-eval-text")
-    # For raw text, records counts documents; packed rows are reported separately.
-    examples = load_pretrain_text(pretrain_text) if pretrain_text else load_jsonl(args.data)
-    torch = None
-    checkpoint = None
     if args.dry_run and args.resume:
         raise ValueError("--dry-run cannot be combined with --resume")
-    if args.resume:
+    torch = None
+    fused_adamw = getattr(args, "fused_adamw", False)
+    # Checked before the data and any resume checkpoint load, which can take a while on a full corpus.
+    # A dry run never picks a device, so it still works without torch.
+    if not args.dry_run:
         torch = _import_torch()
+        from .generate import _device
+
+        device = _device(args.device)
+        if fused_adamw and device.type != "cuda":
+            raise ValueError("--fused-adamw requires a CUDA device")
+        if precision != "fp32" and device.type != "cuda":
+            raise ValueError("fp16 and bf16 training require a CUDA device; use --precision fp32")
+        if precision == "bf16" and not torch.cuda.is_bf16_supported():
+            raise ValueError("CUDA device does not support bf16; use --precision fp16 or fp32")
+    # For raw text, records counts documents; packed rows are reported separately.
+    examples = load_pretrain_text(pretrain_text) if pretrain_text else load_jsonl(args.data)
+    checkpoint = None
+    if args.resume:
         checkpoint, config = load_checkpoint_payload(torch, args.resume)
         saved_metadata = checkpoint.get("metadata")
         saved_weight = saved_metadata.get("aux_loss_weight") if isinstance(saved_metadata, dict) else None
@@ -341,23 +354,12 @@ def train(args: argparse.Namespace) -> dict:
             data_changed = True
             print(f"allow_data_change: {detail}; samples_seen reset to 0")
 
-    if torch is None:
-        torch = _import_torch()
-    from .generate import _device
     from .model import CognitionSLM
 
     random.seed(args.seed)
     torch.manual_seed(args.seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(args.seed)
-    device = _device(args.device)
-    fused_adamw = getattr(args, "fused_adamw", False)
-    if fused_adamw and device.type != "cuda":
-        raise ValueError("--fused-adamw requires a CUDA device")
-    if precision != "fp32" and device.type != "cuda":
-        raise ValueError("fp16 and bf16 training require a CUDA device; use --precision fp32")
-    if precision == "bf16" and not torch.cuda.is_bf16_supported():
-        raise ValueError("CUDA device does not support bf16; use --precision fp16 or fp32")
     dtype = {"fp32": torch.float32, "fp16": torch.float16, "bf16": torch.bfloat16}[precision]
     scaler = torch.amp.GradScaler("cuda", enabled=precision == "fp16")
     model = CognitionSLM(config).to(device)

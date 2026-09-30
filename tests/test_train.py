@@ -447,6 +447,22 @@ class TrainingIntegrationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "require a CUDA device"):
                 train(self.args(precision=precision))
 
+    def test_device_flags_are_checked_before_the_data_and_checkpoint_load(self):
+        from unittest.mock import patch
+        from cognition_slm.train import train
+
+        resume = str(self.root / "missing.pt")
+        for changes, message in (({"fused_adamw": True}, "fused-adamw requires a CUDA"),
+                                 ({"precision": "fp16"}, "require a CUDA device"),
+                                 ({"device": "nonsense"}, "not a torch device")):
+            with self.subTest(changes=changes), \
+                 patch("cognition_slm.train.load_jsonl") as load_data, \
+                 patch("cognition_slm.train.load_checkpoint_payload") as load_checkpoint, \
+                 self.assertRaisesRegex(ValueError, message):
+                train(self.args(resume=resume, **changes))
+            load_data.assert_not_called()
+            load_checkpoint.assert_not_called()
+
     def test_runtime_rejects_invalid_accumulation_and_save_interval(self):
         from cognition_slm.train import train
 

@@ -118,7 +118,8 @@ def lora_sections(name: str, lora: dict | None, lora_eval: dict | None, rescored
             for row in manual:
                 shown = predictions.get(row["id"], {})
                 cells = [row["id"], shown.get("prompt", ""), shown.get("answer", "")]
-                lines.append("| " + " | ".join(cell.replace("|", "/").replace("\n", " ") for cell in cells) + " |")
+                # split() folds every line break, a lone "\r" included, so a model answer stays on one row.
+                lines.append("| " + " | ".join(" ".join(cell.replace("|", "/").split()) for cell in cells) + " |")
     else:
         lines.append("No finished lora_eval report yet.")
 

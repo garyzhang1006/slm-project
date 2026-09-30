@@ -94,6 +94,17 @@ class RenderTests(unittest.TestCase):
         self.assertIn("Held-out text bits/byte: 1.100", text)
         self.assertNotIn("—", text)
 
+    def test_manual_review_cells_stay_on_one_table_row(self):
+        report = adapter_report()
+        identifier = next(row["id"] for row in HOLDOUT if row["category"] == "unknown")
+        for row in report["lora"]["simple_questions"]["predictions"]:
+            if row["id"] == identifier:
+                # A lone carriage return ends a Markdown line, so it would split the table row.
+                row.update(prompt="Who is\tit?", answer="I do not\rknow | sorry\nreally")
+        empty = {"pretrain": [], "lora": None, "lora_eval": report, "distill": None, "sft": None, "eval": None}
+        text = collect_results.render(empty, collect_results.rescore(report), "now")
+        self.assertIn(f"| {identifier} | Who is it? | I do not know / sorry really |", text.splitlines())
+
     def test_large_adapter_gets_its_own_sections(self):
         empty = {"pretrain": [], "lora": None, "lora_eval": None, "distill": None, "sft": None, "eval": None,
                  "lora_1b7": {"status": "complete_pending_manual_review", "adapter_sha256": "ab" * 32},

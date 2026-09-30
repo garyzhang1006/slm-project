@@ -19,6 +19,21 @@ BASE_MODEL_FILE = "base_model.json"
 GREEDY_BELOW = 1e-3
 
 
+class StopInAnswer:
+    """Stopping criterion that looks only at generated tokens. transformers' stop_strings also matches text
+    that starts in the prompt, which ends in a newline, so a stop such as "\nThe" fired on the first token."""
+
+    def __init__(self, tokenizer, prompt_length: int, stops: list[str]) -> None:
+        self.tokenizer, self.prompt_length, self.stops = tokenizer, prompt_length, stops
+
+    def __call__(self, input_ids, scores, **kwargs):
+        import torch
+
+        text = self.tokenizer.decode(input_ids[0, self.prompt_length:].tolist(), skip_special_tokens=True)
+        return torch.full((input_ids.shape[0],), any(stop in text for stop in self.stops), dtype=torch.bool,
+                          device=input_ids.device)
+
+
 class LoraRuntime(ModelRuntime):
     """Same status, locking and request contract as ModelRuntime, backed by transformers and peft."""
 
@@ -95,7 +110,7 @@ class LoraRuntime(ModelRuntime):
         if sample:
             settings.update(temperature=options["temperature"], top_k=options["top_k"], top_p=options["top_p"])
         if options["stop_sequences"]:
-            settings.update(stop_strings=options["stop_sequences"], tokenizer=self.tokenizer)
+            settings["stopping_criteria"] = [StopInAnswer(self.tokenizer, len(prompt_ids), options["stop_sequences"])]
         started = time.perf_counter()
         with torch.no_grad():
             output = self.model.generate(input_ids=input_ids, attention_mask=torch.ones_like(input_ids), **settings)
@@ -103,7 +118,7 @@ class LoraRuntime(ModelRuntime):
         text = self.tokenizer.decode(new_ids, skip_special_tokens=True)
         finish_reason = "eos" if new_ids and new_ids[-1] == self.tokenizer.eos_token_id else "length"
         if finish_reason == "length" and options["stop_sequences"]:
-            # stop_strings also fires when the final token runs past the stop string, so cut at its first occurrence.
+            # The final token can run past the stop string, so cut at its first occurrence.
             found = [index for index in (text.find(item) for item in options["stop_sequences"]) if index >= 0]
             if found:
                 text, finish_reason = text[: min(found)], "stop"

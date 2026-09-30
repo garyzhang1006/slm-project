@@ -22,7 +22,8 @@ class FakeTokenizer:
 
     def apply_chat_template(self, messages, add_generation_prompt, tokenize):
         self.messages = messages
-        return "<" + "|".join(message["content"] for message in messages) + ">"
+        # Ends in a newline, like the SmolLM2 generation prompt "<|im_start|>assistant\n".
+        return "<" + "|".join(message["content"] for message in messages) + ">\n"
 
     def __call__(self, text, add_special_tokens):
         return SimpleNamespace(input_ids=[ord(character) for character in text])
@@ -40,8 +41,18 @@ class FakeModel:
         return iter([torch.empty(0)])
 
     def generate(self, input_ids, attention_mask, **settings):
+        # Emits one token at a time and honors stopping_criteria, and stop_strings the way transformers
+        # does for one-character tokens: on the tail of the whole sequence, prompt included.
         self.settings = settings
-        return torch.cat([input_ids, torch.tensor([self.emitted])], dim=1)
+        output = input_ids
+        for token in self.emitted:
+            output = torch.cat([output, torch.tensor([[token]])], dim=1)
+            whole = "".join(chr(value) for value in output[0].tolist())
+            if any(whole.endswith(stop) for stop in settings.get("stop_strings", [])):
+                break
+            if any(bool(criterion(output, None).all()) for criterion in settings.get("stopping_criteria", [])):
+                break
+        return output
 
 
 def runtime(emitted, window=4096):
@@ -79,10 +90,15 @@ class LoraRuntimeTests(unittest.TestCase):
         self.assertEqual(settings["repetition_penalty"], 1.2)
 
     def test_stop_sequence_is_passed_and_stripped(self):
-        loaded = runtime([ord(character) for character in "yes\n\n"])
-        result = loaded.generate({"prompt": "Go", "stop_sequences": ["\n\n"], "max_new_tokens": 5})
-        self.assertEqual(loaded.model.settings["stop_strings"], ["\n\n"])
-        self.assertEqual((result["text"], result["finish_reason"]), ("yes", "stop"))
+        loaded = runtime([ord(character) for character in "yes\n\nmore"])
+        result = loaded.generate({"prompt": "Go", "stop_sequences": ["\n\n"], "max_new_tokens": 9})
+        self.assertEqual((result["text"], result["finish_reason"], result["generated_tokens"]), ("yes", "stop", 5))
+
+    def test_stop_sequence_only_matches_the_answer(self):
+        # The prompt ends in a newline, so matching the whole sequence stopped "\nThe" at the first word.
+        loaded = runtime([ord(character) for character in "The sky is blue.\nThe end"])
+        result = loaded.generate({"prompt": "Go", "stop_sequences": ["\nThe"], "max_new_tokens": 30})
+        self.assertEqual((result["text"], result["finish_reason"]), ("The sky is blue.", "stop"))
 
     def test_stop_sequence_inside_the_final_token_is_cut(self):
         # stop_strings also fires when the last token runs past the stop, like a "\n  " token for stop "\n".

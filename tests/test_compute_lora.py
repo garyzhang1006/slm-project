@@ -243,6 +243,12 @@ class LoraBaselineTests(unittest.TestCase):
         kept, dropped = self.module.drop_holdout_overlap(rows, holdout)
         self.assertEqual((kept, dropped), (rows[3:], 3))
 
+    def test_labeled_eval_passages_are_dropped_without_their_label(self):
+        rows = [{"prompt": "Maya planted six tulips and two roses in her garden. How many are red?", "answer": "2"},
+                {"prompt": "Name a color.", "answer": "Blue."}]
+        kept, dropped = self.module.drop_holdout_overlap(rows, self.module.screened_rows(ROOT))
+        self.assertEqual((kept, dropped), (rows[1:], 1))
+
     def test_everyday_eval_copies_are_dropped_too(self):
         screened = self.module.screened_rows(ROOT)
         counts = [len(json.loads((ROOT / name).read_text())["rows"])

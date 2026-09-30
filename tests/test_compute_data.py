@@ -51,6 +51,15 @@ class HoldoutOverlapTests(unittest.TestCase):
                 self.assertTrue(corpus.overlaps_holdout(text, stems))
         self.assertFalse(corpus.overlaps_holdout("Is the moon a star? No.", stems))
 
+    def test_labeled_eval_passages_mark_overlap_without_their_label(self):
+        # "Read this:", "Passage:" and "Story:" stayed on the first sentence, so the passage alone never matched.
+        stems = corpus.load_holdout_stems(ROOT)
+        for text in ("Maya planted six tulips and two roses in her garden. Count them.",
+                     "The train left at noon and arrived two hours later.",
+                     "Hugo put his keys in the drawer and his phone on the shelf."):
+            with self.subTest(text=text):
+                self.assertTrue(corpus.overlaps_holdout(text, stems))
+
     def test_overlap_matches_whole_words_ignoring_case_and_punctuation(self):
         stems = corpus.holdout_stems(HOLDOUT_PROMPTS)
         self.assertTrue(corpus.overlaps_holdout("Quiz: WHAT is 4 plus 9?!", stems))

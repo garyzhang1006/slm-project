@@ -232,6 +232,13 @@ class StudioAssetTests(unittest.TestCase):
         self.assertIn('window.sessionStorage.removeItem("studio-thread")', save)
         self.assertIn("if (!state.unsaved && runs.length) {", save)
 
+    def test_download_escapes_comment_openers_outside_code_fences(self):
+        script = (self.web / "app.js").read_text()
+        # A line opening <!-- with no --> after it hides the rest of the file in a CommonMark viewer.
+        self.assertIn(r'return open ? line : line.replace(/^( {0,3})<!--/, "$1\\<!--");', script)
+        self.assertIn("const [plain, dangling] = markdownAnswer(text);", script)
+        self.assertIn("answer.code ? [fence, text, fence] : dangling ? [plain, dangling] : [plain]", script)
+
     def test_unsent_example_leaves_focus_in_the_question_box(self):
         script = (self.web / "app.js").read_text()
         # Filling in the example hides its button, so focus must move on when nothing is sent.

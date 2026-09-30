@@ -1,4 +1,5 @@
 import http.client
+import io
 import json
 import re
 import shutil
@@ -49,6 +50,15 @@ class RequestValidationTests(unittest.TestCase):
                 server.return_value.serve_forever.side_effect = KeyboardInterrupt
                 main()
                 self.assertEqual(browser.call_args_list, [(("http://127.0.0.1:8770",),)] if opened else [])
+
+    def test_port_in_use_suggests_a_port_in_range(self):
+        for port, other in (("8770", "8771"), ("65535", "65534")):
+            with self.subTest(port=port), patch("sys.argv", ["studio", "--sources-only", "--port", port]), \
+                 patch("cognition_slm.server.ModelRuntime"), \
+                 patch("cognition_slm.server.WorkbenchServer", side_effect=OSError(48, "Address already in use")), \
+                 patch("sys.stderr", new_callable=io.StringIO) as stderr, self.assertRaises(SystemExit):
+                main()
+            self.assertIn(f"--port {other}.", stderr.getvalue())
 
     def test_abbreviated_flags_are_refused(self):
         # launch-studio.command rewrites only the full --checkpoint and --lora-adapter spellings to the

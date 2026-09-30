@@ -353,7 +353,8 @@ def main() -> None:
     try:
         server = WorkbenchServer(("127.0.0.1", args.port), runtime)
     except OSError as exc:
-        parser.exit(1, f"Cannot start slm studio: {exc}. Try a different port, for example --port {args.port + 1}.\n")
+        other = args.port + 1 if args.port < 65535 else args.port - 1
+        parser.exit(1, f"Cannot start slm studio: {exc}. Try a different port, for example --port {other}.\n")
     if args.sources_only:
         runtime.state = "disabled"
         runtime.error = "Model disabled in --sources-only mode. Source excerpts remain available."

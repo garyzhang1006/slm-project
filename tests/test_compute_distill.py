@@ -3,6 +3,7 @@ from pathlib import Path
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
@@ -54,7 +55,10 @@ class DistillTests(unittest.TestCase):
     def test_refuses_to_run_off_kaggle(self):
         if Path("/kaggle/working").is_dir():
             self.skipTest("running on Kaggle")
-        with self.assertRaises(RuntimeError):
+        # Any RuntimeError would do without the pattern, and without the guard main() streams Dolly first.
+        with patch.object(distill_data, "_load_rows", side_effect=AssertionError("reached the download")), \
+                patch.object(distill_data, "ensure_dependencies", side_effect=AssertionError("reached pip")), \
+                self.assertRaisesRegex(RuntimeError, "Kaggle"):
             distill_data.main([])
 
 

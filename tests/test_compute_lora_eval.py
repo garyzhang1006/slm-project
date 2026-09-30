@@ -2,6 +2,7 @@ import importlib.util
 from pathlib import Path
 import tempfile
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 RUNNER = ROOT / "compute" / "lora_eval.py"
@@ -59,7 +60,9 @@ class LoraEvalTests(unittest.TestCase):
     def test_refuses_to_run_off_kaggle(self):
         if Path("/kaggle/working").is_dir():
             self.skipTest("running on Kaggle")
-        with self.assertRaises(RuntimeError):
+        # Any RuntimeError would do without the pattern, and without the guard main() pip-installs first.
+        with patch.object(self.module, "ensure_dependencies", side_effect=AssertionError("reached pip")), \
+                self.assertRaisesRegex(RuntimeError, "Kaggle"):
             self.module.main([])
 
 

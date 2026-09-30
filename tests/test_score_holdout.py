@@ -41,7 +41,10 @@ class ScoreHoldoutTests(unittest.TestCase):
         self.assertEqual(normalize("40 - 15 = 25, or 3-4"), "40 15 25 or 3 4")
         subtraction = {"id": "m", "category": "arithmetic", "expected_rubric": "25"}
         self.assertEqual(self.module.score_answer(subtraction, "-25"), {"exact": False, "contains": False})
-        self.assertEqual(self.module.score_answer(subtraction, "\u221225"), {"exact": False, "contains": False})
+        for minus in ("\u2212", "\u2013", "\uff0d"):
+            with self.subTest(minus=hex(ord(minus))):
+                self.assertEqual(self.module.score_answer(subtraction, f"{minus}25"), {"exact": False, "contains": False})
+        self.assertEqual(normalize("pages 3\u20134"), "pages 3 4")
         carbon = {row["id"]: row for row in json.loads((ROOT / "data/everyday_eval.json").read_text())["rows"]}["everyday-v1-154"]
         self.assertEqual(self.module.score_answer(carbon, "CO\u2082."), {"exact": True, "contains": True})
         # Times written with dots or :00 match the plain form, and other minutes stay apart.

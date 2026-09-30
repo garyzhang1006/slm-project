@@ -28,6 +28,7 @@ _TOKENS = re.compile(r"(?:(?<!\w)-)?(?:\d+(?:\.\d+)?|(?<![\w.])\.\d+)|[^\W\d_]+"
 _GROUPED = re.compile(r"\b\d{1,3}(?:,\d{3})+\b")
 # Subscript digits spell the same number, so CO₂ reads as CO2. Superscripts stay, since 5² is not 52.
 _SUBSCRIPTS = str.maketrans("₀₁₂₃₄₅₆₇₈₉", "0123456789")
+_MINUS = str.maketrans({"\u2212": "-", "\u2013": "-", "\uff0d": "-"})
 # A digit may touch the time on either side, as in "2p.m." and "2:00pm".
 _MERIDIEM = re.compile(r"(?<![^\W\d_])([ap])\. ?m\b\.?")
 _CLOCK = re.compile(r"\b(\d{1,2}):00(?!\d)")
@@ -82,8 +83,8 @@ def _number(tokens: list[str], i: int) -> tuple[int, int] | None:
 def normalize_answer(text: str) -> str:
     """Casefold, drop punctuation, collapse whitespace and write spelled numbers below a million as digits."""
     text = _GROUPED.sub(lambda match: match.group().replace(",", ""), text)  # "1,000" is one number
-    # U+2212 is a minus sign too, so "−25" must not read as 25.
-    text = text.casefold().replace("'", "").replace("’", "").replace("\u2212", "-").translate(_SUBSCRIPTS)
+    # U+2212, an en dash and a fullwidth hyphen-minus also write a minus sign, so "−25" must not read as 25.
+    text = text.casefold().replace("'", "").replace("’", "").translate(_MINUS).translate(_SUBSCRIPTS)
     # "2 p.m." and "2:00 pm" say what "2 pm" says; other minutes stay, so "2:30" is not 2.
     text = _CLOCK.sub(r"\1", _MERIDIEM.sub(r"\1m", text))
     phrases, end = [], None

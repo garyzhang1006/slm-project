@@ -51,6 +51,12 @@ ENGLISH_PROBES = (
 IGNORE_INDEX = -100
 HOLDOUT_FILE = "data/simple_questions_holdout.json"
 EVERYDAY_FILE = "data/everyday_eval.json"
+# Kernel outputs that supply each file find_input looks for, so a missing-file error names the right one.
+INPUT_SOURCES = {
+    "sft_train.jsonl": "the slm-sft-data kernel output",
+    "sft_eval.jsonl": "the slm-sft-data kernel output",
+    "adapter_config.json": "the slm-lora-baseline or slm-lora-1b7 kernel output",
+}
 # 16 prompts of under 100 tokens plus 64 new tokens fit a 16 GB T4 next to the fp32 360M model.
 GENERATION_BATCH_SIZE = 16
 
@@ -95,8 +101,9 @@ def find_input(name: str, root: Path = Path("/kaggle/input")) -> Path:
     """Locate exactly one attached file; ambiguity would silently train on the wrong data."""
     matches = sorted(root.rglob(name)) if root.is_dir() else []
     if len(matches) != 1:
+        source = INPUT_SOURCES.get(name, "the kernel that writes it")
         raise RuntimeError(f"Expected exactly one {name} under {root}, found {len(matches)}: "
-                           f"{[str(path) for path in matches]}; attach the slm-sft-data kernel output")
+                           f"{[str(path) for path in matches]}; attach {source} (and only one copy)")
     return matches[0]
 
 

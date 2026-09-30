@@ -278,6 +278,15 @@ class LoraBaselineTests(unittest.TestCase):
                 self.module.find_input("sft_train.jsonl", root)
         self.assertRaises(RuntimeError, self.module.find_input, "x", Path(directory) / "missing")
 
+    def test_find_input_names_the_kernel_that_writes_the_file(self):
+        missing = Path(tempfile.gettempdir()) / "no-such-kaggle-input"
+        with self.assertRaisesRegex(RuntimeError, "slm-sft-data"):
+            self.module.find_input("sft_eval.jsonl", missing)
+        with self.assertRaises(RuntimeError) as caught:
+            self.module.find_input("adapter_config.json", missing)
+        self.assertIn("slm-lora-baseline", str(caught.exception))
+        self.assertNotIn("slm-sft-data", str(caught.exception))
+
     def test_load_sft_rows_validates(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "rows.jsonl"

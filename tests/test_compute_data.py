@@ -69,6 +69,9 @@ class CorpusHelperTests(unittest.TestCase):
         for reason, (raw, source) in cases.items():
             with self.subTest(reason=reason):
                 self.assertEqual(corpus.check_document(raw, source, stems), (None, reason))
+        # The corpus screens both eval sets, as stage 3 does, so web text cannot teach an everyday_eval question.
+        everyday = {"text": ENGLISH + " Name the capital city of Germany."}
+        self.assertEqual(corpus.check_document(everyday, stories, corpus.load_holdout_stems(ROOT)), (None, "holdout_overlap"))
 
     def test_next_source_follows_shares(self):
         shares = {"a": 0.85, "b": 0.15}

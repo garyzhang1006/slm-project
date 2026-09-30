@@ -37,6 +37,7 @@ MAX_DOCUMENT_BYTES = 100_000
 MIN_LANGUAGE_SCORE = 0.8
 OUT_DIR = Path("/kaggle/working/corpus")
 HOLDOUT_PATH = Path("data/simple_questions_holdout.json")
+EVERYDAY_EVAL_PATH = Path("data/everyday_eval.json")
 
 COMMON_WORDS = frozenset(
     "the of and to a in is that it for was on are as with be at by this have from or an "
@@ -77,9 +78,10 @@ def overlaps_holdout(text: str, stems: list[str]) -> bool:
     return any(f" {stem} " in padded for stem in stems)
 
 
-def load_holdout_stems(path: Path = HOLDOUT_PATH) -> list[str]:
-    rows = json.loads(Path(path).read_text())["rows"]
-    return holdout_stems([row["prompt"] for row in rows])
+def load_holdout_stems(root: Path) -> list[str]:
+    """Stems of both eval sets under root, as stage 3 screens them, so neither measures memorized text."""
+    return holdout_stems([row["prompt"] for path in (HOLDOUT_PATH, EVERYDAY_EVAL_PATH)
+                          for row in json.loads((Path(root) / path).read_text())["rows"]])
 
 
 def digest(path: Path) -> str:
@@ -314,7 +316,7 @@ def main(argv=None) -> None:
     shares = {"HuggingFaceFW/fineweb-edu": 1.0 - args.tinystories_share,
               "roneneldan/TinyStories": args.tinystories_share}
     shares = {name: share for name, share in shares.items() if share > 0}
-    stems = load_holdout_stems(root / HOLDOUT_PATH)
+    stems = load_holdout_stems(root)
     result = build_corpus(args.out_dir, args.target_bytes, args.max_eval_bytes, shares, stems)
     paths = result.pop("paths")
     report = dict(result, files={split: {"path": str(path), "sha256": digest(path)}
@@ -325,7 +327,7 @@ def main(argv=None) -> None:
                            "english_heuristic": "97% ASCII letters and 15% common English words",
                            "dedupe": "sha256 of casefolded, whitespace-collapsed text",
                            "secrets": "cognition_slm.audit.SECRET_PATTERNS",
-                           "holdout_overlap": "documents containing a simple_questions_holdout sentence"},
+                           "holdout_overlap": "documents containing a simple_questions_holdout or everyday_eval sentence"},
                   eval_rule=f"sha256 document key modulo {EVAL_MODULUS} == 0, capped at max_eval_bytes",
                   byte_unit="UTF-8 bytes of the text field; the byte tokenizer adds BOS and EOS per document")
     write_json(args.out_dir / "corpus_manifest.json", report)

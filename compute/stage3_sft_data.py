@@ -21,10 +21,8 @@ if str(Path(__file__).resolve().parents[1]) not in sys.path:
     # Run directly as a script, the repository root is not on sys.path yet.
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from compute import short_facts  # noqa: E402
-from compute.stage1_corpus import (HOLDOUT_PATH, contains_secret, digest, holdout_stems,  # noqa: E402
-                                   normalize_overlap, overlaps_holdout, write_json)
-
-EVERYDAY_EVAL_PATH = Path("data/everyday_eval.json")
+from compute.stage1_corpus import (EVERYDAY_EVAL_PATH, HOLDOUT_PATH, contains_secret, digest,  # noqa: E402
+                                   holdout_stems, normalize_overlap, overlaps_holdout, write_json)
 
 # Revisions and licenses checked against https://huggingface.co/api/datasets/<id> on 2026-09-25.
 # The dolly revision matches scripts/kaggle_english_run.py SOURCES.

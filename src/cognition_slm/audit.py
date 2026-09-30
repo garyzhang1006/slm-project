@@ -51,6 +51,13 @@ class AuditReport:
         }
 
 
+def _mask(message: str) -> str:
+    """An error message with any token-shaped text replaced, since record ids are copied into messages."""
+    for pattern in SECRET_PATTERNS:
+        message = pattern.sub("[REDACTED]", message)
+    return message
+
+
 def _scan_text(report: AuditReport, location: str, text: str, field: str) -> None:
     for pattern in SECRET_PATTERNS:
         if pattern.search(text):
@@ -68,7 +75,7 @@ def audit_dataset(path: str | Path) -> AuditReport:
     try:
         examples = load_jsonl(path)
     except (DataValidationError, FileNotFoundError) as exc:
-        report.errors.append(str(exc))
+        report.errors.append(_mask(str(exc)))
         return report
     report.records = len(examples)
     with path.open("r", encoding="utf-8") as handle:
@@ -88,7 +95,7 @@ def audit_dataset(path: str | Path) -> AuditReport:
             for name in ("source", "license"):
                 # Padding or a closing period doesn't turn the placeholder into real provenance.
                 if str(raw.get(name, "")).strip().rstrip(".").casefold() in {"unknown", ""}:
-                    report.errors.append(f"{record_id}: {name} is missing or unknown")
+                    report.errors.append(_mask(f"{record_id}: {name} is missing or unknown"))
     return report
 
 
@@ -102,7 +109,7 @@ def audit_split_overlap(train_path: str | Path, eval_path: str | Path) -> list[s
         train_examples = load_jsonl(train_path)
         eval_examples = load_jsonl(eval_path)
     except (DataValidationError, FileNotFoundError) as exc:
-        return [str(exc)]
+        return [_mask(str(exc))]
     train_ids = {item.id for item in train_examples}
     eval_ids = {item.id for item in eval_examples}
     errors = []
@@ -121,7 +128,7 @@ def audit_split_overlap(train_path: str | Path, eval_path: str | Path) -> list[s
                 f"eval id {item.id!r} matches train ids {', '.join(sorted(train_prompts[key]))}. "
                 "Remove the duplicate from evaluation or replace it with a held-out prompt."
             )
-    return errors
+    return [_mask(error) for error in errors]
 
 
 def render_report(reports: list[AuditReport], overlap_errors: list[str]) -> str:

@@ -194,6 +194,23 @@ class DataAndAuditTests(unittest.TestCase):
                     path.write_text(json.dumps({**record, field: value}) + "\n", encoding="utf-8")
                     self.assertEqual(audit_dataset(path).errors, [f"r1: {field} is missing or unknown"])
 
+    def test_audit_messages_never_repeat_a_secret_record_id(self):
+        token = "ghp_" + "A" * 36
+        record = {"id": token, "prompt": "Say hi.", "answer": "Hi.", "task_type": "language_generation",
+                  "confidence": 0.5, "error_category": "none", "source": "unknown", "license": "CC0-1.0"}
+        with tempfile.TemporaryDirectory() as directory:
+            unknown, duplicate = Path(directory) / "unknown.jsonl", Path(directory) / "duplicate.jsonl"
+            unknown.write_text(json.dumps(record) + "\n", encoding="utf-8")
+            line = json.dumps({**record, "source": "test"}) + "\n"
+            duplicate.write_text(line + line, encoding="utf-8")
+            train, evaluation = Path(directory) / "train.jsonl", Path(directory) / "eval.jsonl"
+            train.write_text(line, encoding="utf-8")
+            evaluation.write_text(line, encoding="utf-8")
+            messages = (audit_dataset(unknown).errors + audit_dataset(duplicate).errors
+                        + audit_split_overlap(train, evaluation))
+        self.assertEqual(len(messages), 5, messages)
+        self.assertFalse([message for message in messages if token in message])
+
     def test_audit_report_must_not_overwrite_the_data(self):
         import contextlib
         import io

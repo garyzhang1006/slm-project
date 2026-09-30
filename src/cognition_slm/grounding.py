@@ -100,7 +100,10 @@ def _terms(text: str) -> set[str]:
             # "11:30-12:30 pm", is in the other half of the day.
             elif len(hours) == 2 and int(hours[0]) % 12 > int(hours[1]) % 12:
                 terms.add(hours.pop(0) + other)
-            terms |= set(re.findall(r"\d+", word)) | {hour + meridiem for hour in hours}
+            terms |= {number.lstrip("0") or "0" for number in re.findall(r"\d+", word)} | {hour + meridiem for hour in hours}
+        elif word.isdigit():
+            # Without am or pm, "08:30" is the plain numbers 08 and 30, which must still meet the 8 of "08:30 am".
+            terms.add(word.lstrip("0") or "0")
         elif word not in _STOP:
             terms.add(_stem(_IRREGULAR.get(word, word)))
     return terms

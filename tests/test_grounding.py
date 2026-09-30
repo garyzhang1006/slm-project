@@ -141,6 +141,9 @@ class GroundingTests(unittest.TestCase):
         passage = "The shop opens at 08:30 am on weekdays."
         self.assertEqual(self.answer("When does the shop open at 8 am?", passage)["sources"][0]["text"], passage)
         self.assertFalse(self.answer("Is it open at 08:00 am?", "Open from 8 am to 6 pm.")["abstained"])
+        # Without am or pm, "08:30" is two plain numbers, which drop their leading zeros the same way.
+        self.assertFalse(self.answer("Open at 08:30 am?", "Opens at 08:30.")["abstained"])
+        self.assertFalse(self.answer("Is it open at 9:05 am?", "Opens at 9:05.")["abstained"])
 
     def test_clock_ranges_that_cross_noon_start_in_the_other_half_of_the_day(self):
         # "11-1 pm" gave 11 the pm, so a lunch-time range ranked first for a late-night question.

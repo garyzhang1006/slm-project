@@ -42,7 +42,8 @@ def _stem(word: str) -> str:
 
 
 def _terms(text: str) -> set[str]:
-    words = _WORDS.findall(text.casefold().replace("\u2019", "'"))
+    # Casefolding turns the dotted capital I into i plus a combining dot, which _WORDS would split on.
+    words = _WORDS.findall(text.casefold().replace("i\u0307", "i").replace("\u2019", "'"))
     words = (word.removesuffix("'s") for word in words)
     return {_stem(_IRREGULAR.get(word, word)) for word in words if word not in _STOP}
 

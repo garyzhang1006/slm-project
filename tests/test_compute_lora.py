@@ -270,6 +270,13 @@ class LoraBaselineTests(unittest.TestCase):
         kept, dropped = self.module.drop_holdout_overlap(rows, self.module.screened_rows(ROOT))
         self.assertEqual((kept, dropped), (rows[3:], 3))
 
+    def test_eval_sentences_inside_answers_are_dropped(self):
+        rows = [{"prompt": "Solve it.", "answer": "Sure. Compute 25 + 17. The result follows."},
+                {"prompt": "Ask me something.", "answer": "Which planet is closest to the sun? Think about it."},
+                {"prompt": "Solve it.", "answer": "Sure. Compute 25 + 18. The result follows."}]
+        kept, dropped = self.module.drop_holdout_overlap(rows, self.module.screened_rows(ROOT))
+        self.assertEqual((kept, dropped), (rows[2:], 2))
+
     def test_project_rows_survive_the_trainer_screen(self):
         if str(ROOT) not in sys.path:
             sys.path.insert(0, str(ROOT))

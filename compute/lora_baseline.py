@@ -144,9 +144,9 @@ def drop_holdout_overlap(rows: list[dict], holdout_rows: list[dict]) -> tuple[li
 
     def overlaps(row: dict) -> bool:
         prompt, answer = normalize(row["prompt"]), normalize(row["answer"])
-        padded = f" {prompt} "
+        # Stage 3 checks answers too, so an answer that quotes an eval question cannot train it.
         return (prompt in prompts or answer in prompts
-                or any(f" {fragment} " in padded for fragment in fragments))
+                or any(f" {fragment} " in f" {text} " for text in (prompt, answer) for fragment in fragments))
 
     kept = [row for row in rows if not overlaps(row)]
     return kept, len(rows) - len(kept)

@@ -196,6 +196,23 @@ def validate_request(request: dict) -> tuple[dict, object]:
     return options, record
 
 
+def reject_lone_surrogates(request: object) -> None:
+    # JSON can escape half of a surrogate pair, such as \ud800, and json.loads keeps it as text that
+    # UTF-8 can't encode, so later byte counts would fail with a bare codec error.
+    if not isinstance(request, dict):
+        return
+    for key, value in request.items():
+        for item in value if isinstance(value, list) else [value]:
+            if isinstance(item, str):
+                try:
+                    item.encode("utf-8")
+                except UnicodeEncodeError:
+                    raise ValueError(
+                        f"{key} contains an unpaired surrogate escape such as \\ud800, which is not valid text. "
+                        "Remove it or send the whole character."
+                    ) from None
+
+
 class WorkbenchServer(ThreadingHTTPServer):
     daemon_threads = True
 
@@ -273,6 +290,7 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
             if len(body) != length:
                 raise ValueError("Incomplete request body.")
             request = json.loads(body)
+            reject_lone_surrogates(request)
             if self.path == "/api/grounded":
                 self._json(200, source_excerpts(request))
                 return

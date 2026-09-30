@@ -325,6 +325,21 @@ class ServerTests(unittest.TestCase):
         status, _ = self.request(path="/api/grounded", body=body, headers={"Content-Type": "application/json"})
         self.assertNotEqual(status, 413)
 
+    def test_lone_surrogate_is_a_clear_bad_request(self):
+        # json.dumps escapes the half pair as \ud800, and json.loads on the server keeps it as a lone surrogate.
+        for path, request, field in (
+            ("/api/generate", {"prompt": "a\ud800"}, "prompt"),
+            ("/api/grounded", {"prompt": "a\ud800", "source_text": "text"}, "prompt"),
+            ("/api/grounded", {"prompt": "text", "source_text": "a\ud800"}, "source_text"),
+        ):
+            with self.subTest(path=path, field=field):
+                status, payload = self.request(path=path, body=json.dumps(request),
+                                               headers={"Content-Type": "application/json"})
+                self.assertEqual(status, 400)
+                self.assertIn(f"{field} contains an unpaired surrogate", payload["error"])
+                self.assertNotIn("codec", payload["error"])
+        self.runtime.generate.assert_not_called()
+
     def test_grounded_invalid_input(self):
         status, _ = self.request(path="/api/grounded", body='{"prompt":"hi"}',
                                  headers={"Content-Type": "application/json"})

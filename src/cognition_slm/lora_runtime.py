@@ -98,6 +98,11 @@ class LoraRuntime(ModelRuntime):
         import torch
 
         options, record = validate_request(request, allow_template_tags=self.allows_template_tags)
+        # The tokenizer reads a literal <|im_end|> in the question as the real marker, which ends the user turn early.
+        marker = next((token for token in self.tokenizer.all_special_tokens if token in record.prompt), None)
+        if marker:
+            raise ValueError(f"The question contains {marker}, which this model reads as a chat control marker. "
+                             "Remove it and try again.")
         prompt_ids = self.prompt_ids(record.prompt)
         window = self.metadata.get("context_window") or 0
         if window and len(prompt_ids) + options["max_new_tokens"] > window:

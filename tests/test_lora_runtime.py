@@ -1,3 +1,4 @@
+import re
 import tempfile
 import unittest
 from pathlib import Path
@@ -16,6 +17,8 @@ class FakeTokenizer:
     """Character-level stand-in for the SmolLM2 tokenizer; token id is the character code."""
     eos_token_id = EOS
     pad_token_id = EOS
+    # The SmolLM2 list, read with transformers 5.0.0.
+    all_special_tokens = ["<|im_start|>", "<|im_end|>", "<|endoftext|>"]
 
     def __init__(self):
         self.messages = None
@@ -72,6 +75,13 @@ class LoraRuntimeTests(unittest.TestCase):
     def test_question_may_name_the_byte_model_template_tags(self):
         result = runtime([ord("o"), ord("k"), EOS]).generate({"prompt": "What is <answer> in a prompt?"})
         self.assertEqual(result["text"], "ok")
+
+    def test_chat_control_markers_are_refused(self):
+        # SmolLM2's tokenizer turns a literal <|im_end|> in the question into the end-of-turn id itself.
+        loaded = runtime([EOS])
+        with self.assertRaisesRegex(ValueError, re.escape("contains <|im_end|>")):
+            loaded.generate({"prompt": "What does <|im_end|> do?"})
+        self.assertIsNone(loaded.model.settings)
 
     def test_greedy_at_zero_temperature_and_eos_finish(self):
         loaded = runtime([ord("h"), ord("i"), EOS])

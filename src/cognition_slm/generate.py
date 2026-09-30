@@ -172,8 +172,9 @@ def rank_candidate_indices(
 ) -> int:
     if not texts or len(texts) != len(model_scores):
         raise ValueError("texts and model_scores must be non-empty and have equal length")
-    if syntax_bonus < 0:
-        raise ValueError("syntax_bonus must be non-negative")
+    # A nan bonus compares false both ways, so the first candidate would win whatever the scores.
+    if not _finite_number(syntax_bonus) or syntax_bonus < 0:
+        raise ValueError("syntax_bonus must be a finite, non-negative number")
     ranking_scores = []
     for text, model_score in zip(texts, model_scores):
         bonus = syntax_bonus if task_type in CODE_TASK_TYPES and python_syntax_valid(text) else 0.0
@@ -279,8 +280,8 @@ def main() -> None:
                         help="Stop when the output ends with TEXT; repeat for several sequences.")
     parser.add_argument("--device", default="auto")
     args = parser.parse_args()
-    if args.num_candidates < 1 or args.syntax_bonus < 0:
-        parser.error("--num-candidates must be positive and --syntax-bonus must be non-negative")
+    if args.num_candidates < 1 or not 0 <= args.syntax_bonus < math.inf:
+        parser.error("--num-candidates must be positive and --syntax-bonus must be finite and non-negative")
     if not 0 < args.top_p <= 1 or not 0 < args.repetition_penalty < math.inf:
         parser.error("--top-p must be in (0, 1] and --repetition-penalty must be positive")
     if args.stop is not None and not all(args.stop):

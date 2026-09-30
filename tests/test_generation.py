@@ -92,7 +92,8 @@ class GenerationTests(unittest.TestCase):
         for extra in (["--top-p", "0"], ["--top-p", "1.5"], ["--repetition-penalty", "0"],
                       ["--repetition-penalty", "inf"], ["--repetition-penalty", "nan"], ["--stop", ""],
                       ["--temperature", "-1"], ["--temperature", "nan"], ["--temperature", "inf"], ["--top-k", "-1"],
-                      ["--max-new-tokens", "0"], ["--task-type", "poetry"]):
+                      ["--max-new-tokens", "0"], ["--task-type", "poetry"], ["--syntax-bonus", "nan"],
+                      ["--syntax-bonus", "inf"]):
             argv = ["cognition-slm-generate", "--checkpoint", "x.pt", "--prompt", "hi", *extra]
             with self.subTest(extra=extra), patch("sys.argv", argv), \
                  patch("cognition_slm.generate.load_checkpoint") as load, \
@@ -106,6 +107,12 @@ class GenerationTests(unittest.TestCase):
             rank_candidate_indices(texts, [-0.1, -0.3], "code_generation", 0.5),
             1,
         )
+
+    def test_syntax_bonus_must_be_finite(self):
+        texts = ["def add(a, b)\n    return a + b", "def add(a, b):\n    return a + b"]
+        for bonus in (float("nan"), float("inf")):
+            with self.subTest(bonus=bonus), self.assertRaises(ValueError):
+                rank_candidate_indices(texts, [-0.1, -0.3], "code_generation", bonus)
 
     def test_prose_ranking_uses_model_score_only(self):
         texts = ["first", "second"]

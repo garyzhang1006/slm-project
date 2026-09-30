@@ -253,6 +253,13 @@ class LoraBaselineTests(unittest.TestCase):
                 {"prompt": "Which planet is famous for its bright rings?", "answer": "Saturn"}]
         kept, dropped = self.module.drop_holdout_overlap(rows, screened)
         self.assertEqual((kept, dropped), (rows[2:], 2))
+        # Three-word eval prompts with numbers count inside a longer prompt too.
+        rows = [{"prompt": "Compute 25 + 17. Answer in a full sentence.", "answer": "42"},
+                {"prompt": "Homework: Calculate 72 / 8. Show work.", "answer": "9"},
+                {"prompt": "Compute 64 - 8, then add 1.", "answer": "57"},
+                {"prompt": "Compute 25 + 18.", "answer": "43"}]
+        kept, dropped = self.module.drop_holdout_overlap(rows, screened)
+        self.assertEqual((kept, dropped), (rows[3:], 3))
 
     def test_project_rows_survive_the_trainer_screen(self):
         if str(ROOT) not in sys.path:

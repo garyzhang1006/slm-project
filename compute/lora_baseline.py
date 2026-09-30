@@ -78,10 +78,12 @@ def normalize(text: str) -> str:
 
 def holdout_keys(holdout_rows: list[dict]) -> tuple[set[str], set[str]]:
     """Whole holdout prompts, plus each question sentence alone (so "What is 4 plus 9?" is caught
-    even without the "Reply with the number." suffix)."""
+    even without the "Reply with the number." suffix). Fragments need four words, or three with a
+    number, as stage1_corpus.holdout_stems does, so "Compute 25 + 17." is caught inside a longer prompt."""
     prompts = {normalize(row["prompt"]) for row in holdout_rows}
     questions = {normalize(part) for row in holdout_rows for part in re.findall(r"[^.?!:]*\?", row["prompt"])}
-    return prompts, {key for key in prompts | questions if len(key.split()) >= 4}
+    return prompts, {key for key in prompts | questions
+                     if len(key.split()) >= (3 if any(c.isdigit() for c in key) else 4)}
 
 
 def digest(path: Path) -> str:

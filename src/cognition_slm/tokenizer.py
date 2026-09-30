@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import codecs
 from dataclasses import dataclass
 from typing import Iterable
 
@@ -61,4 +62,7 @@ class ByteTokenizer:
             if not BYTE_OFFSET <= token_id < BYTE_OFFSET + 256:
                 raise ValueError(f"token id outside byte vocabulary: {token_id}")
             values.append(token_id - BYTE_OFFSET)
-        return bytes(values).decode("utf-8", errors="replace")
+        # Generation that stops on length can end partway through a multi-byte character. The incremental
+        # decoder holds back that unfinished tail instead of turning it into U+FFFD; invalid bytes elsewhere
+        # still become U+FFFD.
+        return codecs.getincrementaldecoder("utf-8")(errors="replace").decode(bytes(values), final=False)

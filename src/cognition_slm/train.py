@@ -736,7 +736,7 @@ def main() -> None:
             parser.error(f"--out must not be the {flag} file, or the first checkpoint save would replace that data")
     try:
         result = train(args)
-    except (FileNotFoundError, IsADirectoryError, ValueError) as exc:
+    except (OSError, ValueError) as exc:
         parser.error(str(exc))
     print(json.dumps(result, indent=2))
 

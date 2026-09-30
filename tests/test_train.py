@@ -282,6 +282,24 @@ class TrainingIntegrationTests(unittest.TestCase):
         self.assertEqual(raised.exception.code, 2)
         self.assertIn("--allow-data-change requires --resume", stderr.getvalue())
 
+    def test_unreadable_files_are_usage_errors(self):
+        import contextlib
+        import io
+        import sys
+        from unittest.mock import patch
+        from cognition_slm.train import main
+
+        # Tests may run as root, which reads any file, so the errors are raised where train() would meet them.
+        for error in (PermissionError(13, "Permission denied", "data.jsonl"),
+                      NotADirectoryError(20, "Not a directory", "notes.txt/data.jsonl")):
+            with self.subTest(error=type(error).__name__), contextlib.redirect_stderr(io.StringIO()) as stderr, \
+                    patch.object(sys, "argv", ["train", "--data", str(self.data)]), \
+                    patch("cognition_slm.train.train", side_effect=error):
+                with self.assertRaises(SystemExit) as raised:
+                    main()
+                self.assertEqual(raised.exception.code, 2)
+                self.assertIn(error.strerror, stderr.getvalue())
+
     def test_out_must_not_overwrite_input_data(self):
         import contextlib
         import io

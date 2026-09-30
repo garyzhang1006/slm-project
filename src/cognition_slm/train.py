@@ -711,10 +711,12 @@ def main() -> None:
         parser.error("--steps and --batch-size must be positive")
     if args.n_layer < 1 or args.n_head < 1 or args.n_embd < 1:
         parser.error("--n-layer, --n-head, and --n-embd must be positive")
-    if args.weight_decay < 0 or args.warmup_steps < 0 or args.eval_every < 1:
-        parser.error("--weight-decay must be non-negative; --warmup-steps and --eval-every must be positive")
-    if (args.learning_rate is not None and args.learning_rate <= 0) or args.grad_clip <= 0 or args.log_every < 1:
-        parser.error("--learning-rate and --grad-clip must be positive; --log-every must be positive")
+    # nan passes a plain "< 0" check, and nan or inf in any of these makes the weights non-finite after one update.
+    if not 0 <= args.weight_decay < math.inf or args.warmup_steps < 0 or args.eval_every < 1:
+        parser.error("--weight-decay must be non-negative and finite; --warmup-steps and --eval-every must be positive")
+    if (args.learning_rate is not None and not 0 < args.learning_rate < math.inf) or not 0 < args.grad_clip < math.inf \
+            or args.log_every < 1:
+        parser.error("--learning-rate and --grad-clip must be positive and finite; --log-every must be positive")
     if args.warmup_steps > args.steps:
         parser.error("--warmup-steps cannot exceed --steps")
     if args.dry_run and args.resume:

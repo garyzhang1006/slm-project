@@ -300,6 +300,26 @@ class TrainingIntegrationTests(unittest.TestCase):
                 self.assertEqual(raised.exception.code, 2)
                 self.assertIn(error.strerror, stderr.getvalue())
 
+    def test_nonfinite_optimizer_flags_are_usage_errors(self):
+        import contextlib
+        import io
+        import sys
+        from unittest.mock import patch
+        from cognition_slm.train import main
+
+        # nan passes a "< 0" check, and nan or inf here makes the weights non-finite after the first update.
+        for flag in ("--learning-rate", "--grad-clip", "--weight-decay"):
+            for value in ("nan", "inf"):
+                argv = ["train", "--data", str(self.data), flag, value]
+                with self.subTest(flag=flag, value=value), contextlib.redirect_stderr(io.StringIO()) as stderr, \
+                        patch.object(sys, "argv", argv), patch("cognition_slm.train.train") as train:
+                    with self.assertRaises(SystemExit) as raised:
+                        main()
+                    self.assertEqual(raised.exception.code, 2)
+                    self.assertIn(f"{flag} ", stderr.getvalue())
+                    self.assertIn("finite", stderr.getvalue())
+                    train.assert_not_called()
+
     def test_out_must_not_overwrite_input_data(self):
         import contextlib
         import io

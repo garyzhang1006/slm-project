@@ -39,6 +39,8 @@ MAX_ANSWER_CHARS = 400
 ABBREVIATIONS = frozenset({"mr", "mrs", "ms", "dr", "st", "jr", "sr", "prof", "vs", "etc", "e.g", "i.e", "approx"})
 # A numbered list starts a line or follows a colon, as in "ways: 1. Rest 2. Eat"; "on May 1. ... on June 2." is none.
 NUMBERED_LIST = re.compile(r"(?:^|[\n:])\s*1[.)]\s.*?\s2[.)]\s", re.S)
+# A bullet list starts a line with "- ", "* " or a bullet sign.
+BULLETED_LIST = re.compile(r"(?:^|\n)[ \t]*[-*\u2022][ \t]")
 # Greetings that open a reply without answering it, as the first paragraph before the answer.
 OPENERS = frozenset({"sure", "certainly", "of course", "okay", "ok", "absolutely", "alright", "all right",
                      "great question", "good question", "sure thing", "happy to help"})
@@ -87,12 +89,12 @@ def trim_answer(text: str, limit: int = MAX_ANSWER_CHARS) -> str:
         return paragraph
     cut = paragraph[:limit]
     # A list cut short is no whole answer, so the cut may only fall before the list starts.
-    listed = NUMBERED_LIST.search(paragraph)
-    if listed and listed.start() < limit:
-        cut = paragraph[:listed.start() + 1]
-    # The character after the cut still counts, so a sentence that ends right at the limit is kept.
+    starts = [found.start() for found in (NUMBERED_LIST.search(paragraph), BULLETED_LIST.search(paragraph)) if found]
+    if starts and min(starts) < limit:
+        cut = paragraph[:min(starts) + 1]
+    # The character after the cut still counts, so a sentence that ends right at the limit, or at a line break, is kept.
     for end in range(len(cut) - 1, 0, -1):
-        if cut[end] not in ".!?" or paragraph[end + 1] != " ":
+        if cut[end] not in ".!?" or not paragraph[end + 1].isspace():
             continue
         if cut[end] == "." and abbreviated(cut[:end].rsplit(None, 1)[-1]):
             continue

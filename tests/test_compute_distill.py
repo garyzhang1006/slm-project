@@ -61,8 +61,9 @@ class DistillTests(unittest.TestCase):
     def test_trim_answer_never_cuts_at_a_list_marker(self):
         items = "".join(f"\n{number}. Drink water and sleep eight hours every night" for number in range(1, 9))
         self.assertEqual(distill_data.trim_answer("Here are some ways to stay healthy:" + items, limit=300), "")
-        # A year that ends a sentence mid-line still ends it.
-        self.assertEqual(distill_data.trim_answer("It opened in 1889. It is tall." + items, limit=300), "It opened in 1889.")
+        # A year that ends a sentence mid-line still ends it, and so does the line break before the list.
+        self.assertEqual(distill_data.trim_answer("It opened in 1889. It is tall." + items, limit=300),
+                         "It opened in 1889. It is tall.")
         # Items with sentences of their own, and a list run inline, are cut before the list too.
         sentences = "".join(f"\n{number}. Drink water. It helps you stay well all day" for number in range(1, 9))
         inline = "".join(f" {number}. Drink water and sleep eight hours" for number in range(1, 9))
@@ -75,6 +76,16 @@ class DistillTests(unittest.TestCase):
         treaty = "The treaty was signed in Paris on May 1. It took effect on June 2. " + "It changed trade for decades. " * 12
         self.assertEqual(distill_data.trim_answer(treaty, limit=120),
                          "The treaty was signed in Paris on May 1. It took effect on June 2. It changed trade for decades.")
+
+    def test_trim_answer_cuts_at_a_sentence_that_ends_a_line(self):
+        # Only a space after the period counted, so a long first paragraph with one line break lost its sentences.
+        rest = "At higher altitudes the air pressure is lower" + " and lower" * 40 + "."
+        self.assertEqual(distill_data.trim_answer("Water boils at 100 degrees at sea level.\n" + rest),
+                         "Water boils at 100 degrees at sea level.")
+        # A bullet list cut short is no whole answer either, so the cut falls before it.
+        bullets = "".join(f"\n- Fruit number {number} is sweet. It is good to eat." for number in range(1, 12))
+        self.assertEqual(distill_data.trim_answer("Fruit is healthy. Try these:" + bullets), "Fruit is healthy.")
+        self.assertEqual(distill_data.trim_answer("Try these:" + bullets), "")
 
     def test_build_records_filters_and_counts(self):
         holdout = ["What is 4 plus 9? Reply with the number."]

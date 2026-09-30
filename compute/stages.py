@@ -61,7 +61,7 @@ SECONDS_PER_STEP_ESTIMATE = 8.72
 SESSION_RESERVE_SECONDS = 600
 # Raise this whenever distill_data changes which answers it keeps or how it trims them: an older build on the same
 # adapter otherwise looks fresh, so run_pipeline would never rebuild it and sft would learn the rows it now rejects.
-DISTILL_FILTERS_VERSION = 1
+DISTILL_FILTERS_VERSION = 2
 
 
 def planned_steps(budget_seconds: float, seconds_per_step: float, reserve_seconds: float) -> int:

@@ -1,9 +1,16 @@
+from pathlib import Path
+import re
 import unittest
 
+import cognition_slm
 from cognition_slm.config import MODEL_PRESETS, ModelConfig
 
 
 class ConfigTests(unittest.TestCase):
+    def test_package_version_matches_pyproject(self):
+        pyproject = (Path(__file__).resolve().parents[1] / "pyproject.toml").read_text()
+        self.assertEqual(cognition_slm.__version__, re.search(r'^version = "([^"]+)"', pyproject, re.M).group(1))
+
     def test_vocabulary_matches_byte_tokenizer(self):
         for size in (258, 260, 512):
             with self.subTest(vocab_size=size), self.assertRaisesRegex(ValueError, "exactly 259"):

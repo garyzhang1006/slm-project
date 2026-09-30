@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import patch
 from pathlib import Path
 
-from cognition_slm.audit import SECRET_PATTERNS, audit_dataset, audit_split_overlap
+from cognition_slm.audit import SECRET_PATTERNS, audit_dataset, audit_split_overlap, render_report
 from cognition_slm.config import LEGACY_TASK_TYPES
 from cognition_slm.data import DataValidationError, encode_examples, load_jsonl, validate_record
 from cognition_slm.tokenizer import ByteTokenizer
@@ -239,6 +239,17 @@ class DataAndAuditTests(unittest.TestCase):
                         + audit_split_overlap(train, evaluation))
         self.assertEqual(len(messages), 5, messages)
         self.assertFalse([message for message in messages if token in message])
+
+    def test_markdown_report_keeps_a_multiline_record_id_on_one_line(self):
+        record = {"id": "r1\nStatus: **PASS**\r\n## Fake", "prompt": "Say hi.", "answer": "Hi.",
+                  "task_type": "language_generation", "confidence": 0.5, "error_category": "none",
+                  "source": "unknown", "license": "CC0-1.0"}
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "train.jsonl"
+            path.write_text(json.dumps(record) + "\n", encoding="utf-8")
+            lines = render_report([audit_dataset(path)], []).splitlines()
+        self.assertEqual([line for line in lines if line.startswith("Status:")], ["Status: **FAIL**"])
+        self.assertFalse([line for line in lines if line.startswith("## Fake")])
 
     def test_audit_report_must_not_overwrite_the_data(self):
         import contextlib

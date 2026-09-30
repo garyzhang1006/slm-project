@@ -288,6 +288,18 @@ class KaggleReportTests(unittest.TestCase):
             with self.subTest(text=text):
                 self.assertIsNone(self.report(text))
 
+    def test_push_packages_the_session_the_decision_names(self):
+        # Dropping session or pretrain_session would package session 1 again, or sft from the wrong checkpoint.
+        kaggle, pushed = run_pipeline.Kaggle("someone"), []
+        kaggle.run = lambda *args, check=True: pushed.append(args) or "pushed"
+        for decision, expected in (({"stage": "pretrain", "session": 3}, ("pretrain", "someone", 3, None)),
+                                   ({"stage": "sft", "pretrain_session": 6}, ("sft", "someone", None, 6))):
+            with self.subTest(stage=decision["stage"]), mock.patch("compute.package.prepare") as prepare:
+                self.assertEqual(kaggle.push(decision), "pushed")
+                stage, directory, owner, session, pretrain_session = prepare.call_args.args
+                self.assertEqual((stage, owner, session, pretrain_session), expected)
+                self.assertEqual(pushed[-1], ("kernels", "push", "-p", str(directory)))
+
 
 class MainTests(unittest.TestCase):
     def test_dry_run_never_pushes(self):

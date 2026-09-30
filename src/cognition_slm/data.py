@@ -150,7 +150,8 @@ def validate_record(raw: dict[str, Any], record_number: int = 0, *,
 def load_jsonl(path: str | Path) -> list[CognitionExample]:
     path = Path(path)
     if not path.exists():
-        raise FileNotFoundError(path)
+        # str() of FileNotFoundError(path) is the bare path, which the CLIs would print with no reason.
+        raise FileNotFoundError(f"{path}: no such input file")
     examples: list[CognitionExample] = []
     seen_ids: set[str] = set()
     for record_number, line in _utf8_lines(path):
@@ -271,7 +272,8 @@ def load_pretrain_text(path: str | Path) -> list[str]:
     TEXT_DOCUMENT_BREAK (blank lines or form feeds); a file without breaks stays one document."""
     path = Path(path)
     if not path.exists():
-        raise FileNotFoundError(path)
+        # str() of FileNotFoundError(path) is the bare path, which the CLIs would print with no reason.
+        raise FileNotFoundError(f"{path}: no such input file")
     if path.suffix != ".jsonl":
         text = "".join(line for _, line in _utf8_lines(path))
         if not text.strip():

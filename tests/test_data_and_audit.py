@@ -66,6 +66,16 @@ class DataAndAuditTests(unittest.TestCase):
         self.assertFalse(complete["truncated"])
         self.assertEqual(complete["input_ids"][-1], tokenizer.eos_id)
 
+    def test_a_missing_data_file_is_reported_as_missing(self):
+        # evaluate, benchmark, train and the split audit print this message as the whole error.
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "absent.jsonl"
+            for loader in (load_jsonl, load_pretrain_text):
+                with self.subTest(loader=loader.__name__), \
+                     self.assertRaisesRegex(FileNotFoundError, "absent.jsonl: no such input file"):
+                    loader(path)
+            self.assertEqual(audit_split_overlap(path, ROOT / "data" / "eval.jsonl"), [f"{path}: no such input file"])
+
     def test_demo_data_loads(self):
         train = load_jsonl(ROOT / "data" / "demo.jsonl")
         evaluation = load_jsonl(ROOT / "data" / "eval.jsonl")

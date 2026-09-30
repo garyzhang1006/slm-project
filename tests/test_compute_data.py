@@ -321,6 +321,21 @@ class SftDataTests(unittest.TestCase):
         self.assertIn("Context:\nAnn wrote the poem.", rows[0][1]["prompt"])
         self.assertEqual(rows[0][1]["license"], "CC-BY-SA-3.0")
 
+    def test_dolly_one_sentence_answers_to_bare_questions_carry_the_sentence_cue(self):
+        rows = dict(sft.dolly_rows([
+            {"instruction": "Which planet is the hottest?", "context": "",
+             "response": "Venus is the hottest planet."},
+            {"instruction": "Why is the sky blue?", "context": "",
+             "response": "Air scatters blue light the most. So the sky looks blue."},
+            {"instruction": "Who won?", "context": "Mo won the race.", "response": "Mo won the race."},
+            {"instruction": "What is the capital of Peru?", "context": "", "response": "Lima."},
+            {"instruction": "Describe a cat.", "context": "", "response": "A cat is a small furry pet."},
+        ]))
+        cue = short_facts.SENTENCE_CUE
+        self.assertEqual(rows["dolly:0"]["prompt"], "Which planet is the hottest?" + cue)
+        for group in ("dolly:1", "dolly:2", "dolly:3", "dolly:4"):
+            self.assertNotIn(cue, rows[group]["prompt"], group)
+
     def test_oasst_takes_best_ranked_english_reply_to_english_root(self):
         def message(message_id, parent, role, lang, text, **extra):
             return dict(message_id=message_id, parent_id=parent, role=role, lang=lang, text=text,

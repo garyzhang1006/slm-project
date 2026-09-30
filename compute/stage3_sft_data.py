@@ -12,6 +12,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -36,6 +37,7 @@ SOURCES = {
 }
 MAX_RECORD_BYTES = 1024  # serialized prompt template plus answer, well inside a 2048-byte block
 MAX_DOLLY_RESPONSE_CHARS = 400
+MAX_CUED_SENTENCE_CHARS = 200
 MAX_OASST_PROMPT_CHARS = 400
 MAX_OASST_ANSWER_CHARS = 600
 MAX_OASST_TOXICITY = 0.2
@@ -62,6 +64,18 @@ def sft_record(record_id: str, prompt: str, answer: str, source: str, license_na
     return example.to_dict()
 
 
+def one_sentence_answer(question: str, answer: str) -> bool:
+    """A bare question answered with one short full sentence, such as "Venus is the hottest planet."
+
+    Dolly often answers bare questions this way, and the 2026-09-29 adapters answered bare everyday
+    questions in sentences ("Coal is black.") although the project rows answer them with one word.
+    dolly_rows adds short_facts.SENTENCE_CUE to them, so a sentence is only trained where one is asked for.
+    """
+    question, answer = question.strip(), answer.strip()
+    return (question.endswith("?") and len(answer) <= MAX_CUED_SENTENCE_CHARS and len(answer.split()) >= 4
+            and answer[-1] in ".!" and not re.search(r"[.!?]\s", answer[:-1]))
+
+
 def dolly_rows(raws) -> list[tuple[str, dict]]:
     """(group, record) for Dolly rows whose response is short."""
     rows = []
@@ -72,6 +86,8 @@ def dolly_rows(raws) -> list[tuple[str, dict]]:
         if not instruction.strip() or not response.strip() or len(response) > MAX_DOLLY_RESPONSE_CHARS:
             continue
         prompt = instruction.strip() + (f"\n\nContext:\n{context.strip()}" if context.strip() else "")
+        if not context.strip() and one_sentence_answer(instruction, response):
+            prompt += short_facts.SENTENCE_CUE
         record = sft_record(f"dolly-{index}", prompt, response, "databricks/databricks-dolly-15k",
                             SOURCES["databricks/databricks-dolly-15k"]["license"])
         if record:

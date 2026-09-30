@@ -86,6 +86,12 @@ class ContextTherapyTests(unittest.TestCase):
             parse_messages([])
         self.assertEqual(parse_messages([ContextMessage(" USER ", "text")])[0].role, "user")
 
+    def test_lone_surrogate_names_its_message(self):
+        # json.loads keeps an escaped half pair such as \ud800, which later fails to encode as UTF-8.
+        messages = json.loads('[{"role": "user", "content": "ok"}, {"role": "user", "content": "bad \\ud800"}]')
+        with self.assertRaisesRegex(ValueError, "^message 1: content contains a lone surrogate"):
+            parse_messages(messages)
+
     def test_serialized_report_contains_no_hidden_reasoning_field(self):
         report = ContextTherapist().assess(
             [{"role": "user", "content": "Keep visible evidence only."}]

@@ -224,6 +224,10 @@ def parse_messages(raw_messages: Iterable[ContextMessage | Mapping[str, Any]]) -
             raise ValueError(f"message {index}: unsupported role {message.role!r}")
         if not message.content.strip():
             raise ValueError(f"message {index}: content must be non-empty text")
+        try:
+            message.content.encode("utf-8")
+        except UnicodeEncodeError:
+            raise ValueError(f"message {index}: content contains a lone surrogate, which is not valid UTF-8") from None
         if len(message.content) > MAX_MESSAGE_CHARS:
             raise ValueError(f"message {index}: content exceeds {MAX_MESSAGE_CHARS} characters")
         total_chars += len(message.content)

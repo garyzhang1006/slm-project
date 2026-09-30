@@ -41,10 +41,15 @@ class DistillTests(unittest.TestCase):
 
     def test_trim_answer_drops_openers_and_lead_ins_before_the_answer(self):
         for text in ("Great question!\n\nThe Nile is the longest river in Africa.", "Sure!\n\nParis.",
+                     "That's a great question!\n\nThe Nile is long.", "Sure, here goes!\n\nThe Nile.",
                      "Here are some examples:\n\n1. Oak\n2. Pine", "Here are some examples:"):
             with self.subTest(text=text):
                 self.assertEqual(distill_data.trim_answer(text), "")
-        self.assertEqual(distill_data.trim_answer("Paris is the capital.\n\nIt is in France."), "Paris is the capital.")
+        # A short plain answer before an explanation is still the answer.
+        for text, kept in (("Paris is the capital.\n\nIt is in France.", "Paris is the capital."),
+                           ("Yes.\n\nThe sun is a star.", "Yes."), ("Fish\n\nTope is a species of shark.", "Fish")):
+            with self.subTest(text=text):
+                self.assertEqual(distill_data.trim_answer(text), kept)
 
     def test_trim_answer_never_cuts_at_a_list_marker(self):
         items = "".join(f"\n{number}. Drink water and sleep eight hours every night" for number in range(1, 9))

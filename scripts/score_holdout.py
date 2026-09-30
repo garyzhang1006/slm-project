@@ -28,20 +28,55 @@ _TOKENS = re.compile(r"(?:(?<!\w)-)?\d+(?:\.\d+)?|[^\W\d_]+")
 _GROUPED = re.compile(r"\b\d{1,3}(?:,\d{3})+\b")
 
 
+def _below_100(tokens: list[str], i: int) -> tuple[int, int] | None:
+    """Value and next index of "seven", "twelve", "forty" or "forty two" at tokens[i]."""
+    if i < len(tokens) and tokens[i] in _UNITS:
+        return _UNITS[tokens[i]], i + 1
+    if i < len(tokens) and tokens[i] in _TENS:
+        # "twenty one" (or "twenty-one", split on the hyphen) is one number; "three four" stays two.
+        if i + 1 < len(tokens) and 0 < _UNITS.get(tokens[i + 1], 0) < 10:
+            return _TENS[tokens[i]] + _UNITS[tokens[i + 1]], i + 2
+        return _TENS[tokens[i]], i + 1
+    return None
+
+
+def _below_1000(tokens: list[str], i: int) -> tuple[int, int] | None:
+    """Like _below_100, plus "a hundred" and "one hundred and forty four"."""
+    if i + 1 < len(tokens) and tokens[i + 1] == "hundred" and (tokens[i] == "a" or 0 < _UNITS.get(tokens[i], 0) < 10):
+        value, i = 100 * _UNITS.get(tokens[i], 1), i + 2
+        rest = _below_100(tokens, i + (i < len(tokens) and tokens[i] == "and"))
+        return (value + rest[0], rest[1]) if rest and rest[0] else (value, i)
+    return _below_100(tokens, i)
+
+
+def _number(tokens: list[str], i: int) -> tuple[int, int] | None:
+    """Value and next index of a spelled number below one million at tokens[i], or None."""
+    first = _below_1000(tokens, i) or ((1, i + 1) if tokens[i] == "a" else None)
+    if first is None:
+        return None
+    value, i = first
+    if i < len(tokens) and tokens[i] == "thousand" and value:
+        value, i = 1000 * value, i + 1
+        rest = _below_1000(tokens, i + (i < len(tokens) and tokens[i] == "and"))
+        return (value + rest[0], rest[1]) if rest and rest[0] else (value, i)
+    # A bare "a" is an article; it counts as one only before "hundred" or "thousand".
+    return None if tokens[i - 1] == "a" else (value, i)
+
+
 def normalize_answer(text: str) -> str:
-    """Casefold, drop punctuation, collapse whitespace and spell numbers below 100 as digits."""
+    """Casefold, drop punctuation, collapse whitespace and write spelled numbers below a million as digits."""
     text = _GROUPED.sub(lambda match: match.group().replace(",", ""), text)  # "1,000" is one number
     tokens = _TOKENS.findall(text.casefold().replace("'", "").replace("’", ""))
-    result = []
-    for token in tokens:
-        # "twenty one" (or "twenty-one", split on the hyphen) folds into the preceding tens value.
-        if token in _UNITS and 0 < _UNITS[token] < 10 and result and result[-1][1] in _TENS:
-            result[-1] = (str(_TENS[result[-1][1]] + _UNITS[token]), None)
-        elif token in _UNITS or token in _TENS:
-            result.append((str(_UNITS.get(token, _TENS.get(token))), token))
+    result, i = [], 0
+    while i < len(tokens):
+        number = _number(tokens, i)
+        if number is None:
+            result.append(tokens[i])
+            i += 1
         else:
-            result.append((token, None))
-    return " ".join(value for value, _ in result)
+            result.append(str(number[0]))
+            i = number[1]
+    return " ".join(result)
 
 
 def accepted_answers(row: dict) -> list[str]:

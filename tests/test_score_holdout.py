@@ -38,6 +38,17 @@ class ScoreHoldoutTests(unittest.TestCase):
         self.assertEqual(normalize("1,2, 3"), "1 2 3")
         thousand = {"id": "k", "category": "counting_time", "expected_rubric": "1000"}
         self.assertEqual(self.module.score_answer(thousand, "1,000"), {"exact": True, "contains": True})
+        # Spelled numbers of 100 and above are one number, so "a hundred cents" still answers "100".
+        self.assertEqual(normalize("A dollar is worth a hundred cents."), "a dollar is worth 100 cents")
+        self.assertEqual(normalize("One hundred and forty-four"), "144")
+        self.assertEqual(normalize("two thousand twenty-six, or a thousand"), "2026 or 1000")
+        self.assertEqual(normalize("three four hundred, a hundred thousand"), "3 400 100000")
+        self.assertEqual(normalize("a hundreds a"), "a hundreds a")
+        hundred = {"id": "c", "category": "counting_time", "expected_rubric": "100"}
+        self.assertEqual(self.module.score_answer(hundred, "A dollar is worth a hundred cents."),
+                         {"exact": False, "contains": True})
+        self.assertEqual(self.module.score_answer({**hundred, "expected_rubric": "144"}, "one hundred forty-four"),
+                         {"exact": True, "contains": True})
 
     def test_exact_and_whole_token_contains(self):
         row = {"id": "x", "category": "math", "expected_rubric": "3"}

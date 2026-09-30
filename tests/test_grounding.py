@@ -88,6 +88,14 @@ class GroundingTests(unittest.TestCase):
         self.assertTrue(self.answer("Can you tell us?", "Use the side door.")["abstained"])
         self.assertTrue(self.answer("Can you tell them?", "The theme is blue.")["abstained"])
 
+    def test_quantity_words_are_not_topics(self):
+        # As terms, many and there made "How many books?" need a word the passage lacks, so it abstained.
+        passage = "Members can borrow up to 12 books at a time."
+        for prompt in ("How many books?", "Are there any books?"):
+            with self.subTest(prompt=prompt):
+                self.assertEqual(self.answer(prompt, passage)["sources"][0]["text"], passage)
+        self.assertTrue(self.answer("How much is there?", passage)["abstained"])
+
     def test_partial_topic_match_abstains(self):
         self.assertTrue(self.answer("Explain solar panel battery storage", "Solar panels collect light.")["abstained"])
 

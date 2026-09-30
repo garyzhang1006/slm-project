@@ -614,6 +614,8 @@ def main() -> None:
     parser.add_argument("--goal")
     parser.add_argument("--output")
     args = parser.parse_args()
+    if args.output and args.input != "-" and Path(args.output).resolve() == Path(args.input).resolve():
+        parser.error("--output must differ from --input, or writing it would replace the conversation")
     try:
         handoff = ContextTherapist().build_handoff(
             load_messages(args.input), token_budget=args.token_budget, focus=args.goal

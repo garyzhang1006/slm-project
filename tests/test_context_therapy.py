@@ -211,6 +211,17 @@ class ContextTherapyTests(unittest.TestCase):
             self.assertEqual(json.loads(output_path.read_text())["state"], "conflicted")
 
 
+    def test_cli_refuses_to_write_the_report_over_its_input(self):
+        with tempfile.TemporaryDirectory() as directory:
+            conversation = Path(directory) / "ctx.json"
+            original = json.dumps([{"role": "user", "content": "Use Python."}])
+            conversation.write_text(original)
+            argv = ["context-therapist", "--input", str(conversation), "--output", str(conversation)]
+            with patch("sys.argv", argv), redirect_stdout(StringIO()), patch("sys.stderr", StringIO()):
+                with self.assertRaises(SystemExit):
+                    main()
+            self.assertEqual(conversation.read_text(), original)
+
     def test_negated_verification_does_not_count_as_evidence(self):
         for content in ("Fixed it. I have not tested or run anything.", "Fixed it. I haven\u2019t run the tests.",
                         "Done. Tests have not been run.", "Fixed it. No tests were run."):

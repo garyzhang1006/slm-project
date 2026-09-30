@@ -18,7 +18,7 @@ from cognition_slm.data import DataValidationError, _parse_json_line, _utf8_line
 def load_with_provenance(path: Path, source: str, license_name: str) -> list[dict]:
     """Validate records like load_jsonl, filling source and license only where a record has none."""
     if not path.exists():
-        raise FileNotFoundError(path)
+        raise FileNotFoundError(f"{path}: no such input file")
     records, seen_ids = [], set()
     for record_number, line in _utf8_lines(path):
         if not line.strip():
@@ -47,12 +47,15 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--license", dest="license_name", required=True,
                         help="License for records that do not name their own")
     args = parser.parse_args(argv)
-    records = load_with_provenance(Path(args.input), args.source, args.license_name)
-    output = Path(args.output)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    with output.open("w", encoding="utf-8") as handle:
-        for record in records:
-            handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+    try:
+        records = load_with_provenance(Path(args.input), args.source, args.license_name)
+        output = Path(args.output)
+        output.parent.mkdir(parents=True, exist_ok=True)
+        with output.open("w", encoding="utf-8") as handle:
+            for record in records:
+                handle.write(json.dumps(record, ensure_ascii=False) + "\n")
+    except (OSError, DataValidationError) as exc:
+        parser.error(str(exc))
     print(f"validated and wrote {len(records)} records to {output}")
 
 

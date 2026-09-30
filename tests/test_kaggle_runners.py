@@ -89,6 +89,20 @@ class PrepareDataTests(unittest.TestCase):
                                    "own": ("wiki-dump", "CC-BY-SA-4.0")})
 
 
+    def test_bad_input_is_a_usage_error(self):
+        prepare_data = runner("prepare_data")
+        with tempfile.TemporaryDirectory() as directory:
+            broken = Path(directory) / "broken.jsonl"
+            broken.write_text("{not json\n")
+            for path, message in ((Path(directory) / "missing.jsonl", "no such input file"), (broken, "broken.jsonl")):
+                with self.subTest(path=path.name), contextlib.redirect_stderr(io.StringIO()) as stderr:
+                    with self.assertRaises(SystemExit) as raised:
+                        prepare_data.main(["--input", str(path), "--output", str(Path(directory) / "out.jsonl"),
+                                           "--source", "project-synthetic", "--license", "CC0-1.0"])
+                    self.assertEqual(raised.exception.code, 2)
+                    self.assertIn(message, stderr.getvalue())
+
+
 class LongRunHorizonTests(unittest.TestCase):
     def test_stage_horizon_is_reachable_within_budget(self):
         long_run = runner("kaggle_long_run")

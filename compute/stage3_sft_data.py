@@ -2,8 +2,8 @@
 
 Sources: databricks-dolly-15k rows with short responses, first-turn English pairs from
 OpenAssistant/oasst1, and the project-authored rows in compute/short_facts.py. Every row whose
-prompt or answer overlaps data/simple_questions_holdout.json is dropped, so the holdout stays a
-fair test. Writes /kaggle/working/sft/sft_train.jsonl, sft_eval.jsonl and sft_manifest.json.
+prompt or answer overlaps data/simple_questions_holdout.json or data/everyday_eval.json is dropped,
+so both stay fair tests. Writes /kaggle/working/sft/sft_train.jsonl, sft_eval.jsonl and sft_manifest.json.
 """
 
 from __future__ import annotations

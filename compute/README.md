@@ -11,18 +11,22 @@ Nothing in this folder trains or downloads on your own machine. Every stage runs
 | corpus | `stage1_corpus.py` | `slm-160m-corpus` | CPU | yes | nothing |
 | pretrain | `stage2_pretrain.py` | `slm-160m-pretrain-<k>` | T4 | no | corpus, and pretrain session k-1 when k > 1 |
 | sft_data | `stage3_sft_data.py` | `slm-sft-data` | CPU | yes | nothing |
-| sft | `stage4_sft.py` | `slm-160m-sft` | T4 | no | last pretrain session, sft_data |
+| sft | `stage4_sft.py` | `slm-160m-sft` | T4 | no | last pretrain session, sft_data, distill_data |
 | eval | `stage5_evaluate.py` | `slm-160m-eval` | T4 | no | sft, corpus |
 | lora | `lora_baseline.py` | `slm-lora-baseline` | T4 | yes | sft_data |
+| distill_data | `distill_data.py` | `slm-distill-data` | T4 | yes | lora |
+| lora_eval | `lora_eval.py` | `slm-lora-eval` | T4 | yes | lora |
 | lora_1b7 | `lora_baseline.py --model 1.7b` | `slm-lora-1b7` | T4 | yes | sft_data |
 | lora_1b7_eval | `lora_eval.py` | `slm-lora-1b7-eval` | T4 | yes | lora_1b7 |
 
 - **corpus** streams FineWeb-Edu (`sample-10BT`, ODC-By) and TinyStories (CDLA-Sharing-1.0) at pinned revisions, keeps English text only, drops duplicates and anything matching the secret patterns in `cognition_slm.audit`, and holds out about 0.5% for evaluation. It writes `corpus/pretrain_train.jsonl`, `corpus/pretrain_eval.jsonl` and `corpus/corpus_manifest.json` with counts, byte totals, hashes and licenses.
 - **pretrain** trains the `slm-160m` preset (160,721,679 parameters, 2,048-byte context) with next-byte loss on the corpus. Each session stops after 11 hours, saves `artifacts/slm-160m-pretrain.pt`, and records its measured seconds per step, the step it reached and held-out bits per byte in `pretrain_session_<k>.json`. Session k resumes from session k-1.
-- **sft_data** builds short question and answer records: Dolly-15k (CC BY-SA 3.0) short answers, plus project-written rows from `compute/short_facts.py`: facts, arithmetic, word pairs, yes or no questions, short reading passages (some that leave the answer out, taught to say so), science, animal and color facts, unit and calendar counts, and "I don't know" refusals. A bare question gets the short answer, and a full sentence only when the prompt asks for one. Dolly questions answered with one short sentence get the same "Answer in a full sentence." cue appended, so no bare question is trained to a sentence. Any row that overlaps a question in `data/simple_questions_holdout.json` or `data/everyday_eval.json` is dropped, so both scores stay honest, and the project rows also leave out the facts those files ask. It writes `sft/sft_train.jsonl`, `sft/sft_eval.jsonl` and `sft/sft_manifest.json`.
-- **sft** fine-tunes the last pretrain checkpoint on those records at learning rate 1e-4 and writes `artifacts/slm-160m-sft.pt` with `sft_report.json`.
+- **sft_data** builds short question and answer records: Dolly-15k (CC BY-SA 3.0) short answers, English first-turn pairs from OpenAssistant oasst1 (Apache-2.0) with the best-ranked reply, plus project-written rows from `compute/short_facts.py`: facts, arithmetic, word pairs, yes or no questions, short reading passages (some that leave the answer out, taught to say so), science, animal and color facts, unit and calendar counts, and "I don't know" refusals. A bare question gets the short answer, and a full sentence only when the prompt asks for one. Dolly questions answered with one short sentence get the same "Answer in a full sentence." cue appended, so no bare question is trained to a sentence. Any row that overlaps a question in `data/simple_questions_holdout.json` or `data/everyday_eval.json` is dropped, so both scores stay honest, and the project rows also leave out the facts those files ask. It writes `sft/sft_train.jsonl`, `sft/sft_eval.jsonl` and `sft/sft_manifest.json`.
+- **sft** fine-tunes the last pretrain checkpoint on those records, plus the short answers from distill_data when that kernel is attached, at learning rate 1e-4 and writes `artifacts/slm-160m-sft.pt` with `sft_report.json`.
 - **eval** answers the 24 holdout questions and a fixed set of English probes greedily (temperature 0, at most 64 new tokens, stopping at a newline), scores them with `scripts/score_holdout.py`, measures held-out bits per byte, and writes `eval_report.json`. It also answers the 252 questions in `data/everyday_eval.json` and reports them under `everyday_eval_scores`, per category. The pass gate is holdout accuracy above the old 3/24.
 - **lora** fine-tunes `HuggingFaceTB/SmolLM2-360M-Instruct` (Apache-2.0, revision `a10cc1512eabd3dde888204e902eca88bddb4951`) with LoRA on the same `sft_train.jsonl`, drops any row that copies a question from either eval file again, scores it on the same holdout, and writes `lora_report.json` plus the adapter. It trains two epochs, about 1.3 hours at the measured 1.7 seconds a step, and keeps the checkpoint with the lowest held-out loss. A five epoch run did best near epoch 2 and only got worse after it.
+- **distill_data** has the lora adapter write short answers to Dolly questions whose human answers were too long for sft_data, screens them like stage 3 does, and writes `distill_train.jsonl` with `distill_manifest.json`, which records the adapter it used.
+- **lora_eval** scores the base SmolLM2 and the lora adapter on the 252 everyday questions and the holdout, and writes `lora_eval_report.json` with the `adapter_sha256` it scored.
 - **lora_1b7** runs the same runner on `HuggingFaceTB/SmolLM2-1.7B-Instruct` (Apache-2.0, revision `31b70e2e869a7173562077fd711b654946d38674`). The fp32 weights take about 6.8 GB of the T4's 16 GB, so it trains one epoch on micro-batches of 4 with gradient checkpointing, about 3.2 hours at the measured 9 seconds a step. A three epoch run did best near the end of epoch 1. Every adapter folder now holds `base_model.json`, which is how `lora_eval`, `distill_data` and Studio know which base model to load.
 - **lora_1b7_eval** scores the 1.7B base model and its adapter on the everyday questions and the holdout, like `lora_eval` does for the 360M model.
 
@@ -47,6 +51,8 @@ The step-based view agrees. One optimizer step is batch 8 × accumulation 4 × 2
 | sft | 1 to 2 |
 | eval | under 1 |
 | lora | about 1.3 of training (measured), plus setup and scoring |
+| distill_data | about 1 |
+| lora_eval | about 1 |
 | lora_1b7 | about 3.2 of training (measured), plus setup and scoring |
 | lora_1b7_eval | about 1 |
 

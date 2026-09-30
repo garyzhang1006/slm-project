@@ -10,7 +10,7 @@ import torch
 
 from .code_eval import assess_code
 from .data import encode_prompt, format_prompt, load_jsonl
-from .generate import generate_text, load_checkpoint
+from .generate import _device, generate_text, load_checkpoint
 
 
 def _normalize(text: str) -> str:
@@ -193,16 +193,6 @@ def evaluate(model, tokenizer, examples, *, max_new_tokens: int) -> dict:
         "code_metrics": code_metrics,
         "rows": rows,
     }
-
-
-def _device(name: str) -> torch.device:
-    if name == "auto":
-        if torch.cuda.is_available():
-            return torch.device("cuda")
-        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-            return torch.device("mps")
-        return torch.device("cpu")
-    return torch.device(name)
 
 
 def main() -> None:

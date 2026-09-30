@@ -33,16 +33,6 @@ def _import_torch():
     return torch
 
 
-def _device(torch, name: str):
-    if name == "auto":
-        if torch.cuda.is_available():
-            return torch.device("cuda")
-        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
-            return torch.device("mps")
-        return torch.device("cpu")
-    return torch.device(name)
-
-
 def _lr_scale(step: int, total_steps: int, warmup_steps: int) -> float:
     if warmup_steps > 0 and step < warmup_steps:
         return (step + 1) / warmup_steps
@@ -342,13 +332,14 @@ def train(args: argparse.Namespace) -> dict:
 
     if torch is None:
         torch = _import_torch()
+    from .generate import _device
     from .model import CognitionSLM
 
     random.seed(args.seed)
     torch.manual_seed(args.seed)
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(args.seed)
-    device = _device(torch, args.device)
+    device = _device(args.device)
     fused_adamw = getattr(args, "fused_adamw", False)
     if fused_adamw and device.type != "cuda":
         raise ValueError("--fused-adamw requires a CUDA device")

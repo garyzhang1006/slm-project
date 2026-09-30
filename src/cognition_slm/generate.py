@@ -264,7 +264,16 @@ def _device(name: str) -> torch.device:
         if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
             return torch.device("mps")
         return torch.device("cpu")
-    return torch.device(name)
+    # torch.device raises RuntimeError for a mistyped name, which no CLI catches, and accepts cuda or mps on a
+    # machine without them, which fails only once the checkpoint moves there.
+    try:
+        device = torch.device(name)
+    except RuntimeError as exc:
+        raise ValueError(f"--device {name!r} is not a torch device; use auto, cpu, cuda or mps") from exc
+    mps = hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
+    if (device.type == "cuda" and not torch.cuda.is_available()) or (device.type == "mps" and not mps):
+        raise ValueError(f"--device {name} is not available on this machine; use auto or cpu")
+    return device
 
 
 def main() -> None:

@@ -202,5 +202,25 @@ class DecodingOptionTests(unittest.TestCase):
         ])
 
 
+class DeviceTests(unittest.TestCase):
+    def test_unknown_or_missing_device_is_a_usage_error(self):
+        import io
+        from unittest.mock import patch
+        from cognition_slm.generate import _device, main
+
+        with self.assertRaisesRegex(ValueError, "'gpu' is not a torch device"):
+            _device("gpu")
+        with patch("torch.cuda.is_available", return_value=False), \
+                self.assertRaisesRegex(ValueError, "--device cuda:0 is not available"):
+            _device("cuda:0")
+        self.assertEqual(_device("cpu"), torch.device("cpu"))
+        argv = ["generate", "--checkpoint", "missing.pt", "--prompt", "Hi.", "--device", "gpu"]
+        with patch("sys.argv", argv), patch("sys.stderr", new_callable=io.StringIO) as stderr, \
+                self.assertRaises(SystemExit) as raised:
+            main()
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("not a torch device", stderr.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main()

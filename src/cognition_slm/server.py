@@ -40,6 +40,9 @@ STATIC_FILES = {
 class ModelRuntime:
     """Keep one model in memory and serialize inference requests."""
 
+    # format_prompt wraps the question in template tags, so a question may not contain them.
+    allows_template_tags = False
+
     def __init__(self, checkpoint: Path, device: str = "cpu", expected_parameters: int | None = None) -> None:
         self.checkpoint = checkpoint
         self.expected_parameters = expected_parameters
@@ -115,7 +118,7 @@ class ModelRuntime:
 
         from .generate import generate_ids, strip_stop_sequence
 
-        options, record = validate_request(request)
+        options, record = validate_request(request, allow_template_tags=self.allows_template_tags)
         prompt_ids = self.tokenizer.encode(format_prompt(record), add_eos=False)
         budget = len(prompt_ids) + options["max_new_tokens"]
         if budget > self.model.config.block_size:
@@ -145,7 +148,7 @@ class ModelRuntime:
         }
 
 
-def validate_request(request: dict) -> tuple[dict, object]:
+def validate_request(request: dict, allow_template_tags: bool = False) -> tuple[dict, object]:
     if not isinstance(request, dict):
         raise ValueError("Expected a JSON object.")
     allowed = {
@@ -192,7 +195,7 @@ def validate_request(request: dict) -> tuple[dict, object]:
         "id": "workbench", "prompt": request.get("prompt"), "answer": "placeholder",
         "task_type": request.get("task_type", "language_generation"), "confidence": 0.5,
         "error_category": "none", "source": "runtime", "license": "runtime",
-    })
+    }, allow_template_tags=allow_template_tags)
     return options, record
 
 
@@ -294,7 +297,7 @@ class WorkbenchHandler(BaseHTTPRequestHandler):
             if self.path == "/api/grounded":
                 self._json(200, source_excerpts(request))
                 return
-            validate_request(request)
+            validate_request(request, allow_template_tags=self.server.runtime.allows_template_tags)
         except (ValueError, UnicodeError, TimeoutError, RecursionError) as exc:
             self._json(400, {"error": str(exc)})
             return

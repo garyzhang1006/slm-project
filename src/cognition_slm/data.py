@@ -94,7 +94,9 @@ def _required_text(raw: dict[str, Any], field: str, record_number: int) -> str:
     return value
 
 
-def validate_record(raw: dict[str, Any], record_number: int = 0) -> CognitionExample:
+def validate_record(raw: dict[str, Any], record_number: int = 0, *,
+                    allow_template_tags: bool = False) -> CognitionExample:
+    """allow_template_tags is for a question that never passes through format_prompt, such as a LoRA chat prompt."""
     if not isinstance(raw, dict):
         raise DataValidationError(f"record {record_number}: expected JSON object")
     disallowed = sorted(DISALLOWED_FIELDS.intersection(raw))
@@ -110,7 +112,7 @@ def validate_record(raw: dict[str, Any], record_number: int = 0) -> CognitionExa
     answer = _required_text(raw, "answer", record_number)
     for field, value in (("prompt", prompt), ("answer", answer)):
         tag = next((tag for tag in TEMPLATE_TAGS if tag in value), None)
-        if tag:
+        if tag and not allow_template_tags:
             raise DataValidationError(
                 f"record {record_number}: {field} contains the template tag {tag}, which the prompt format reserves; remove it"
             )

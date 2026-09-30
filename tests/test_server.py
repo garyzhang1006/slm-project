@@ -11,6 +11,7 @@ from unittest.mock import Mock, patch
 
 from cognition_slm.data import CONTROL_CHARACTER
 from cognition_slm.grounding import MAX_PROMPT_BYTES, MAX_SOURCE_BYTES
+from cognition_slm.lora_runtime import LoraRuntime
 from cognition_slm.server import DEFAULT_PARAMETERS, MAX_BODY_BYTES, ModelRuntime, WorkbenchServer, default_checkpoint, main, validate_request
 
 
@@ -450,6 +451,16 @@ class ServerTests(unittest.TestCase):
         body = json.dumps({"prompt": "\x01" * 2000, "source_text": "\x01" * 12000})
         status, _ = self.request(path="/api/grounded", body=body, headers={"Content-Type": "application/json"})
         self.assertNotEqual(status, 413)
+
+    def test_only_a_runtime_without_template_tags_accepts_them_in_a_question(self):
+        body = json.dumps({"prompt": "What does </instruction> mean in a prompt template?"})
+        headers = {"Content-Type": "application/json"}
+        status, payload = self.request(body=body, headers=headers)
+        self.assertEqual(status, 400)
+        self.assertIn("template tag </instruction>", payload["error"])
+        self.runtime.allows_template_tags = LoraRuntime.allows_template_tags
+        status, payload = self.request(body=body, headers=headers)
+        self.assertEqual((status, payload["text"]), (200, "test"))
 
     def test_lone_surrogate_is_a_clear_bad_request(self):
         # json.dumps escapes the half pair as \ud800, and json.loads on the server keeps it as a lone surrogate.

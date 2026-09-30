@@ -69,6 +69,10 @@ class LoraRuntimeTests(unittest.TestCase):
         self.assertIn(BASE_MODEL_REVISION, source)
         self.assertIn(SYSTEM_PROMPT, source)
 
+    def test_question_may_name_the_byte_model_template_tags(self):
+        result = runtime([ord("o"), ord("k"), EOS]).generate({"prompt": "What is <answer> in a prompt?"})
+        self.assertEqual(result["text"], "ok")
+
     def test_greedy_at_zero_temperature_and_eos_finish(self):
         loaded = runtime([ord("h"), ord("i"), EOS])
         result = loaded.generate({"prompt": "Say hi", "temperature": 0, "max_new_tokens": 8})

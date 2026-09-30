@@ -37,6 +37,9 @@ class StopInAnswer:
 class LoraRuntime(ModelRuntime):
     """Same status, locking and request contract as ModelRuntime, backed by transformers and peft."""
 
+    # The chat template never uses format_prompt's tags, so a question may name them.
+    allows_template_tags = True
+
     def __init__(self, adapter: Path, device: str = "cpu") -> None:
         super().__init__(adapter, device)
         self.metadata = {"name": "SmolLM2-360M + LoRA", "checkpoint": adapter.name}
@@ -94,7 +97,7 @@ class LoraRuntime(ModelRuntime):
     def generate(self, request: dict) -> dict:
         import torch
 
-        options, record = validate_request(request)
+        options, record = validate_request(request, allow_template_tags=self.allows_template_tags)
         prompt_ids = self.prompt_ids(record.prompt)
         window = self.metadata.get("context_window") or 0
         if window and len(prompt_ids) + options["max_new_tokens"] > window:

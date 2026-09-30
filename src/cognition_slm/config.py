@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import asdict, dataclass
+import math
+from dataclasses import asdict, dataclass, fields
 from typing import Any
 
 
@@ -29,6 +30,8 @@ ERROR_CATEGORIES = (
 )
 
 ARCHITECTURES = ("legacy", "modern")
+# Every attention layer holds a block_size x block_size mask, which is 1 GiB at this size.
+MAX_BLOCK_SIZE = 32_768
 
 MODEL_PRESETS = {
     "demo": dict(block_size=2048, n_layer=2, n_head=4, n_embd=128, architecture="modern"),
@@ -57,10 +60,15 @@ class ModelConfig:
     error_categories: tuple[str, ...] = ERROR_CATEGORIES
 
     def validate(self) -> None:
+        # A checkpoint's JSON config can carry 2.0 or true where an int belongs, and bool is an int subclass.
+        for name in ("vocab_size", "block_size", "n_layer", "n_head", "n_embd"):
+            value = getattr(self, name)
+            if isinstance(value, bool) or not isinstance(value, int):
+                raise ValueError(f"{name} must be an integer, got {value!r}")
         if self.vocab_size != 259:
             raise ValueError("vocab_size must be exactly 259 for the byte tokenizer")
-        if self.block_size < 8:
-            raise ValueError("block_size must be at least 8")
+        if not 8 <= self.block_size <= MAX_BLOCK_SIZE:
+            raise ValueError(f"block_size must be between 8 and {MAX_BLOCK_SIZE}, got {self.block_size}")
         if self.n_layer < 1 or self.n_head < 1 or self.n_embd < 1:
             raise ValueError("n_layer, n_head, and n_embd must be positive")
         if self.n_embd % self.n_head:
@@ -69,8 +77,9 @@ class ModelConfig:
             raise ValueError("dropout must be in [0, 1)")
         if self.architecture not in ARCHITECTURES:
             raise ValueError(f"architecture must be one of {ARCHITECTURES}")
-        if self.rope_theta <= 0.0:
-            raise ValueError("rope_theta must be positive")
+        if (isinstance(self.rope_theta, bool) or not isinstance(self.rope_theta, (int, float))
+                or not 0.0 < self.rope_theta < math.inf):
+            raise ValueError(f"rope_theta must be a finite positive number, got {self.rope_theta!r}")
         if self.architecture == "modern" and (self.n_embd // self.n_head) % 2:
             raise ValueError("modern architecture requires an even attention head dimension")
 
@@ -80,6 +89,13 @@ class ModelConfig:
     @classmethod
     def from_dict(cls, raw: dict[str, Any]) -> "ModelConfig":
         values = dict(raw)
+        known = {item.name for item in fields(cls)}
+        unknown = sorted(str(key) for key in values if key not in known)
+        if unknown:
+            raise ValueError(
+                f"model config has unknown fields: {', '.join(unknown)}; "
+                "the checkpoint may come from a newer cognition_slm, so upgrade before loading it"
+            )
         # Historical checkpoints may omit these fields; never reinterpret their weights.
         values.setdefault("architecture", "legacy")
         values.setdefault("block_size", 256)

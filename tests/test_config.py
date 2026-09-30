@@ -45,3 +45,14 @@ class ConfigTests(unittest.TestCase):
         self.assertTrue(ModelConfig().scaled_residual_init)
         self.assertFalse(ModelConfig.from_dict({"n_layer": 1, "n_head": 2, "n_embd": 16}).scaled_residual_init)
         self.assertTrue(ModelConfig.from_dict(ModelConfig().to_dict()).scaled_residual_init)
+
+    def test_from_dict_rejects_malformed_checkpoint_configs(self):
+        base = {"n_layer": 1, "n_head": 2, "n_embd": 16}
+        for override, message in (({"block_size": 2 ** 31}, "block_size must be between"),
+                                  ({"block_size": 256.0}, "block_size must be an integer"),
+                                  ({"n_layer": True}, "n_layer must be an integer"),
+                                  ({"rope_theta": float("nan")}, "rope_theta must be a finite"),
+                                  ({"rope_theta": float("inf")}, "rope_theta must be a finite"),
+                                  ({"n_kv_head": 1}, "unknown fields: n_kv_head")):
+            with self.subTest(override=override), self.assertRaisesRegex(ValueError, message):
+                ModelConfig.from_dict({**base, **override})

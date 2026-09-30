@@ -230,11 +230,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     return args
 
 
+# The versions field of both 2026-09 lora_report.json files. An unpinned install takes whatever release is
+# newest on the day, so a rerun could train or score with different library code than the reported adapters.
+PINNED_VERSIONS = {"transformers": "5.0.0", "peft": "0.19.1", "accelerate": "1.13.0"}
+
+
 def ensure_dependencies() -> dict:
     """Kaggle images ship transformers; missing packages are installed because this stage has internet on."""
-    missing = [name for name in ("transformers", "peft", "accelerate") if importlib.util.find_spec(name) is None]
+    missing = [name for name in PINNED_VERSIONS if importlib.util.find_spec(name) is None]
     if missing:
-        subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", *missing], check=True)
+        pins = [f"{name}=={PINNED_VERSIONS[name]}" for name in missing]
+        subprocess.run([sys.executable, "-m", "pip", "install", "--quiet", *pins], check=True)
     # peft raises ImportError while wrapping layers when an old torchao is installed (Kaggle ships 0.10.0,
     # peft wants >0.16.0). This stage never quantizes, so removing torchao is safer than upgrading it
     # against the image's torch build.

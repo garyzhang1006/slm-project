@@ -39,6 +39,17 @@ class LoraBaselineTests(unittest.TestCase):
         self.assertIn("uninstall", calls[0])
         self.assertEqual(calls[0][-2:], ["--yes", "torchao"])
 
+    def test_missing_packages_install_the_versions_the_reported_adapters_used(self):
+        calls = []
+        present = {"transformers"}
+        with mock.patch.object(self.module.importlib.util, "find_spec",
+                               side_effect=lambda name: object() if name in present else None), \
+                mock.patch.object(self.module.subprocess, "run", side_effect=lambda cmd, **_: calls.append(cmd)), \
+                mock.patch("importlib.metadata.version", return_value="1.0"):
+            self.module.ensure_dependencies()
+        self.assertEqual(len(calls), 1)
+        self.assertEqual(calls[0][-2:], ["peft==0.19.1", "accelerate==1.13.0"])
+
     def test_left_pad_aligns_prompt_ends(self):
         ids, mask = self.module.left_pad([[5, 6, 7], [8]], pad_id=0)
         self.assertEqual(ids, [[5, 6, 7], [0, 0, 8]])

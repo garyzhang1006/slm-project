@@ -24,7 +24,7 @@ _UNITS = {word: index for index, word in enumerate(
 _TENS = {word: 10 * index for index, word in enumerate(
     "twenty thirty forty fifty sixty seventy eighty ninety".split(), start=2)}
 # A minus sign counts only when no word or digit comes right before it, so "3-4" stays two numbers.
-_TOKENS = re.compile(r"(?:(?<!\w)-)?\d+(?:\.\d+)?|[^\W\d_]+")
+_TOKENS = re.compile(r"(?:(?<!\w)-)?(?:\d+(?:\.\d+)?|(?<![\w.])\.\d+)|[^\W\d_]+")
 _GROUPED = re.compile(r"\b\d{1,3}(?:,\d{3})+\b")
 # Subscript digits spell the same number, so CO₂ reads as CO2. Superscripts stay, since 5² is not 52.
 _SUBSCRIPTS = str.maketrans("₀₁₂₃₄₅₆₇₈₉", "0123456789")
@@ -32,6 +32,15 @@ _MERIDIEM = re.compile(r"\b([ap])\. ?m\b\.?")
 _CLOCK = re.compile(r"\b(\d{1,2}):00\b")
 # Spelled numbers continue only across spaces and hyphens, so "One hundred. Ten decades" stays two numbers.
 _JOINER = re.compile(r"[\s-]*")
+
+
+def _decimal(token: str) -> str:
+    """"8.00" as 8 and ".5" as 0.5, so trailing zeros and a missing leading zero keep the number's value."""
+    whole, _, fraction = token.partition(".")
+    fraction = fraction.rstrip("0")
+    if whole in ("", "-"):
+        whole += "0"
+    return f"{whole}.{fraction}" if fraction else whole
 
 
 def _below_100(tokens: list[str], i: int) -> tuple[int, int] | None:
@@ -80,7 +89,7 @@ def normalize_answer(text: str) -> str:
     for match in _TOKENS.finditer(text):
         if end is None or not _JOINER.fullmatch(text, end, match.start()):
             phrases.append([])
-        phrases[-1].append(match.group())
+        phrases[-1].append(_decimal(match.group()) if "." in match.group() else match.group())
         end = match.end()
     result = []
     for tokens in phrases:

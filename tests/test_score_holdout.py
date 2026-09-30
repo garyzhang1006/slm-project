@@ -29,6 +29,13 @@ class ScoreHoldoutTests(unittest.TestCase):
         self.assertEqual(normalize("Apple,  banana, PEAR!"), "apple banana pear")
         self.assertEqual(normalize("She doesn’t."), "she doesnt")
         self.assertEqual(normalize("3.5 cups"), "3.5 cups")
+        # Trailing zeros do not change a number, so "$8.00" answers 8 and "3.50" is 3.5.
+        self.assertEqual(normalize("He pays $8.00, or 3.50, or 10.0"), "he pays 8 or 3.5 or 10")
+        # A leading dot is a decimal point, so ".5" is a half and never 5.
+        self.assertEqual([normalize(text) for text in (".5", "-.5", "1.2.3")], ["0.5", "-0.5", "1.2 3"])
+        rows = {row["id"]: row for row in json.loads((ROOT / "data/everyday_eval.json").read_text())["rows"]}
+        self.assertEqual(self.module.score_answer(rows["everyday-v1-193"], "$8.00"), {"exact": True, "contains": True})
+        self.assertEqual(self.module.score_answer(rows["everyday-v1-015"], ".5"), {"exact": False, "contains": False})
         # A sign flips the value, so "-25" must not match 25; a dash between words or numbers is not a sign.
         self.assertEqual(normalize("-25."), "-25")
         self.assertEqual(normalize("40 - 15 = 25, or 3-4"), "40 15 25 or 3 4")

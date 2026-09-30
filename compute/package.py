@@ -75,6 +75,11 @@ def prepare(stage: str, output: Path, owner: str = OWNER, session: int | None = 
     # Validates the session before any file work, so a bad flag writes nothing.
     metadata = kernel_metadata(stage, owner, session, pretrain_session)
     runner = STAGES[stage]["runner"]
+    # source_files globs these folders, so a run.py or JSON written into one would ship in the next payload.
+    for folder in ("compute", "data", "src/cognition_slm"):
+        if output.resolve().is_relative_to((root / folder).resolve()):
+            raise ValueError(f"--out {output} is inside {folder}/, which is packaged; "
+                             "choose a folder outside it, such as /tmp/slm-kernel")
     files = source_files(root, runner)
     manifest = {str(path.relative_to(root)): hashlib.sha256(path.read_bytes()).hexdigest() for path in files}
     buffer = io.BytesIO()

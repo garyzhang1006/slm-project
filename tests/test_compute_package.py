@@ -145,6 +145,17 @@ class PackageTests(unittest.TestCase):
                     package.main(argv)
             self.assertFalse(out.exists())
 
+    def test_output_inside_a_packaged_folder_is_refused(self):
+        # A run.py left in compute/ or JSON left in data/ would ship inside the next stage's payload.
+        package = module("package")
+        with tempfile.TemporaryDirectory() as directory:
+            root = fake_root(Path(directory) / "project", "compute/stage3_sft_data.py")
+            for out in (root / "compute", root / "compute" / "kernel", root / "data"):
+                with self.subTest(out=out), self.assertRaisesRegex(ValueError, "outside"):
+                    package.prepare("sft_data", out, root=root)
+            self.assertFalse((root / "compute" / "run.py").exists())
+            self.assertFalse((root / "data" / "kernel-metadata.json").exists())
+
     def test_missing_runner_is_reported(self):
         package = module("package")
         with tempfile.TemporaryDirectory() as directory:

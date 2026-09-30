@@ -152,10 +152,16 @@ def dig(value, keys: tuple[str, ...]):
 
 
 def current_adapter(status, report) -> str | None:
-    """adapter_sha256 of the finished LoRA kernel, or None while it is missing, running, or from an older runner."""
+    """adapter_sha256 of the finished LoRA kernel, or None while it is missing, running, from an older runner,
+    or trained on an older sft_data build that lora_action is about to replace."""
     if status(stage_slug("lora")) != "complete":
         return None
-    return dig(report(stage_slug("lora"), "lora_report.json"), ("adapter_sha256",))
+    lora_report = report(stage_slug("lora"), "lora_report.json")
+    adapter = dig(lora_report, ("adapter_sha256",))
+    if not adapter:
+        return None
+    stale, blocked = stale_training_data(report, lora_report)
+    return None if stale or blocked else adapter
 
 
 def follow_up_fresh(status, report, stage: str, adapter: str | None) -> bool | None:

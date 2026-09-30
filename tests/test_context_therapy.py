@@ -246,6 +246,22 @@ class ContextTherapyTests(unittest.TestCase):
             self.assertEqual(raised.exception.code, 2)
             self.assertIn("cannot write --output", stderr.getvalue())
 
+    def test_cli_errors_name_the_flag(self):
+        # assess() names its keyword arguments, so "--goal ' '" printed "focus must be non-empty text".
+        with tempfile.TemporaryDirectory() as directory:
+            conversation = Path(directory) / "ctx.json"
+            conversation.write_text(json.dumps([{"role": "user", "content": "Use Python."}]))
+            for flags, message in ((["--goal", " "], "--goal must be non-empty text"),
+                                   (["--goal", "x" * 100_001], "--goal exceeds 100000 characters"),
+                                   (["--token-budget", "0"], "--token-budget must be positive")):
+                with self.subTest(message=message):
+                    stderr = StringIO()
+                    argv = ["context-therapist", "--input", str(conversation), *flags]
+                    with patch("sys.argv", argv), redirect_stdout(StringIO()), patch("sys.stderr", stderr):
+                        with self.assertRaises(SystemExit):
+                            main()
+                    self.assertIn(message, stderr.getvalue())
+
     def test_cli_refuses_to_write_the_report_over_its_input(self):
         with tempfile.TemporaryDirectory() as directory:
             conversation = Path(directory) / "ctx.json"

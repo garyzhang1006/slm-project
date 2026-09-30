@@ -630,6 +630,13 @@ def main() -> None:
     parser.add_argument("--goal")
     parser.add_argument("--output")
     args = parser.parse_args()
+    # assess() would reject these too, but its errors name its keyword arguments rather than the flags.
+    if args.goal is not None and not args.goal.strip():
+        parser.error("--goal must be non-empty text")
+    if args.goal is not None and len(args.goal) > MAX_MESSAGE_CHARS:
+        parser.error(f"--goal exceeds {MAX_MESSAGE_CHARS} characters; shorten it")
+    if args.token_budget is not None and args.token_budget < 1:
+        parser.error("--token-budget must be positive")
     if args.output and args.input != "-" and Path(args.output).resolve() == Path(args.input).resolve():
         parser.error("--output must differ from --input, or writing it would replace the conversation")
     try:

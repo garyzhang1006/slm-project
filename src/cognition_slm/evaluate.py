@@ -210,9 +210,15 @@ def main() -> None:
     parser.add_argument("--max-new-tokens", type=int, default=96)
     parser.add_argument("--device", default="auto")
     args = parser.parse_args()
-    device = _device(args.device)
-    model, tokenizer = load_checkpoint(args.checkpoint, device)
-    results = evaluate(model, tokenizer, load_jsonl(args.data), max_new_tokens=args.max_new_tokens)
+    if args.max_new_tokens < 1:
+        parser.error(f"--max-new-tokens must be positive, got {args.max_new_tokens}")
+    # Reading the data before the checkpoint keeps a bad --data path from waiting on a model load.
+    try:
+        examples = load_jsonl(args.data)
+        model, tokenizer = load_checkpoint(args.checkpoint, _device(args.device))
+        results = evaluate(model, tokenizer, examples, max_new_tokens=args.max_new_tokens)
+    except (OSError, ValueError) as exc:
+        parser.error(str(exc))
     print(json.dumps(results, indent=2))
 
 

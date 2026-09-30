@@ -94,6 +94,42 @@ class EvaluationTests(unittest.TestCase):
                 evaluate(model, tokenizer, [self._example(id="short"), exact], max_new_tokens=1)
         generate.assert_not_called()
 
+    def test_cli_rejects_bad_arguments_before_loading_the_checkpoint(self):
+        from io import StringIO
+        from unittest.mock import patch
+        from cognition_slm.evaluate import main
+
+        cases = [
+            (["--max-new-tokens", "0"], {"return_value": [self._example()]}, "--max-new-tokens must be positive"),
+            ([], {"side_effect": FileNotFoundError("eval.jsonl")}, "eval.jsonl"),
+        ]
+        for extra, loaded, message in cases:
+            with self.subTest(message=message):
+                argv = ["evaluate", "--checkpoint", "model.pt", "--data", "eval.jsonl", *extra]
+                stderr = StringIO()
+                with patch("sys.argv", argv), patch("sys.stderr", stderr), \
+                        patch("cognition_slm.evaluate.load_jsonl", **loaded), \
+                        patch("cognition_slm.evaluate.load_checkpoint") as load:
+                    with self.assertRaises(SystemExit):
+                        main()
+                load.assert_not_called()
+                self.assertIn(message, stderr.getvalue())
+
+    def test_cli_reports_checkpoint_load_errors_without_a_traceback(self):
+        from io import StringIO
+        from unittest.mock import patch
+        from cognition_slm.evaluate import main
+
+        argv = ["evaluate", "--checkpoint", "model.pt", "--data", "eval.jsonl", "--device", "cpu"]
+        stderr = StringIO()
+        with patch("sys.argv", argv), patch("sys.stderr", stderr), \
+                patch("cognition_slm.evaluate.load_jsonl", return_value=[self._example()]), \
+                patch("cognition_slm.evaluate.load_checkpoint",
+                      side_effect=ValueError("checkpoint must be a dictionary")):
+            with self.assertRaises(SystemExit):
+                main()
+        self.assertIn("checkpoint must be a dictionary", stderr.getvalue())
+
 
 if __name__ == "__main__":
     unittest.main()

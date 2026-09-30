@@ -50,6 +50,15 @@ class PrepareKaggleTests(unittest.TestCase):
             metadata = json.loads((Path(directory) / "kernel-metadata.json").read_text())
         self.assertEqual(metadata["kernel_sources"], ["someone/slm-500m-english-code-quality-v2"])
 
+    def test_launcher_bundles_into_a_private_folder(self):
+        # A fixed folder in shared /tmp may already belong to another local user, who could swap the bundle.
+        launcher = ROOT / "scripts" / "launch_500m_kaggle.sh"
+        if not launcher.exists():
+            self.skipTest("launch_500m_kaggle.sh is not packaged here")
+        source = launcher.read_text()
+        self.assertIn('OUTPUT_DIR="${3:-$(mktemp -d', source)
+        self.assertNotIn("/tmp/slm-kaggle-500m-quality}", source)
+
 
 class LongRunHorizonTests(unittest.TestCase):
     def test_stage_horizon_is_reachable_within_budget(self):

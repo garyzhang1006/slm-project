@@ -88,7 +88,11 @@ def _terms(text: str) -> set[str]:
         if _TIME.fullmatch(word):
             # "9:30 am" keeps 9 and 30 and adds 9am, so it still matches a bare 9 but ranks above "9:30 pm".
             meridiem = word.replace(".", "")[-2] + "m"
-            terms |= set(re.findall(r"\d+", word)) | {hour + meridiem for hour in _HOUR.findall(word)}
+            hours = _HOUR.findall(word)
+            # The am or pm follows the last hour, so a first hour past it, as in "11-1 pm", is in the other half of the day.
+            if len(hours) == 2 and int(hours[0]) % 12 > int(hours[1]) % 12:
+                terms.add(hours.pop(0) + ("pm" if meridiem == "am" else "am"))
+            terms |= set(re.findall(r"\d+", word)) | {hour + meridiem for hour in hours}
         elif word not in _STOP:
             terms.add(_stem(_IRREGULAR.get(word, word)))
     return terms

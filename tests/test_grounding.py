@@ -136,6 +136,15 @@ class GroundingTests(unittest.TestCase):
                 self.assertEqual(self.answer(prompt, f"{first}\n\n{second}")["sources"][0]["text"], second)
         self.assertFalse(self.answer("Is it open at 9:00 am?", "Open from 9 am to 8 pm.")["abstained"])
 
+    def test_clock_ranges_that_cross_noon_start_in_the_other_half_of_the_day(self):
+        # "11-1 pm" gave 11 the pm, so a lunch-time range ranked first for a late-night question.
+        for prompt, first, second in (("Which room is free at 11 pm?", "Room A is free 11-1 pm for lunch meetings.",
+                                       "Room B is free at 11 pm for the late study group."),
+                                      ("Which room is free at 11 am?", "Room B is free at 11 pm for the late study group.",
+                                       "Room A is free 11-1 pm for lunch meetings.")):
+            with self.subTest(prompt=prompt):
+                self.assertEqual(self.answer(prompt, f"{first}\n\n{second}")["sources"][0]["text"], second)
+
     def test_contracted_pronouns_are_not_topics(self):
         # "i'm", "i've" and "where'd" stayed topics, so questions matched fewer of their terms and abstained.
         for prompt, passage in (("I'm looking for printing costs", "Printing costs 10 cents per page."),

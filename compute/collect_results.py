@@ -97,7 +97,7 @@ def lora_sections(name: str, lora: dict | None, lora_eval: dict | None, rescored
         for key, scores in rescored.items():
             lines.append(f"- {key}: base {exact(scores['base'])} exact and {contains(scores['base'])} contains, "
                          f"LoRA {exact(scores['lora'])} exact and {contains(scores['lora'])} contains")
-        lines += ["", "Exact means the whole reply is an accepted answer. Contains means an accepted answer appears "
+        lines += ["", "Exact means the whole reply is an accepted answer, or sentences that each are one. Contains means an accepted answer appears "
                   "as whole words in the reply, which credits full-sentence answers such as \"Water freezes at 0 "
                   "degrees Celsius.\" but can also credit a reply that names the answer and then contradicts it.",
                   "", "| category | base exact | LoRA exact | base contains | LoRA contains | scored |",

@@ -134,8 +134,11 @@ def score_answer(row: dict, answer: str) -> dict | None:
         # Only alphabetic single words of 3+ letters: "no" -> "nos" or "7" -> "7s" would add noise, not recall.
         accepted += sorted({form for expected in accepted if expected.isalpha() and len(expected) >= 3
                             for form in inflections(expected)})
+    # A reply made only of accepted answers, such as "I don't know. You haven't told me.", says nothing else.
+    sentences = [normalize_answer(part) for part in re.split(r"(?<=[.!?])\s+", answer.strip())]
+    exact = predicted in accepted or (len(sentences) > 1 and all(sentence in accepted for sentence in sentences))
     # Whole-token containment, so "3" does not match inside "13".
-    return {"exact": predicted in accepted,
+    return {"exact": exact,
             "contains": any(f" {expected} " in padded for expected in accepted)}
 
 

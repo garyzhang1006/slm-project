@@ -79,6 +79,23 @@ class ScoreHoldoutTests(unittest.TestCase):
         self.assertTrue(self.module.score_answer(row, "A kitten")["contains"])
         self.assertIsNone(self.module.score_answer({"category": "unknown", "expected_rubric": "x"}, "x"))
 
+    def test_a_reply_made_only_of_accepted_answers_is_exact(self):
+        # "I don't know. You haven't told me." joins two accepted refusals, yet it scored contains and never exact.
+        refusal = {"id": "r", "category": "abstain", "expected_rubric": "I don't know",
+                   "accepted_answers": ["I don't know", "you haven't told me"]}
+        self.assertEqual(self.module.score_answer(refusal, "I don't know. You haven't told me."),
+                         {"exact": True, "contains": True})
+        self.assertFalse(self.module.score_answer(refusal, "I don't know your name. You haven't told me.")["exact"])
+        self.assertFalse(self.module.score_answer({"id": "x", "category": "math", "expected_rubric": "3"}, "3. It is 4.")["exact"])
+
+    def test_everyday_keys_accept_the_common_forms_of_their_answer(self):
+        # v1-143 took "the Atlantic Ocean" but not "Atlantic Ocean", and v1-185 took "five" but not "5 pm".
+        everyday = {row["id"]: row for row in json.loads((ROOT / "data/everyday_eval.json").read_text())["rows"]}
+        for key, answer in (("everyday-v1-143", "Atlantic Ocean"), ("everyday-v1-143", "The Atlantic."),
+                            ("everyday-v1-185", "5 pm"), ("everyday-v1-185", "5 p.m.")):
+            with self.subTest(key=key, answer=answer):
+                self.assertTrue(self.module.score_answer(everyday[key], answer)["exact"])
+
     def test_inflected_answers_match_except_where_form_is_tested(self):
         horse = {"id": "h", "category": "colors_animals", "expected_rubric": "neigh",
                  "accepted_answers": ["neigh", "whinny"]}

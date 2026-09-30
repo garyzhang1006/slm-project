@@ -14,7 +14,8 @@ BASE_MODEL_REVISION = "a10cc1512eabd3dde888204e902eca88bddb4951"
 SYSTEM_PROMPT = "You are a helpful assistant. Answer in plain English with a short, direct reply."
 # compute/lora_baseline.py writes this next to the adapter; older adapters without it are 360M.
 BASE_MODEL_FILE = "base_model.json"
-# Below this temperature, sampling is replaced with greedy decoding, as in generate.py.
+# Below this temperature, sampling is replaced with greedy decoding. generate.py has its own, lower floor
+# (GREEDY_TEMPERATURE_FLOOR) for the in-house model; the two runtimes do not share a cutoff.
 GREEDY_BELOW = 1e-3
 
 

@@ -453,6 +453,15 @@ class SftDataTests(unittest.TestCase):
         eval_groups = {int(record["id"][1:]) // 3 for record in evaluation}
         self.assertFalse(eval_groups & {int(record["id"][1:]) // 3 for record in train})
 
+    def test_a_question_asked_bare_and_with_the_cue_shares_one_group(self):
+        # sft_data v9 held out "What is a computer?" while "what is a computer? Answer in a full sentence." trained.
+        cue = short_facts.SENTENCE_CUE
+        rows = [("dolly:0", {"prompt": "What is a computer?" + cue}), ("dolly:1", {"prompt": "what is a computer?"}),
+                ("short:noun", {"prompt": "What is a noun?"}), ("dolly:2", {"prompt": "Name a verb."}),
+                ("oasst:p", {"prompt": "What is a noun?" + cue}), ("short:noun", {"prompt": "Name a verb." + cue})]
+        self.assertEqual([group for group, _ in sft.merge_cue_twins(rows)],
+                         ["dolly:0", "dolly:0", "short:noun", "short:noun", "short:noun", "short:noun"])
+
     def test_build_sft_is_disjoint_and_valid(self):
         dolly = [{"instruction": "How many days are in one week?", "context": "", "response": "7"},
                  {"instruction": "What is the capital of France?", "context": "", "response": "Paris, of course."},

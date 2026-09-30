@@ -168,6 +168,36 @@ def filter_rows(rows: list[tuple[str, dict]], stems: list[str], holdout_prompts:
     return kept
 
 
+def question_key(prompt: str) -> str:
+    """The audit's prompt key without SENTENCE_CUE, so a question asked bare and with the cue is one question."""
+    from cognition_slm.audit import _prompt_key
+
+    return _prompt_key(prompt.removesuffix(short_facts.SENTENCE_CUE))
+
+
+def merge_cue_twins(rows: list[tuple[str, dict]]) -> list[tuple[str, dict]]:
+    """Give a question asked bare and with SENTENCE_CUE one split group, the earliest group involved.
+
+    Separate groups let sft_data v9 hold out "What is a computer?" while its cued twin trained.
+    """
+    parent: dict[str, str] = {}
+    order: dict[str, int] = {}
+
+    def root(group: str) -> str:
+        while parent.setdefault(group, group) != group:
+            group = parent[group]
+        return group
+
+    first: dict[str, str] = {}
+    for group, record in rows:
+        order.setdefault(group, len(order))
+        twin = root(first.setdefault(question_key(record["prompt"]), group))
+        earlier, later = sorted((twin, root(group)), key=order.__getitem__)
+        if earlier != later:
+            parent[later] = earlier
+    return [(root(group), record) for group, record in rows]
+
+
 def _hash(text: str) -> int:
     return int(hashlib.sha256(text.encode("utf-8")).hexdigest()[:16], 16)
 
@@ -205,7 +235,7 @@ def build_sft(dolly_raws, oasst_raws, holdout_prompts: list[str]) -> tuple[list[
     ordered = by_source[short_facts.SOURCE] + [row for name, rows in by_source.items()
                                                 if name != short_facts.SOURCE for row in rows]
     kept = filter_rows(ordered, stems, holdout_prompts, stats["dropped"])
-    train, evaluation = split_rows(kept)
+    train, evaluation = split_rows(merge_cue_twins(kept))
     stats["train"], stats["eval"] = {}, {}
     for split, records in (("train", train), ("eval", evaluation)):
         for record in records:

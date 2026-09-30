@@ -14,7 +14,7 @@ from .generate import _device, generate_text, load_checkpoint
 
 
 def _normalize(text: str) -> str:
-    text = re.sub(r"```(?:python)?", "", text, flags=re.IGNORECASE)
+    text = re.sub(r"```(?:python|py)?", "", text, flags=re.IGNORECASE)
     # Indentation and line breaks are significant in Python answers.
     return text.strip()
 

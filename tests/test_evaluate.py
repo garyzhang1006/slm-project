@@ -14,6 +14,8 @@ class EvaluationTests(unittest.TestCase):
 
         self.assertNotEqual(_normalize("def f():\n    return 1"), _normalize("def f():\nreturn 1"))
         self.assertEqual(_normalize("```python\ndef f():\n    return 1\n```"), "def f():\n    return 1")
+        # code_eval reads a py fence as Python, so exact match strips it too.
+        self.assertEqual(_normalize("```py\ndef f():\n    return 1\n```"), "def f():\n    return 1")
 
     def test_classification_metrics_report_confusion_and_calibration(self):
         from cognition_slm.evaluate import classification_metrics

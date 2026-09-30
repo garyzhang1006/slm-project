@@ -633,7 +633,7 @@ function newSession() {
 // outside code each < that opens a tag is escaped. Backslashes right before it are doubled, or the first
 // would escape the second and leave the tag live; a backslash before a backtick keeps it from opening a span.
 const escapeHtml = (line) => line.replace(/\\`|(`+)[^]*?\1|\\*<(?=[A-Za-z/!?])/g, (match) => (match.endsWith("<") ? `${match.slice(0, -1).replace(/\\/g, "\\\\")}\\<` : match));
-// A question is plain text, so its heading escapes every character Markdown would read as markup.
+// A question, an error or a setting is plain text, so it escapes every character Markdown would read as markup.
 const escapeMarkdown = (text) => text.replace(/[\\`*_[\]<&~#]/g, "\\$&");
 
 function markdownAnswer(text) {
@@ -667,7 +667,7 @@ function markdownAnswer(text) {
 
 function transcript() {
   const model = state.status?.model?.name;
-  const lines = ["# slm studio", "", `${model ? `${model}, saved` : "Saved"} ${new Date().toLocaleString()}`];
+  const lines = ["# slm studio", "", `${model ? `${escapeMarkdown(model)}, saved` : "Saved"} ${new Date().toLocaleString()}`];
   // Blank lines only separate blocks, so a block never adds a second one; text inside an answer is left as it is.
   const add = (...items) => { for (const item of items) if (item !== "" || lines.at(-1) !== "") lines.push(item); };
   for (const run of runs) {
@@ -677,7 +677,7 @@ function transcript() {
     answers.forEach((answer, index) => {
       if (answers.length > 1) add(`**Answer ${index + 1} of ${answers.length}**`, "");
       const response = answer.response;
-      if (answer.error) add(`*${answer.error}*`, "");
+      if (answer.error) add(`*${escapeMarkdown(answer.error)}*`, "");
       else if (run.grounded) {
         const sources = response.abstained ? [] : response.sources || [];
         if (!sources.length) add("*No passage in the text matched the question.*", "");
@@ -688,7 +688,7 @@ function transcript() {
         const fence = "`".repeat(Math.max(3, ...(text.match(/`+/g) || []).map((ticks) => ticks.length + 1)));
         const [plain, dangling] = markdownAnswer(text);
         add(...(!text ? ["*No text.*"] : answer.code ? [fence, text, fence] : dangling ? [plain, dangling] : [plain]), "");
-        add(`*${plural(response.generated_tokens, "token")} · ${Number(response.elapsed_seconds).toFixed(1)}s · ${describeSettings(answer.options, answer.custom)}*`, "");
+        add(`*${plural(response.generated_tokens, "token")} · ${Number(response.elapsed_seconds).toFixed(1)}s · ${escapeMarkdown(describeSettings(answer.options, answer.custom))}*`, "");
       }
     });
   }

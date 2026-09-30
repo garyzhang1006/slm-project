@@ -340,8 +340,11 @@ class StudioAssetTests(unittest.TestCase):
         # inline tag such as the <String> in List<String> vanishes, in answers and in quoted passages alike.
         self.assertIn("return code ? line : escapeHtml(line);", script)
         self.assertIn('source.text.split("\\n").map(escapeHtml).join("\\n> ")', script)
-        # A question is plain text, so its heading shows *args and List<String> as typed.
+        # Questions, errors, settings and the model name are plain text, so *args and <answer> show as typed.
         self.assertIn('add("", `## ${escapeMarkdown(run.prompt.replace(/\\s+/g, " "))}`, "");', script)
+        self.assertIn('if (answer.error) add(`*${escapeMarkdown(answer.error)}*`, "");', script)
+        self.assertIn("${escapeMarkdown(describeSettings(answer.options, answer.custom))}*", script)
+        self.assertIn("${model ? `${escapeMarkdown(model)}, saved` : \"Saved\"}", script)
         self.assertIn("const [plain, dangling] = markdownAnswer(text);", script)
         self.assertIn("answer.code ? [fence, text, fence] : dangling ? [plain, dangling] : [plain]", script)
         node = shutil.which("node")

@@ -167,6 +167,18 @@ def follow_up_fresh(status, report, stage: str, adapter: str | None) -> bool | N
     return None if found is None else dig(found, keys) == adapter
 
 
+def stale_training_data(report, lora_report: dict) -> tuple[bool, dict | None]:
+    """Whether an adapter trained on an older sft_data build, or the decision to make when that is unknown."""
+    manifest = report(stage_slug("sft_data"), "sft_manifest.json")
+    if manifest is None:
+        return False, unreadable("sft_manifest.json", "sft_data")
+    train = dig(manifest, ("files", "train", "sha256"))
+    if not train:
+        # Retraining could never match a manifest without the hash, so it would loop.
+        return False, action("stop", "sft_manifest.json records no train sha256; push sft_data again")
+    return dig(lora_report, ("data", "train", "sha256")) != train, None
+
+
 def lora_action(status, report, quota_hours: float) -> dict:
     """One decision for the LoRA chain: sft_data, lora, then lora_eval and distill_data on the same adapter."""
     data = status(stage_slug("sft_data"))
@@ -191,13 +203,19 @@ def lora_action(status, report, quota_hours: float) -> dict:
         return action("stop", f"lora report status is {lora_report.get('status')!r}")
     adapter = lora_report.get("adapter_sha256")
     followers = {stage: status(stage_slug(stage)) for stage in LORA_FOLLOW_UPS}
-    if not adapter:
+    stale = not adapter
+    if adapter:
+        stale, blocked = stale_training_data(report, lora_report)
+        if blocked:
+            return blocked
+    if stale:
         # A new lora version replaces the output that queued follow-ups would mount, so let them finish first.
         busy = [stage for stage, state in followers.items() if state in WAITING]
         if busy:
             return action("wait", f"the adapter needs retraining once {', '.join(busy)} finishes")
-        return push_if_quota("lora", quota_hours, "the adapter predates best-step selection and the merged "
-                             "export, so it has no adapter_sha256")
+        return push_if_quota("lora", quota_hours, "the adapter trained on an older sft_data build" if adapter else
+                             "the adapter predates best-step selection and the merged export, so it has no "
+                             "adapter_sha256")
 
     waiting, stopped = [], []
     for stage, state in followers.items():
@@ -238,9 +256,14 @@ def large_lora_action(status, report, quota_hours: float) -> dict:
     adapter = lora_report.get("adapter_sha256")
     if lora_report.get("status") != "complete_pending_manual_review" or not adapter:
         return action("stop", f"lora_1b7 report status is {lora_report.get('status')!r}")
+    stale, blocked = stale_training_data(report, lora_report)
+    if blocked:
+        return blocked
     evaluation = status(stage_slug("lora_1b7_eval"))
     if evaluation in WAITING:
         return action("wait", f"lora_1b7_eval is {evaluation}")
+    if stale:
+        return push_if_quota("lora_1b7", quota_hours, "lora_1b7 trained on an older sft_data build")
     fresh = evaluation == "complete" and follow_up_fresh(status, report, "lora_1b7_eval", adapter)
     if fresh is None:
         return unreadable("lora_eval_report.json", "lora_1b7_eval")

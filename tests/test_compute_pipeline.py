@@ -14,7 +14,10 @@ DONE = {"status": "complete", "step_reached": 22889}
 
 
 ADAPTER = "ab" * 32
-LORA_DONE = {"status": "complete_pending_manual_review", "adapter_sha256": ADAPTER}
+TRAIN = "cd" * 32
+LORA_DONE = {"status": "complete_pending_manual_review", "adapter_sha256": ADAPTER,
+             "data": {"train": {"sha256": TRAIN}}}
+SFT_DATA = {("slm-sft-data", "sft_manifest.json"): {"files": {"train": {"sha256": TRAIN}}}}
 FRESH_FOLLOW_UPS = {("slm-lora-eval", "lora_eval_report.json"): {"adapter_sha256": ADAPTER},
                     ("slm-distill-data", "distill_manifest.json"): {"teacher": {"adapter_sha256": ADAPTER}}}
 
@@ -81,9 +84,10 @@ class DecisionTests(unittest.TestCase):
                    ("slm-lora-baseline", "lora_report.json"): LORA_DONE, **FRESH_FOLLOW_UPS}
         self.assertEqual(decide(statuses, reports)["kind"], "wait")
         lora = {**LoraChainTests.READY, "slm-lora-eval": "complete", "slm-distill-data": "complete"}
-        self.assertEqual(decide_lora(lora, {("slm-lora-baseline", "lora_report.json"): LORA_DONE})["kind"], "wait")
+        self.assertEqual(decide_lora(lora, {("slm-lora-baseline", "lora_report.json"): LORA_DONE, **SFT_DATA})["kind"],
+                         "wait")
         large = {"slm-sft-data": "complete", "slm-lora-1b7": "complete", "slm-lora-1b7-eval": "complete"}
-        self.assertEqual(decide(large, {("slm-lora-1b7", "lora_report.json"): LORA_DONE},
+        self.assertEqual(decide(large, {("slm-lora-1b7", "lora_report.json"): LORA_DONE, **SFT_DATA},
                                 chooser=run_pipeline.large_lora_action)["kind"], "wait")
 
     def test_sft_then_eval_then_done(self):
@@ -162,7 +166,7 @@ class LoraChainTests(unittest.TestCase):
         self.assertEqual(decide_lora(self.READY, failed)["kind"], "stop")
 
     def test_follow_ups_rerun_on_a_new_adapter(self):
-        reports = {("slm-lora-baseline", "lora_report.json"): LORA_DONE}
+        reports = {("slm-lora-baseline", "lora_report.json"): LORA_DONE, **SFT_DATA}
         self.assertEqual(decide_lora(self.READY, reports)["stage"], "lora_eval")
         statuses = {**self.READY, "slm-lora-eval": "running"}
         self.assertEqual(decide_lora(statuses, reports)["stage"], "distill_data")
@@ -173,6 +177,31 @@ class LoraChainTests(unittest.TestCase):
         reports.update(FRESH_FOLLOW_UPS)
         self.assertEqual(decide_lora(statuses, reports)["kind"], "done")
         self.assertEqual(decide_lora({**statuses, "slm-distill-data": "error"}, reports)["kind"], "stop")
+
+    def test_adapters_retrain_when_sft_data_is_rebuilt(self):
+        # A re-pushed sft_data (a changed split or holdout screen) leaves both adapters trained on the old rows.
+        statuses = {**self.READY, "slm-lora-eval": "complete", "slm-distill-data": "complete"}
+        reports = {("slm-lora-baseline", "lora_report.json"): LORA_DONE, **FRESH_FOLLOW_UPS, **SFT_DATA}
+        self.assertEqual(decide_lora(statuses, reports)["kind"], "done")
+        rebuilt = {**reports, ("slm-sft-data", "sft_manifest.json"): {"files": {"train": {"sha256": "new"}}}}
+        result = decide_lora(statuses, rebuilt)
+        self.assertEqual((result["kind"], result["stage"]), ("push", "lora"))
+        busy = decide_lora({**statuses, "slm-distill-data": "running"}, rebuilt)
+        self.assertEqual(busy["kind"], "wait")
+        self.assertIn("distill_data", busy["reason"])
+        unread = {key: value for key, value in reports.items() if key[0] != "slm-sft-data"}
+        self.assertEqual(decide_lora(statuses, unread)["kind"], "wait")
+        no_hash = {**reports, ("slm-sft-data", "sft_manifest.json"): {"files": {}}}
+        self.assertEqual(decide_lora(statuses, no_hash)["kind"], "stop")
+        large = {"slm-sft-data": "complete", "slm-lora-1b7": "complete", "slm-lora-1b7-eval": "complete"}
+        large_reports = {("slm-lora-1b7", "lora_report.json"): LORA_DONE, **SFT_DATA,
+                         ("slm-lora-1b7-eval", "lora_eval_report.json"): {"adapter_sha256": ADAPTER}}
+        self.assertEqual(decide(large, large_reports, chooser=run_pipeline.large_lora_action)["kind"], "done")
+        large_reports.update(rebuilt)
+        result = decide(large, large_reports, chooser=run_pipeline.large_lora_action)
+        self.assertEqual((result["kind"], result["stage"]), ("push", "lora_1b7"))
+        large["slm-lora-1b7-eval"] = "running"
+        self.assertEqual(decide(large, large_reports, chooser=run_pipeline.large_lora_action)["kind"], "wait")
 
     def test_round_shares_quota_and_stops_when_main_needs_a_stopped_lora_chain(self):
         statuses = {"slm-160m-corpus": "complete", "slm-160m-pretrain-1": "complete", "slm-sft-data": "complete"}
@@ -200,7 +229,7 @@ class LargeLoraChainTests(unittest.TestCase):
         self.assertEqual(decide(statuses, quota=4.0, chooser=large)["kind"], "wait")
         statuses["slm-lora-1b7"] = "complete"
         self.assertEqual(decide(statuses, chooser=large)["kind"], "wait")  # report not readable yet
-        reports = {("slm-lora-1b7", "lora_report.json"): LORA_DONE}
+        reports = {("slm-lora-1b7", "lora_report.json"): LORA_DONE, **SFT_DATA}
         self.assertEqual(decide(statuses, reports, chooser=large)["stage"], "lora_1b7_eval")
         statuses["slm-lora-1b7-eval"] = "complete"
         reports[("slm-lora-1b7-eval", "lora_eval_report.json")] = {"adapter_sha256": "old"}

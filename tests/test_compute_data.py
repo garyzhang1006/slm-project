@@ -297,6 +297,22 @@ class ShortFactTests(unittest.TestCase):
         group = {row["prompt"]: row["group"] for row in short_facts.short_fact_rows()}
         self.assertEqual(group["Loud is the opposite of what?"], group["Quiet is the opposite of what?"])
 
+    def test_both_directions_of_a_neighbor_fact_share_a_split_group(self):
+        # "after Monday" and "before Tuesday" state one fact; separate groups let the eval split hold one out.
+        group = {row["prompt"]: row["group"] for row in short_facts.short_fact_rows()}
+        for forward, backward in (
+            ("What day comes after Thursday?", "What day comes before Friday?"),
+            ("What day comes after Thursday?", "Today is Friday. What day was it yesterday?"),
+            ("What month comes after June?", "Which month is right before July? Reply with one word."),
+            ("What number comes right after 41?", "What number comes just before 42?"),
+            ("Which letter comes after K in the alphabet?", "Which letter comes before L in the alphabet?"),
+            ("It is 3 o'clock now. What time will it be in 4 hours?",
+             "It is 7 o'clock now. What time was it 4 hours ago?"),
+        ):
+            with self.subTest(forward=forward):
+                self.assertEqual(group[forward], group[backward])
+        self.assertNotEqual(group["What day comes after Thursday?"], group["What day comes before Thursday?"])
+
     def test_counting_rows_skip_the_eval_neighbors(self):
         answer = {row["prompt"]: row["answer"] for row in short_facts.short_fact_rows()}
         self.assertEqual(answer["Today is Thursday. What day will it be the day after tomorrow?"], "Saturday")

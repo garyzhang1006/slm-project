@@ -502,6 +502,13 @@ def _row(prompt: str, answer: str, category: str, group: str) -> dict:
     return {"prompt": prompt, "answer": answer, "category": category, "group": group}
 
 
+def _pair(kind: str, first, second) -> str:
+    """Group for a neighbor fact, keyed by both neighbors in order, so "after Monday" and "before
+    Tuesday" share it. Keying by the asked item split them, and the eval split held one out while the
+    other trained. Grouping by the item instead would chain every neighbor of a week into one group."""
+    return f"{kind}-pair:{first}:{second}"
+
+
 def arithmetic_rows() -> list[dict]:
     cases = []
     for a in range(13):
@@ -563,12 +570,14 @@ def calendar_rows() -> list[dict]:
         for index, name in enumerate(names):
             after, before, group = names[(index + 1) % len(names)], names[index - 1], f"{unit}:{name}"
             if (name, after) not in EVERYDAY_NEIGHBORS:
-                rows += [_row(f"What {unit} comes after {name}?", after, "fact", group),
-                         _row(f"Which {unit} follows {name}? Reply with one word.", after, "fact", group)]
+                pair = _pair(unit, name, after)
+                rows += [_row(f"What {unit} comes after {name}?", after, "fact", pair),
+                         _row(f"Which {unit} follows {name}? Reply with one word.", after, "fact", pair)]
             if (before, name) not in EVERYDAY_NEIGHBORS:
-                rows += [_row(f"What {unit} comes before {name}?", before, "fact", group),
+                pair = _pair(unit, before, name)
+                rows += [_row(f"What {unit} comes before {name}?", before, "fact", pair),
                          _row(f"Which {unit} is right before {name}? Reply with one word.", before, "fact",
-                              group)]
+                              pair)]
             rows.append(_row(f"What is {unit} number {index + 1} of the {scope}?", name, "fact", group))
     rows += [
         _row("Name the days of the week in order, starting with Monday.", ", ".join(DAYS),
@@ -639,9 +648,10 @@ def counting_rows() -> list[dict]:
         after, before = DAYS[(index + 1) % 7], DAYS[index - 1]
         group = f"today:{day}"
         if (day, after) not in EVERYDAY_NEIGHBORS:
-            rows.append(_row(f"Today is {day}. What day is tomorrow?", after, "fact", group))
+            rows.append(_row(f"Today is {day}. What day is tomorrow?", after, "fact", _pair("day", day, after)))
         if (before, day) not in EVERYDAY_NEIGHBORS:
-            rows.append(_row(f"Today is {day}. What day was it yesterday?", before, "fact", group))
+            rows.append(_row(f"Today is {day}. What day was it yesterday?", before, "fact",
+                             _pair("day", before, day)))
         rows += [
             _row(f"Today is {day}. What day will it be the day after tomorrow?", DAYS[(index + 2) % 7], "fact",
                  group),
@@ -710,11 +720,13 @@ def number_rows() -> list[dict]:
             _row(f"Is {number} odd or even?", "even" if number % 2 == 0 else "odd", "math", group),
         ]
         if number < 100:
-            rows.append(_row(f"What number comes right after {number}?", str(number + 1), "math", group))
+            pair = _pair("number", number, number + 1)
+            rows.append(_row(f"What number comes right after {number}?", str(number + 1), "math", pair))
             rows.append(_row(f"Count up by one from {number}. What comes next?", str(number + 1), "math",
-                             group))
+                             pair))
         if number > 0:
-            rows.append(_row(f"What number comes just before {number}?", str(number - 1), "math", group))
+            rows.append(_row(f"What number comes just before {number}?", str(number - 1), "math",
+                             _pair("number", number - 1, number)))
     # 16 is skipped because data/everyday_eval.json asks 16 + 16, and 6 because the holdout asks 2 * 6.
     for number in (value for value in range(1, 51) if value not in (6, 16)):
         rows += [
@@ -732,12 +744,11 @@ def clock_rows() -> list[dict]:
             if (hour, delta) in ((12, 2), (9, 3)):
                 continue
             later, earlier = (hour + delta - 1) % 12 + 1, (hour - delta - 1) % 12 + 1
-            group = f"clock:{hour}"
             rows += [
                 _row(f"It is {hour} o'clock now. What time will it be in {delta} hours?",
-                     f"{later} o'clock", "math", group),
+                     f"{later} o'clock", "math", _pair("clock", hour, later)),
                 _row(f"It is {hour} o'clock now. What time was it {delta} hours ago?",
-                     f"{earlier} o'clock", "math", group),
+                     f"{earlier} o'clock", "math", _pair("clock", earlier, hour)),
             ]
     return rows
 
@@ -851,10 +862,10 @@ def letter_rows() -> list[dict]:
         group = f"letter:{letter}"
         if index + 1 < len(LETTERS):
             rows.append(_row(f"Which letter comes after {letter} in the alphabet?", LETTERS[index + 1],
-                             "english", group))
+                             "english", _pair("letter", letter, LETTERS[index + 1])))
         if index > 0:
             rows.append(_row(f"Which letter comes before {letter} in the alphabet?", LETTERS[index - 1],
-                             "english", group))
+                             "english", _pair("letter", LETTERS[index - 1], letter)))
         if letter != "Y":  # Y can be either, so it gets no vowel question.
             rows.append(_row(f"Is the letter {letter} a vowel or a consonant?",
                              "vowel" if letter in "AEIOU" else "consonant", "english", group))

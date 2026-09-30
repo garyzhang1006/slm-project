@@ -29,6 +29,13 @@ class LoraBaselineTests(unittest.TestCase):
         for name in ("torch", "transformers", "peft"):
             self.assertNotIn(name, vars(self.module))
 
+    def test_english_probes_are_not_training_prompts(self):
+        from compute import short_facts
+        from compute.stage3_sft_data import question_key
+
+        trained = {question_key(row["prompt"]) for row in short_facts.short_fact_rows()}
+        self.assertEqual([prompt for prompt in self.module.ENGLISH_PROBES if question_key(prompt) in trained], [])
+
     def test_dependencies_remove_incompatible_torchao(self):
         calls = []
         with mock.patch.object(self.module.importlib.util, "find_spec", return_value=object()), \

@@ -32,16 +32,17 @@ STOP = ("\n",)
 # Every SFT record from stage 3 and distill_data carries this tag, so the holdout's two code_explanation
 # rows are asked the way the model was trained rather than under a tag it never saw.
 TASK_TYPE = "language_generation"
-# Everyday requests outside the holdout; rubrics guide the manual read, and looks_english is automatic.
+# Everyday requests outside the holdout, worded unlike any training prompt so they test phrasing the model has
+# not seen; rubrics guide the manual read, and looks_english is automatic.
 ENGLISH_PROBES = (
     ("probe-01", "Say hello to a new friend in one short sentence.", "a friendly English greeting"),
-    ("probe-02", "What color is the sky on a clear day? Reply with one word.", "blue"),
+    ("probe-02", "What color is the sky on a sunny day with no clouds? Reply with one word.", "blue"),
     ("probe-03", "Name a fruit that is yellow. Reply with one word.", "banana or lemon"),
-    ("probe-04", "What is 2 plus 2? Reply with the number.", "4"),
-    ("probe-05", "Give the opposite of cold. Reply with one word.", "hot or warm"),
+    ("probe-04", "How much is 2 plus 2? Reply with the number.", "4"),
+    ("probe-05", "Tell me the opposite of cold in one word.", "hot or warm"),
     ("probe-06", "Write one sentence about a dog.", "a grammatical sentence about a dog"),
-    ("probe-07", "What day comes after Monday?", "Tuesday"),
-    ("probe-08", "Give the plural of cat. Reply with one word.", "cats"),
+    ("probe-07", "Which day of the week follows Monday?", "Tuesday"),
+    ("probe-08", "What word means more than one cat? Reply with one word.", "cats"),
     ("probe-09", "What is your favorite color? I have not told you mine.", "any color; must not claim to know the user's"),
     ("probe-10", "Where do fish live? Answer in one short sentence.", "in water"),
     ("probe-11", "Finish the sentence: The sun rises in the", "east"),

@@ -40,13 +40,14 @@ TARGET_MODULES = ("q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj"
 SYSTEM_PROMPT = "You are a helpful assistant. Answer in plain English with a short, direct reply."
 # The custom checkpoint answered 3 of the 24 holdout questions correctly before this pipeline existed.
 PREVIOUS_CUSTOM_CORRECT = 3
+# Worded unlike any training prompt, so the answers show phrasing the adapter has not seen.
 ENGLISH_PROBES = (
-    "What color is the sky on a clear day?",
+    "What color is the sky on a sunny day with no clouds?",
     "Write one sentence about a dog.",
-    "What is the opposite of hot?",
-    "What is the plural of mouse?",
-    "What day comes after Monday?",
-    "What is my name?",
+    "Tell me the opposite of hot.",
+    "What word means more than one mouse?",
+    "Which day of the week follows Monday?",
+    "Can you tell me what my name is?",
 )
 IGNORE_INDEX = -100
 HOLDOUT_FILE = "data/simple_questions_holdout.json"

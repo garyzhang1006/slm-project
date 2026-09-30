@@ -223,6 +223,15 @@ class EvaluateTests(unittest.TestCase):
         self.assertEqual(len({identifier for identifier, _, _ in evaluate.ENGLISH_PROBES}), len(prompts))
         self.assertFalse(holdout & set(prompts))
 
+    def test_probes_are_not_training_prompts(self):
+        # Five probes repeated short_facts prompts word for word, so they measured recall of trained rows.
+        from compute import short_facts
+        from compute.stage3_sft_data import question_key
+
+        trained = {question_key(row["prompt"]) for row in short_facts.short_fact_rows()}
+        self.assertEqual([identifier for identifier, prompt, _ in evaluate.ENGLISH_PROBES
+                          if question_key(prompt) in trained], [])
+
     def test_eval_asks_with_the_task_tag_sft_trains_on(self):
         # The holdout tags two rows code_explanation, a prompt prefix no SFT record carries.
         from compute.stage3_sft_data import sft_record

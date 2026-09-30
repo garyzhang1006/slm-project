@@ -86,6 +86,18 @@ class QualityRunTests(unittest.TestCase):
             self.assertIn("step 1 loss 2.0", text)
             self.assertIn("RuntimeError: loss is NaN", text)
 
+    def test_50m_runner_keeps_training_log(self):
+        # A captured subprocess hides the traceback when training fails, so the 50M runner streams to a log
+        # through the 500M helpers, and its bundle must ship them.
+        prepare = runner("prepare_kaggle")
+        source = (ROOT / "scripts" / "kaggle_quality_run.py").read_text()
+        self.assertIn("from kaggle_500m_quality_run import _final_training_report, _run_logged", source)
+        self.assertNotIn("capture_output", source)
+        with tempfile.TemporaryDirectory() as directory, contextlib.redirect_stdout(io.StringIO()):
+            prepare.prepare(Path(directory), "someone", "slug", "kaggle_quality_run.py")
+            manifest = set(json.loads((Path(directory) / "source-manifest.json").read_text()))
+        self.assertIn("scripts/kaggle_500m_quality_run.py", manifest)
+
 
 class QARunHoldoutTests(unittest.TestCase):
     def test_holdout_spans_passages_before_repeating_one(self):

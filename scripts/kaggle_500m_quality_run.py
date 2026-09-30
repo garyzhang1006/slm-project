@@ -80,7 +80,7 @@ def _run_logged(command: list[str], log_path: Path) -> None:
                 log.flush()
                 print(line, end="", flush=True)
             if process.wait() != 0:
-                raise RuntimeError(f"500M training failed; see {log_path.name}")
+                raise RuntimeError(f"Training failed; see {log_path.name}")
 
 
 def main() -> None:

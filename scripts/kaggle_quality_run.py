@@ -5,7 +5,6 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
-import subprocess
 import sys
 import time
 
@@ -29,6 +28,7 @@ def main() -> None:
     os.environ["OMP_NUM_THREADS"] = "2"
     started = time.monotonic()
     from build_curriculum_data import build_rows, write_jsonl
+    from kaggle_500m_quality_run import _final_training_report, _run_logged
 
     curriculum_train = root / "artifacts/curriculum_train.jsonl"
     curriculum_eval = root / "artifacts/curriculum_eval.jsonl"
@@ -55,7 +55,8 @@ def main() -> None:
         "--warmup-steps", "100", "--save-every", "200", "--eval-every", "300",
         "--log-every", "100", "--seed", "11",
     ]
-    training = subprocess.run(command, check=True, capture_output=True, text=True)
+    log_path = root / "quality_training.log"
+    _run_logged(command, log_path)
     model, tokenizer = load_checkpoint(checkpoint, torch.device("cuda"))
     probes = {
         "hi": generate_text(
@@ -100,9 +101,7 @@ def main() -> None:
             max_new_tokens=96, temperature=0, top_k=0,
         ),
     }
-    output_lines = training.stdout.splitlines()
-    final_json_line = max(index for index, line in enumerate(output_lines) if line == "{")
-    training_report = json.loads("\n".join(output_lines[final_json_line:]))
+    training_report = _final_training_report(log_path.read_text())
     report = {
         "kernel_purpose": "Studio quality checkpoint; project-authored synthetic English and Python curriculum",
         "torch": torch.__version__,

@@ -42,6 +42,7 @@ def prepare(output: Path, owner: str, slug: str, runner: str) -> None:
         files.append(ROOT / "scripts" / "kaggle_english_run.py")
     if runner == "kaggle_long_run.py" or efficient:
         files.append(ROOT / "scripts" / "kaggle_qa_run.py")
+    if runner in {"kaggle_long_run.py", "kaggle_quality_run.py"} or efficient:
         files.append(ROOT / "scripts" / "kaggle_500m_quality_run.py")
     if efficient:
         files.append(ROOT / "scripts" / "kaggle_long_run.py")

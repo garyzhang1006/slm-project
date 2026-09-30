@@ -411,6 +411,14 @@ def train(args: argparse.Namespace) -> dict:
     if data_changed:
         # The old sample position indexes a permutation of different rows.
         sample_offset = 0
+    if checkpoint is not None and sample_offset:
+        # samples_seen indexes the seed's epoch permutations; another seed would repeat and skip records.
+        saved_seed = metadata.get("seed")
+        if isinstance(saved_seed, int) and saved_seed != args.seed:
+            raise ValueError(
+                f"--seed {args.seed} differs from checkpoint seed {saved_seed}; pass --seed {saved_seed} "
+                "to continue its sample stream without repeating or skipping records"
+            )
     if start_step >= args.steps:
         raise ValueError(f"--steps must exceed checkpoint step {start_step}")
     scheduler = torch.optim.lr_scheduler.LambdaLR(

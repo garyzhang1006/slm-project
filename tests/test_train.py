@@ -188,6 +188,15 @@ class TrainingIntegrationTests(unittest.TestCase):
         groups = saved["optimizer_state_dict"]["param_groups"]
         self.assertEqual([group["weight_decay"] for group in groups], [0.1, 0.0])
 
+    def test_resume_rejects_a_different_seed_mid_stream(self):
+        from cognition_slm.train import train
+
+        parent = train(self.args("parent.pt", steps=1, seed=7))
+        with self.assertRaisesRegex(ValueError, "--seed 8 differs from checkpoint seed 7; pass --seed 7"):
+            train(self.args("rejected.pt", resume=parent["checkpoint"], steps=2, seed=8))
+        resumed = train(self.args("resumed.pt", resume=parent["checkpoint"], steps=2, seed=7))
+        self.assertEqual(resumed["resumed_from_step"], 1)
+
     def test_resume_continues_sample_stream_from_checkpoint(self):
         import torch
         from cognition_slm.train import train

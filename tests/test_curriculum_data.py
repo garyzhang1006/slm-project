@@ -35,6 +35,16 @@ class CurriculumDataTests(unittest.TestCase):
 
         self.assertEqual(prompts("train") & prompts("eval"), set())
 
+    def test_code_prompts_keep_the_description_verb_grammatical(self):
+        # Descriptions start with "returns" or "counts", so "it should returns" was broken English.
+        from scripts.build_curriculum_data import BINARY_SPECS, LIST_SPECS, UNARY_SPECS
+
+        verbs = {spec[-1].split()[0] for spec in UNARY_SPECS + BINARY_SPECS + LIST_SPECS}
+        for row in build_rows("train") + build_rows("eval"):
+            for verb in verbs:
+                self.assertNotIn(f"should {verb}", row["prompt"])
+                self.assertNotIn(f" to {verb}", row["prompt"])
+
     def test_explicit_binary_signatures_match_answers(self):
         for split in ("train", "eval"):
             for row in build_rows(split):

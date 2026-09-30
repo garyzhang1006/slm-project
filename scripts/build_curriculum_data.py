@@ -197,14 +197,14 @@ def _language_rows(split: str) -> list[dict[str, object]]:
 
 def _code_rows(split: str) -> list[dict[str, object]]:
     rows: list[dict[str, object]] = []
-    unary_wordings = ("Write a Python function named {name} that {description}.", "Implement {name} in Python; it should {description}.", "Give Python code for a function that {description}.", "Create a small Python helper that {description}.")
+    unary_wordings = ("Write a Python function named {name} that {description}.", "Implement {name} in Python so that it {description}.", "Give Python code for a function that {description}.", "Create a small Python helper that {description}.")
     if split == "eval":
         unary_wordings = ("Provide the implementation of {name}: a Python function that {description}.",)
     for spec_index, (name, argument, expression, description) in enumerate(UNARY_SPECS):
         answer = f"def {name}({argument}):\n    return {expression}"
         for wording_index, wording in enumerate(unary_wordings):
             rows.append(_row(f"{split}-python-unary-{spec_index}-{wording_index}", wording.format(name=name, description=description), answer, "code_generation"))
-    binary_wordings = ("Write {name}({left}, {right}) in Python to {description}.", "Implement a Python function called {name} that {description}.", "Generate Python code for {name}; it should {description}.")
+    binary_wordings = ("Write {name}({left}, {right}) in Python so that it {description}.", "Implement a Python function called {name} that {description}.", "Generate Python code for {name}, a function that {description}.")
     if split == "eval":
         binary_wordings = ("Supply Python code defining {name}({left}, {right}), which {description}.",)
     for spec_index, (name, left, right, expression, description) in enumerate(BINARY_SPECS):

@@ -148,7 +148,9 @@ function syncComposer() {
   const sourceBytes = bytes($("source-text").value);
   const questionBytes = bytes($("prompt").value.trim());
   const sourceOverflow = grounded && (sourceBytes > LIMITS.source || questionBytes > LIMITS.question);
-  const overflow = !grounded && Boolean(context) && count + config.max_new_tokens > context;
+  // promptTokens counts byte tokens. A BPE model such as SmolLM2 with LoRA needs far fewer, so for those the
+  // page would block questions that fit, and the server's own token check decides instead.
+  const overflow = !grounded && customModel() && Boolean(context) && count + config.max_new_tokens > context;
   const validK = Number.isInteger(config.top_k) && config.top_k >= 0 && config.top_k <= 259;
   const validStops = !config.stop_sequences || (config.stop_sequences.length <= 4 && config.stop_sequences.every((item) => encoder.encode(item).length <= 64));
   const busy = Boolean(state.status?.busy);
@@ -177,7 +179,7 @@ function syncComposer() {
   $("source-count").classList.toggle("over", sourceBytes > LIMITS.source);
   $("source-clear").hidden = !sourceBytes;
   // The count stays hidden until a limit is close, so short questions get a quiet composer.
-  const [used, limit, unit] = grounded ? [questionBytes, LIMITS.question, "bytes"] : [count, context ? Math.max(context - config.max_new_tokens, 0) : 0, "tokens"];
+  const [used, limit, unit] = grounded ? [questionBytes, LIMITS.question, "bytes"] : [count, context && customModel() ? Math.max(context - config.max_new_tokens, 0) : 0, "tokens"];
   const near = limit > 0 && used > limit * 0.8;
   $("token-count").textContent = near ? `${used.toLocaleString()} / ${limit.toLocaleString()} ${unit}` : "";
   $("token-count").classList.toggle("over", near && used > limit);

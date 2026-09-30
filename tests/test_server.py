@@ -197,6 +197,12 @@ class StudioAssetTests(unittest.TestCase):
         # Source-excerpt requests carry only the prompt and reference text.
         self.assertIn("grounded ? { prompt: run.prompt, source_text: run.source_text }", script)
 
+    def test_byte_token_limits_apply_only_to_byte_level_models(self):
+        script = (self.web / "app.js").read_text()
+        # promptTokens counts bytes, which overcounts a BPE model's tokens, so LoRA models are checked by the server.
+        self.assertIn("const overflow = !grounded && customModel() && Boolean(context)", script)
+        self.assertIn("[count, context && customModel() ? Math.max(context - config.max_new_tokens, 0) : 0,", script)
+
     def test_notices_clear_when_their_cause_changes(self):
         script = (self.web / "app.js").read_text()
         clear = '$("source-text").addEventListener("input", () => { state.notice = null; });'

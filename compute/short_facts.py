@@ -648,7 +648,8 @@ def calendar_rows() -> list[dict]:
         _row("Name the days of the week in order, starting with Monday.", ", ".join(DAYS),
              "fact", "day:list"),
         _row("List the months of the year in order.", ", ".join(MONTHS), "fact", "month:list"),
-        _row("What is the first month of the year?", "January", "fact", "month:first"),
+        # The same question as "month number 1", so it shares that group.
+        _row("What is the first month of the year?", "January", "fact", "month:January"),
     ]
     return rows
 

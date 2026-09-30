@@ -374,6 +374,11 @@ class ShortFactTests(unittest.TestCase):
                 self.assertEqual(group[forward], group[backward])
         self.assertNotEqual(group["What day comes after Thursday?"], group["What day comes before Thursday?"])
 
+    def test_both_wordings_of_the_first_month_share_a_split_group(self):
+        # "first month" and "month number 1" ask one question; separate groups let the eval split hold one out.
+        group = {row["prompt"]: row["group"] for row in short_facts.short_fact_rows()}
+        self.assertEqual(group["What is the first month of the year?"], group["What is month number 1 of the year?"])
+
     def test_both_orders_of_a_sum_product_or_comparison_share_a_split_group(self):
         group = {row["prompt"]: row["group"] for row in short_facts.short_fact_rows()}
         for first, second in (("What is 2 + 5?", "What is 5 + 2?"), ("What is 4 x 6?", "What is 6 x 4?"),

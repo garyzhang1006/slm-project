@@ -329,7 +329,8 @@ NATURE_FACTS = (
     ("white", ("What color is table salt?",)),
 )
 # (number, phrasings) for units, shapes and counts; the units, shapes and months data/everyday_eval.json
-# asks about (leap years, centuries, hexagons, April and so on) are left out.
+# asks about (leap years, centuries, hexagons, April and so on) are left out. _facts does not read these
+# rows, so none may state an eval product: two dogs' 8 legs is the 2 x 4 of the eval's four apples at 2 dollars.
 COUNT_FACTS = (
     ("1000", ("How many meters are in one kilometer?",)),
     ("1000", ("How many milliliters are in one liter?",)),
@@ -342,7 +343,7 @@ COUNT_FACTS = (
     ("0", ("How many corners does a circle have?",)),
     ("6", ("How many faces does a cube have?",)),
     ("1", ("How many wheels does a unicycle have?",)),
-    ("8", ("How many legs do two dogs have in total?",)),
+    ("6", ("How many legs do three chickens have in total?",)),
     ("6", ("How many eyes do three people have altogether?",)),
     ("20", ("How many toes do two people have altogether?",)),
 )

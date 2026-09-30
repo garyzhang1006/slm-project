@@ -331,6 +331,24 @@ class ShortFactTests(unittest.TestCase):
         # Subtraction keeps its order: 7 - 2 and 7 - 5 are different facts.
         self.assertNotEqual(group["What is 7 - 2?"], group["What is 7 - 5?"])
 
+    def test_every_form_of_one_arithmetic_fact_shares_a_split_group(self):
+        # Separate groups let the eval split hold out 2 + 2 while double 2 trains.
+        rows = short_facts.short_fact_rows()
+        group = {row["prompt"]: row["group"] for row in rows}
+        for first, second in (("What is 2 + 2?", "What is double 2?"), ("What is 2 x 10?", "What is double 10?"),
+                              ("What is 11 - 1?", "What number comes just before 11?"),
+                              ("What is 1 + 9?", "What number comes right after 9?"),
+                              ("What is 5 + 12?", "Ivan has 12 stickers and finds 5 more. "
+                                                  "How many stickers does Ivan have now?")):
+            with self.subTest(first=first):
+                self.assertEqual(group[first], group[second])
+        self.assertNotEqual(group["What is 7 + 5?"], group["What is 7 + 6?"])
+        # Merging stays local: no group grows past a few facts' worth of rows.
+        sizes = {}
+        for row in rows:
+            sizes[row["group"]] = sizes.get(row["group"], 0) + 1
+        self.assertLess(max(sizes.values()), 40)
+
     def test_counting_rows_skip_the_eval_neighbors(self):
         answer = {row["prompt"]: row["answer"] for row in short_facts.short_fact_rows()}
         self.assertEqual(answer["Today is Thursday. What day will it be the day after tomorrow?"], "Saturday")

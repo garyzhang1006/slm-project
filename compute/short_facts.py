@@ -534,6 +534,24 @@ EVAL_FACTS = {_fact(operation, a, b) for table in (HOLDOUT_ARITHMETIC, EVERYDAY_
               for operation, pairs in table.items() for a, b in pairs}
 
 
+def _merge_fact_groups(rows: list[dict]) -> list[dict]:
+    """Give groups that state one fact, such as double 2 and 2 + 2, one split group, the smallest name."""
+    parent: dict[str, str] = {}
+
+    def root(group: str) -> str:
+        while parent.setdefault(group, group) != group:
+            group = parent[group]
+        return group
+
+    owner: dict[tuple, str] = {}
+    for row in rows:
+        for fact in _facts(row["group"]):
+            first, second = root(owner.setdefault(fact, row["group"])), root(row["group"])
+            if first != second:
+                parent[max(first, second)] = min(first, second)
+    return [dict(row, group=root(row["group"])) for row in rows]
+
+
 def arithmetic_rows() -> list[dict]:
     cases = []
     for a in range(13):
@@ -1009,4 +1027,4 @@ def short_fact_rows() -> list[dict]:
         if key not in seen and not _facts(row["group"]) & EVAL_FACTS:
             seen.add(key)
             unique.append(row)
-    return unique
+    return _merge_fact_groups(unique)

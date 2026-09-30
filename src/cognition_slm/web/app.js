@@ -38,7 +38,7 @@ function readStore(area, key) {
 }
 
 function writeStore(area, key, value) {
-  try { window[area].setItem(key, JSON.stringify(value)); } catch { /* Studio works without storage. */ }
+  try { window[area].setItem(key, JSON.stringify(value)); return true; } catch { return false; }
 }
 
 function savedTheme() {
@@ -567,10 +567,20 @@ $("prompt-form").addEventListener("submit", (event) => {
 // The conversation lasts as long as the tab: a refresh keeps it, closing the tab clears it.
 function saveThread() {
   const keep = ({ options, custom, code, response, error, status, interrupted }) => ({ options, custom, code, response, error, status, interrupted });
-  writeStore("sessionStorage", "studio-thread", {
+  if (writeStore("sessionStorage", "studio-thread", {
     mode: sourceMode() ? "sources" : "model", source: $("source-text").value, draft: $("prompt").value,
     runs: runs.map(({ prompt, grounded, source_text, tag, answers, shown }) => ({ prompt, grounded, source_text, tag, shown, answers: answers.filter((answer) => !answer.pending).map(keep) })),
-  });
+  })) {
+    state.unsaved = false;
+    return;
+  }
+  // A full store keeps the last copy that fit, and a refresh would bring back that older conversation unannounced.
+  try { window.sessionStorage.removeItem("studio-thread"); } catch { /* Storage is off, so nothing old can come back. */ }
+  // Storage that is switched off fails every save; say so only once there is a conversation to lose.
+  if (!state.unsaved && runs.length) {
+    notify("Studio couldn't save this conversation, so a refresh will clear it. Download it to keep a copy.", true);
+    state.unsaved = true;
+  }
 }
 
 function restoreThread() {

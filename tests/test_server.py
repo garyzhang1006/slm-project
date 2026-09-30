@@ -223,6 +223,15 @@ class StudioAssetTests(unittest.TestCase):
         self.assertIn("const result = await response.json().catch(() => null);", script)
         self.assertIn("if (!result) throw new Error(", script)
 
+    def test_failed_thread_save_drops_the_stale_copy_and_says_so(self):
+        script = (self.web / "app.js").read_text()
+        # A full sessionStorage keeps the last copy that fit, which a refresh would restore without a word.
+        self.assertIn("setItem(key, JSON.stringify(value)); return true; } catch { return false; }", script)
+        save = script[script.index("function saveThread()"):script.index("function restoreThread()")]
+        self.assertIn('if (writeStore("sessionStorage", "studio-thread", {', save)
+        self.assertIn('window.sessionStorage.removeItem("studio-thread")', save)
+        self.assertIn("if (!state.unsaved && runs.length) {", save)
+
     def test_unsent_example_leaves_focus_in_the_question_box(self):
         script = (self.web / "app.js").read_text()
         # Filling in the example hides its button, so focus must move on when nothing is sent.

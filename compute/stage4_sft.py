@@ -97,30 +97,31 @@ def merge_distill(train_path: Path, eval_path: Path, distill_paths: list[Path], 
     Returns counts; with no distill file attached, output is not written and train_path stays in use.
     """
     from cognition_slm.audit import _prompt_key
-    from compute.distill_data import repetitive, trim_answer
     from compute.stage3_sft_data import question_key
+    from compute.stages import DISTILL_FILTERS_VERSION
 
     if len(distill_paths) > 1:
         raise RuntimeError(f"Expected at most one distill_train.jsonl, found {[str(path) for path in distill_paths]}")
     if not distill_paths:
         return {"attached": False, "added": 0}
+    # distill_data writes its manifest beside the rows; run_pipeline reruns sft when this adapter is replaced.
+    manifest_path = distill_paths[0].parent / "distill_manifest.json"
+    manifest = json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else {}
+    # Rows kept by older answer filters, such as lead-ins and looping lists, would cost a full sft run to learn.
+    if manifest.get("filters_version") != DISTILL_FILTERS_VERSION:
+        raise RuntimeError(f"{manifest_path} records filters_version {manifest.get('filters_version')!r}, not "
+                           f"{DISTILL_FILTERS_VERSION}; push distill_data again before sft")
     train_lines = [line for line in train_path.read_text(encoding="utf-8").split("\n") if line.strip()]
     seen = {_prompt_key(json.loads(line)["prompt"]) for line in train_lines}
     # Eval questions must stay unseen, with or without the sentence cue, or the SFT eval loss would
     # measure memorization.
     held_out = {question_key(json.loads(line)["prompt"])
                 for line in eval_path.read_text(encoding="utf-8").split("\n") if line.strip()}
-    added, skipped, filtered = [], 0, 0
+    added, skipped = [], 0
     for line in distill_paths[0].read_text(encoding="utf-8").split("\n"):
         if not line.strip():
             continue
-        row = json.loads(line)
-        # A distill run older than distill_data's current filters kept lead-ins such as "Here is a recipe:" and
-        # looping lists; the adapter hash that marks it fresh says nothing about that, so they are dropped here.
-        if not trim_answer(row["answer"]) or repetitive(row["answer"]):
-            filtered += 1
-            continue
-        prompt = row["prompt"]
+        prompt = json.loads(line)["prompt"]
         key = _prompt_key(prompt)
         if key in seen or question_key(prompt) in held_out:
             skipped += 1
@@ -128,12 +129,9 @@ def merge_distill(train_path: Path, eval_path: Path, distill_paths: list[Path], 
         seen.add(key)
         added.append(line)
     output.write_text("\n".join(train_lines + added) + "\n", encoding="utf-8")
-    # distill_data writes its manifest beside the rows; run_pipeline reruns sft when this adapter is replaced.
-    manifest = distill_paths[0].parent / "distill_manifest.json"
-    teacher = json.loads(manifest.read_text(encoding="utf-8")).get("teacher", {}) if manifest.exists() else {}
     return {"attached": True, "path": str(distill_paths[0]), "added": len(added), "skipped_duplicate": skipped,
-            "skipped_by_filters": filtered,
-            "teacher_adapter_sha256": teacher.get("adapter_sha256")}
+            "teacher_adapter_sha256": manifest.get("teacher", {}).get("adapter_sha256"),
+            "filters_version": manifest["filters_version"]}
 
 
 def main(argv: list[str] | None = None) -> None:

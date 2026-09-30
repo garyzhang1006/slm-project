@@ -25,6 +25,7 @@ from compute.lora_baseline import (GENERATION_BATCH_SIZE, base_model, encode,  #
                                    ensure_dependencies, find_input, left_pad)
 from compute.stage1_corpus import HOLDOUT_PATH, contains_secret, digest, normalize_overlap, write_json  # noqa: E402
 from compute.short_facts import SENTENCE_CUE  # noqa: E402
+from compute.stages import DISTILL_FILTERS_VERSION  # noqa: E402
 from compute.stage3_sft_data import (EVERYDAY_EVAL_PATH, MAX_DOLLY_RESPONSE_CHARS, SOURCES,  # noqa: E402
                                      _load_rows, holdout_conflict, holdout_stems, one_sentence_answer,
                                      sft_record, write_jsonl)
@@ -234,6 +235,7 @@ def main(argv: list[str] | None = None) -> None:
     write_jsonl(records, path)
     write_json(args.out_dir / "distill_manifest.json", {
         "rows": len(records), "prompts": len(prompts), "dropped": dropped, "sha256": digest(path),
+        "filters_version": DISTILL_FILTERS_VERSION,
         "teacher": {"model_id": model_id, "model_revision": model_revision, "adapter": str(adapter),
                     "adapter_sha256": digest(adapter / "adapter_model.safetensors")
                     if (adapter / "adapter_model.safetensors").exists() else None},

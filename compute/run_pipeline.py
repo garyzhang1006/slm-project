@@ -24,7 +24,7 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from compute.stages import PRETRAIN_SESSION_SECONDS, stage_slug  # noqa: E402
+from compute.stages import DISTILL_FILTERS_VERSION, PRETRAIN_SESSION_SECONDS, stage_slug  # noqa: E402
 
 # GPU hours a push must have left in the weekly quota: the stage's own time cap plus setup and save.
 STAGE_HOURS = {"pretrain": PRETRAIN_SESSION_SECONDS / 3600 + 1.0, "distill_data": 1.5, "sft": 9.5,
@@ -117,7 +117,8 @@ def next_action(status, report, quota_hours: float) -> dict:
     # sft attaches the distilled answers; lora_action builds them from the current adapter.
     adapter = current_adapter(status, report)
     if not follow_up_fresh(status, report, "distill_data", adapter):
-        return action("wait", "sft waits for distill_data built from the current LoRA adapter", needs="lora")
+        return action("wait", "sft waits for distill_data built from the current LoRA adapter and answer filters",
+                      needs="lora")
 
     sft = status(stage_slug("sft"))
     if sft in WAITING:
@@ -134,6 +135,9 @@ def next_action(status, report, quota_hours: float) -> dict:
                              f"{sft_report.get('pretrain_session')}, not {last}", pretrain_session=last)
     if dig(sft_report, ("distill", "teacher_adapter_sha256")) != adapter:
         return push_if_quota("sft", quota_hours, "sft trained on answers distilled from an older LoRA adapter",
+                             pretrain_session=last)
+    if dig(sft_report, ("distill", "filters_version")) != DISTILL_FILTERS_VERSION:
+        return push_if_quota("sft", quota_hours, "sft trained on distilled answers kept by older answer filters",
                              pretrain_session=last)
 
     evaluation = status(stage_slug("eval"))
@@ -178,12 +182,16 @@ def current_adapter(status, report) -> str | None:
 
 
 def follow_up_fresh(status, report, stage: str, adapter: str | None) -> bool | None:
-    """Whether stage finished on adapter, or None when its finished report could not be read."""
+    """Whether stage finished on adapter, and distill_data with the current answer filters, or None when its
+    finished report could not be read."""
     filename, keys = ADAPTER_USERS[stage]
     if adapter is None or status(stage_slug(stage)) != "complete":
         return False
     found = report(stage_slug(stage), filename)
-    return None if found is None else dig(found, keys) == adapter
+    if found is None:
+        return None
+    return dig(found, keys) == adapter and (stage != "distill_data"
+                                            or found.get("filters_version") == DISTILL_FILTERS_VERSION)
 
 
 def stale_training_data(report, lora_report: dict) -> tuple[bool, dict | None]:
@@ -244,7 +252,8 @@ def lora_action(status, report, quota_hours: float) -> dict:
         elif fresh is None:
             waiting.append(unreadable(ADAPTER_USERS[stage][0], stage)["reason"])
         elif state == "missing" or (state == "complete" and not fresh):
-            return push_if_quota(stage, quota_hours, f"{stage} has not run on adapter {adapter[:12]}")
+            filters = " with the current answer filters" if stage == "distill_data" else ""
+            return push_if_quota(stage, quota_hours, f"{stage} has not run on adapter {adapter[:12]}{filters}")
         elif state != "complete":
             stopped.append(f"{stage} ended as {state}; read its log before retrying")
     # A follow-up still running may be the one the main chain needs, so a failed one waits for it before stopping.

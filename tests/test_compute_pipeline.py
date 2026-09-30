@@ -8,6 +8,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from compute import run_pipeline  # noqa: E402
+from compute.stages import DISTILL_FILTERS_VERSION  # noqa: E402
 
 RESUME = {"status": "session_complete_resume_next", "step_reached": 4570}
 DONE = {"status": "complete", "step_reached": 22889}
@@ -19,7 +20,10 @@ LORA_DONE = {"status": "complete_pending_manual_review", "adapter_sha256": ADAPT
              "data": {"train": {"sha256": TRAIN}}}
 SFT_DATA = {("slm-sft-data", "sft_manifest.json"): {"files": {"train": {"sha256": TRAIN}}}}
 FRESH_FOLLOW_UPS = {("slm-lora-eval", "lora_eval_report.json"): {"adapter_sha256": ADAPTER},
-                    ("slm-distill-data", "distill_manifest.json"): {"teacher": {"adapter_sha256": ADAPTER}}}
+                    ("slm-distill-data", "distill_manifest.json"): {"teacher": {"adapter_sha256": ADAPTER},
+                                                                    "filters_version": DISTILL_FILTERS_VERSION}}
+# The distill stats sft_report.json records for rows distilled from ADAPTER with the current filters.
+DISTILLED = {"teacher_adapter_sha256": ADAPTER, "filters_version": DISTILL_FILTERS_VERSION}
 
 
 def decide(statuses, reports=None, quota=30.0, chooser=None):
@@ -120,7 +124,7 @@ class DecisionTests(unittest.TestCase):
         stale = decide(statuses, {**reports, ("slm-160m-sft", "sft_report.json"): {"pretrain_session": 2}})
         self.assertEqual((stale["kind"], stale["stage"]), ("push", "sft"))
         reports[("slm-160m-sft", "sft_report.json")] = {"pretrain_session": 3, "sha256": "sft3",
-                                                        "distill": {"teacher_adapter_sha256": ADAPTER}}
+                                                        "distill": DISTILLED}
         self.assertEqual(decide(statuses, reports)["stage"], "eval")
         statuses["slm-160m-eval"] = "running"
         self.assertEqual(decide(statuses, reports)["kind"], "wait")
@@ -134,10 +138,31 @@ class DecisionTests(unittest.TestCase):
         reports = {("slm-160m-pretrain-1", "pretrain_session_1.json"): DONE,
                    ("slm-lora-baseline", "lora_report.json"): LORA_DONE, **FRESH_FOLLOW_UPS, **SFT_DATA,
                    ("slm-160m-sft", "sft_report.json"): {"pretrain_session": 1,
-                                                         "distill": {"teacher_adapter_sha256": "old"}}}
+                                                         "distill": {**DISTILLED, "teacher_adapter_sha256": "old"}}}
         result = decide(statuses, reports)
         self.assertEqual((result["kind"], result["stage"], result["pretrain_session"]), ("push", "sft", 1))
         reports[("slm-160m-sft", "sft_report.json")]["distill"]["teacher_adapter_sha256"] = ADAPTER
+        self.assertEqual(decide(statuses, reports)["stage"], "eval")
+
+    def test_distill_data_and_sft_rerun_when_the_answer_filters_change(self):
+        # The same adapter marked answers built by older filters fresh, so sft would have trained on looping lists.
+        old = {"teacher": {"adapter_sha256": ADAPTER}}
+        statuses = {"slm-160m-corpus": "complete", "slm-160m-pretrain-1": "complete", "slm-lora-baseline": "complete",
+                    "slm-lora-eval": "complete", "slm-distill-data": "complete"}
+        reports = {("slm-160m-pretrain-1", "pretrain_session_1.json"): DONE,
+                   ("slm-lora-baseline", "lora_report.json"): LORA_DONE, **FRESH_FOLLOW_UPS, **SFT_DATA,
+                   ("slm-distill-data", "distill_manifest.json"): old}
+        self.assertEqual(decide(statuses, reports)["kind"], "wait")
+        rebuild = decide_lora({**LoraChainTests.READY, **statuses}, reports)
+        self.assertEqual((rebuild["kind"], rebuild["stage"]), ("push", "distill_data"))
+        self.assertIn("answer filters", rebuild["reason"])
+        reports.update(FRESH_FOLLOW_UPS)
+        statuses["slm-160m-sft"] = "complete"
+        reports[("slm-160m-sft", "sft_report.json")] = {"pretrain_session": 1,
+                                                        "distill": {"teacher_adapter_sha256": ADAPTER}}
+        result = decide(statuses, reports)
+        self.assertEqual((result["kind"], result["stage"]), ("push", "sft"))
+        reports[("slm-160m-sft", "sft_report.json")]["distill"] = DISTILLED
         self.assertEqual(decide(statuses, reports)["stage"], "eval")
 
     def test_eval_reruns_when_sft_was_pushed_again(self):
@@ -146,7 +171,7 @@ class DecisionTests(unittest.TestCase):
         reports = {("slm-160m-pretrain-1", "pretrain_session_1.json"): DONE,
                    ("slm-lora-baseline", "lora_report.json"): LORA_DONE, **FRESH_FOLLOW_UPS, **SFT_DATA,
                    ("slm-160m-sft", "sft_report.json"): {"pretrain_session": 1, "sha256": "new",
-                                                         "distill": {"teacher_adapter_sha256": ADAPTER}},
+                                                         "distill": DISTILLED},
                    ("slm-160m-eval", "eval_report.json"): {"sha256": "old"}}
         result = decide(statuses, reports)
         self.assertEqual((result["kind"], result["stage"]), ("push", "eval"))

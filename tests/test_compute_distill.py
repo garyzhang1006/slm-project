@@ -10,6 +10,7 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from compute import distill_data, short_facts, stage4_sft  # noqa: E402
+from compute.stages import DISTILL_FILTERS_VERSION  # noqa: E402
 
 LONG = "x" * 500
 
@@ -167,6 +168,10 @@ class MergeDistillTests(unittest.TestCase):
         path.write_text("".join(json.dumps({"prompt": prompt, "answer": "a"}) + "\n" for prompt in prompts))
         return path
 
+    def manifest(self, root, **fields):
+        manifest = {"teacher": {"adapter_sha256": "abc"}, "filters_version": DISTILL_FILTERS_VERSION, **fields}
+        (root / "distill_manifest.json").write_text(json.dumps(manifest))
+
     def test_merge_skips_train_and_eval_prompts(self):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
@@ -174,12 +179,13 @@ class MergeDistillTests(unittest.TestCase):
             evaluation = self.write(root / "eval.jsonl", ["Where do bees live?"])
             distill = self.write(root / "distill.jsonl", ["why is GRASS green?", "Where do bees live?",
                                                           "How do birds fly?", "How do birds fly?"])
-            (root / "distill_manifest.json").write_text(json.dumps({"teacher": {"adapter_sha256": "abc"}}))
+            self.manifest(root)
             output = root / "merged.jsonl"
             stats = stage4_sft.merge_distill(train, evaluation, [distill], output)
             self.assertEqual((stats["added"], stats["skipped_duplicate"]), (1, 3))
-            # run_pipeline compares this with the current adapter to decide whether sft is stale.
-            self.assertEqual(stats["teacher_adapter_sha256"], "abc")
+            # run_pipeline compares these with the current adapter and filters to decide whether sft is stale.
+            self.assertEqual((stats["teacher_adapter_sha256"], stats["filters_version"]),
+                             ("abc", DISTILL_FILTERS_VERSION))
             prompts = [json.loads(line)["prompt"] for line in output.read_text().splitlines()]
             self.assertEqual(prompts, ["Why is grass green?", "How do birds fly?"])
 
@@ -191,27 +197,26 @@ class MergeDistillTests(unittest.TestCase):
             evaluation = self.write(root / "eval.jsonl", ["What is a computer?", "Where do bees live?" + cue])
             distill = self.write(root / "distill.jsonl", ["What is a computer?" + cue, "Where do bees live?",
                                                           "How do birds fly?" + cue])
+            self.manifest(root)
             output = root / "merged.jsonl"
             stats = stage4_sft.merge_distill(train, evaluation, [distill], output)
             self.assertEqual((stats["added"], stats["skipped_duplicate"]), (1, 2))
             prompts = [json.loads(line)["prompt"] for line in output.read_text().splitlines()]
             self.assertEqual(prompts, ["Why is grass green?", "How do birds fly?" + cue])
 
-    def test_merge_drops_rows_that_distill_data_now_rejects(self):
+    def test_merge_refuses_answers_kept_by_other_filters(self):
         # The last distill run predates the lead-in and loop filters, and sft would have merged its rows as they were.
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             train = self.write(root / "train.jsonl", ["Why is grass green?"])
-            distill = root / "distill.jsonl"
-            rows = [("How do I sort trash?", "Sure! Here's a simple way to segregate your trash:"),
-                    ("Where should I eat?", "Try these:\n1. The Blue Moon\n2. The Blue Moon"),
-                    ("How do birds fly?", "Birds flap their wings to push air down.")]
-            distill.write_text("".join(json.dumps({"prompt": prompt, "answer": answer}) + "\n" for prompt, answer in rows))
+            distill = self.write(root / "distill.jsonl", ["How do birds fly?"])
             output = root / "merged.jsonl"
-            stats = stage4_sft.merge_distill(train, train, [distill], output)
-            self.assertEqual((stats["added"], stats["skipped_by_filters"]), (1, 2))
-            prompts = [json.loads(line)["prompt"] for line in output.read_text().splitlines()]
-            self.assertEqual(prompts, ["Why is grass green?", "How do birds fly?"])
+            with self.assertRaisesRegex(RuntimeError, "push distill_data again"):
+                stage4_sft.merge_distill(train, train, [distill], output)
+            self.manifest(root, filters_version=None)
+            with self.assertRaisesRegex(RuntimeError, "push distill_data again"):
+                stage4_sft.merge_distill(train, train, [distill], output)
+            self.assertFalse(output.exists())
 
     def test_merge_keeps_rows_with_unicode_line_separators_whole(self):
         # ensure_ascii=False leaves U+2028 raw, and str.splitlines() would cut the record in half there.
@@ -223,6 +228,7 @@ class MergeDistillTests(unittest.TestCase):
             distill = root / "distill.jsonl"
             distill.write_text(json.dumps({"prompt": "How do\u2028birds fly?", "answer": "a"}, ensure_ascii=False)
                                + "\n", encoding="utf-8")
+            self.manifest(root)
             output = root / "merged.jsonl"
             stats = stage4_sft.merge_distill(train, train, [distill], output)
             self.assertEqual(stats["added"], 1)

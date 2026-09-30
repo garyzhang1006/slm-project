@@ -394,6 +394,9 @@ def train(args: argparse.Namespace) -> dict:
                 base_learning_rate = saved_learning_rate
         if isinstance(optimizer_state, dict):
             optimizer.load_state_dict(optimizer_state)
+            # Loading restores the old run's decay; apply --weight-decay so the update matches the metadata.
+            # The first group is the decayed one in both the legacy and the split layout.
+            optimizer.param_groups[0]["weight_decay"] = args.weight_decay
             if fused_adamw:
                 # Resume restores old execution flags as well as Adam moments.
                 for group in optimizer.param_groups:

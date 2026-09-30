@@ -177,6 +177,17 @@ class TrainingIntegrationTests(unittest.TestCase):
                             learning_rate=1e-5, override_learning_rate=True))
         self.assertEqual(rates[0], {1e-5})
 
+    def test_resume_applies_and_records_the_requested_weight_decay(self):
+        import torch
+        from cognition_slm.train import train
+
+        parent = train(self.args("parent.pt", steps=1, weight_decay=0.01))
+        resumed = train(self.args("resumed.pt", resume=parent["checkpoint"], steps=2, weight_decay=0.1))
+        saved = torch.load(resumed["checkpoint"], weights_only=True)
+        self.assertEqual(saved["metadata"]["weight_decay"], 0.1)
+        groups = saved["optimizer_state_dict"]["param_groups"]
+        self.assertEqual([group["weight_decay"] for group in groups], [0.1, 0.0])
+
     def test_resume_continues_sample_stream_from_checkpoint(self):
         import torch
         from cognition_slm.train import train

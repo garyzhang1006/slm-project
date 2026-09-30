@@ -154,7 +154,8 @@ def validate_request(request: dict) -> tuple[dict, object]:
     }
     if set(request) - allowed:
         raise ValueError("Unknown request fields: " + ", ".join(sorted(set(request) - allowed)))
-    # Defaults favor short factual answers; they match the Studio controls in index.html.
+    # Defaults favor short factual answers; they match the Studio controls in index.html, except that
+    # Studio also sends a newline stop sequence for language generation and the API sends none.
     options = {
         "max_new_tokens": request.get("max_new_tokens", 64),
         "temperature": request.get("temperature", 0.3),

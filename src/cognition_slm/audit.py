@@ -74,7 +74,7 @@ def audit_dataset(path: str | Path) -> AuditReport:
         return report
     try:
         examples = load_jsonl(path)
-    except (DataValidationError, FileNotFoundError) as exc:
+    except (DataValidationError, OSError) as exc:
         report.errors.append(_mask(str(exc)))
         return report
     report.records = len(examples)
@@ -108,7 +108,7 @@ def audit_split_overlap(train_path: str | Path, eval_path: str | Path) -> list[s
     try:
         train_examples = load_jsonl(train_path)
         eval_examples = load_jsonl(eval_path)
-    except (DataValidationError, FileNotFoundError) as exc:
+    except (DataValidationError, OSError) as exc:
         return [_mask(str(exc))]
     train_ids = {item.id for item in train_examples}
     eval_ids = {item.id for item in eval_examples}

@@ -164,6 +164,15 @@ class DataAndAuditTests(unittest.TestCase):
                     self.assertFalse(report.ok)
                     self.assertIn(name, report.errors[0])
 
+    def test_audit_reports_a_directory_instead_of_raising(self):
+        with tempfile.TemporaryDirectory() as directory:
+            report = audit_dataset(directory)
+            self.assertFalse(report.ok)
+            self.assertIn(directory, report.errors[0])
+            errors = audit_split_overlap(directory, ROOT / "data" / "eval.jsonl")
+            self.assertEqual(len(errors), 1)
+            self.assertIn(directory, errors[0])
+
     def test_audit_scans_every_text_field_for_secrets(self):
         record = {"id": "r1", "prompt": "Say hi.", "answer": "Hi.", "task_type": "language_generation",
                   "confidence": 0.5, "error_category": "none", "source": "test", "license": "CC0-1.0"}

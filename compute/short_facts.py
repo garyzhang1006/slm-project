@@ -17,11 +17,12 @@ LICENSE = "CC0-1.0"
 NUMBER_WORDS = ("zero one two three four five six seven eight nine ten eleven twelve thirteen "
                 "fourteen fifteen sixteen seventeen eighteen nineteen twenty").split()
 
-# (a, b) pairs per operation that the holdout asks about, in both orders where it matters.
+# (a, b) pairs per operation that the holdout asks about, in both orders where it matters. Minus is keyed
+# (minuend, subtrahend): (4, 1) is the four oranges less one, and 2 x 6 is the holdout's Python "2 * 6".
 HOLDOUT_ARITHMETIC = {
     "plus": {(4, 9), (9, 4)},
-    "minus": {(15, 6)},
-    "times": {(3, 4), (4, 3)},
+    "minus": {(15, 6), (4, 1)},
+    "times": {(3, 4), (4, 3), (2, 6), (6, 2)},
     "divided by": {(18, 3)},
 }
 HOLDOUT_COMPARISONS = {(8, 3), (3, 8)}
@@ -713,8 +714,8 @@ def number_rows() -> list[dict]:
                              group))
         if number > 0:
             rows.append(_row(f"What number comes just before {number}?", str(number - 1), "math", group))
-    # 16 is skipped because data/everyday_eval.json asks 16 + 16.
-    for number in (value for value in range(1, 51) if value != 16):
+    # 16 is skipped because data/everyday_eval.json asks 16 + 16, and 6 because the holdout asks 2 * 6.
+    for number in (value for value in range(1, 51) if value not in (6, 16)):
         rows += [
             _row(f"What is double {number}?", str(2 * number), "math", f"double:{number}"),
             _row(f"What is half of {2 * number}?", str(number), "math", f"double:{number}"),

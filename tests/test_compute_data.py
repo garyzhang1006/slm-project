@@ -141,7 +141,8 @@ class ShortFactTests(unittest.TestCase):
         for prompt in ("What is 4 plus 9? Reply with the number.", "What is 4 + 9?", "Add 9 and 4.",
                        "What is 3 x 4?", "Divide 18 by 3.", "Subtract 6 from 15.",
                        "What is the opposite of tall?", "What is the plural of book?",
-                       "Write only the word window."):
+                       "Write only the word window.", "What is 2 x 6?", "What is 6 times 2? Reply with the number.",
+                       "What is double 6?", "What is 4 - 1?"):
             self.assertNotIn(prompt, prompts)
         self.assertIn("What is 5 + 9?", prompts)
         stems = corpus.holdout_stems(HOLDOUT_PROMPTS)

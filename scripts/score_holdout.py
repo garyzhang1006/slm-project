@@ -26,6 +26,8 @@ _TENS = {word: 10 * index for index, word in enumerate(
 # A minus sign counts only when no word or digit comes right before it, so "3-4" stays two numbers.
 _TOKENS = re.compile(r"(?:(?<!\w)-)?\d+(?:\.\d+)?|[^\W\d_]+")
 _GROUPED = re.compile(r"\b\d{1,3}(?:,\d{3})+\b")
+# Subscript digits spell the same number, so CO₂ reads as CO2. Superscripts stay, since 5² is not 52.
+_SUBSCRIPTS = str.maketrans("₀₁₂₃₄₅₆₇₈₉", "0123456789")
 _MERIDIEM = re.compile(r"\b([ap])\. ?m\b\.?")
 _CLOCK = re.compile(r"\b(\d{1,2}):00\b")
 # Spelled numbers continue only across spaces and hyphens, so "One hundred. Ten decades" stays two numbers.
@@ -71,7 +73,7 @@ def normalize_answer(text: str) -> str:
     """Casefold, drop punctuation, collapse whitespace and write spelled numbers below a million as digits."""
     text = _GROUPED.sub(lambda match: match.group().replace(",", ""), text)  # "1,000" is one number
     # U+2212 is a minus sign too, so "−25" must not read as 25.
-    text = text.casefold().replace("'", "").replace("’", "").replace("\u2212", "-")
+    text = text.casefold().replace("'", "").replace("’", "").replace("\u2212", "-").translate(_SUBSCRIPTS)
     # "2 p.m." and "2:00 pm" say what "2 pm" says; other minutes stay, so "2:30" is not 2.
     text = _CLOCK.sub(r"\1", _MERIDIEM.sub(r"\1m", text))
     phrases, end = [], None

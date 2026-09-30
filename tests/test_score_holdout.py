@@ -35,6 +35,8 @@ class ScoreHoldoutTests(unittest.TestCase):
         subtraction = {"id": "m", "category": "arithmetic", "expected_rubric": "25"}
         self.assertEqual(self.module.score_answer(subtraction, "-25"), {"exact": False, "contains": False})
         self.assertEqual(self.module.score_answer(subtraction, "\u221225"), {"exact": False, "contains": False})
+        carbon = {row["id"]: row for row in json.loads((ROOT / "data/everyday_eval.json").read_text())["rows"]}["everyday-v1-154"]
+        self.assertEqual(self.module.score_answer(carbon, "CO\u2082."), {"exact": True, "contains": True})
         # Times written with dots or :00 match the plain form, and other minutes stay apart.
         self.assertEqual([normalize(text) for text in ("2 p.m.", "2:00 PM", "7 a.m", "2:30 pm")],
                          ["2 pm", "2 pm", "7 am", "2 30 pm"])

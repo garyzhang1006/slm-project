@@ -306,6 +306,8 @@ class StudioAssetTests(unittest.TestCase):
         script = (self.web / "app.js").read_text()
         line = next(line for line in script.splitlines() if line.startswith("const wellFormed = "))
         self.assertIn('source_text: grounded ? wellFormed($("source-text").value) : "",', script)
+        # Stop sequences are counted with TextEncoder too, and the server rejects a lone surrogate in them.
+        self.assertIn('return wellFormed($("stop-sequences").value).split(', script)
         node = shutil.which("node")
         if node is None:
             self.skipTest("node is not installed")

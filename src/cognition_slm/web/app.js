@@ -90,7 +90,7 @@ const defaultStops = (task) => (task === "language_generation" ? "\\n" : "");
 
 function stopSequences() {
   // Commas and line breaks separate entries, so a typed \n or \t stands for that character.
-  return $("stop-sequences").value.split(/[,\n]/).map((item) => item.trim().replace(/\\n/g, "\n").replace(/\\t/g, "\t")).filter(Boolean);
+  return wellFormed($("stop-sequences").value).split(/[,\n]/).map((item) => item.trim().replace(/\\n/g, "\n").replace(/\\t/g, "\t")).filter(Boolean);
 }
 
 function settings() {

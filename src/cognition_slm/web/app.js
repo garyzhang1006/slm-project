@@ -888,7 +888,7 @@ document.querySelectorAll("[data-prompt]").forEach((button) => button.addEventLi
   $("mode-model").checked = true;
   $("task-type").value = "language_generation";
   $("prompt").value = button.dataset.prompt;
-  autosize(); syncComposer();
+  autosize(); syncComposer(); saveSettings();
   if (!$("generate").disabled) $("prompt-form").requestSubmit();
   else $("prompt").focus();
 }));

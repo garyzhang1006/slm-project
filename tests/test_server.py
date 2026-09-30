@@ -341,6 +341,14 @@ class StudioAssetTests(unittest.TestCase):
         self.assertNotIn("Answer length", too_big)
         self.assertEqual(json.loads(result.stdout), ["", too_big, too_big, ""])
 
+    def test_starter_questions_save_the_task_type_they_switch_to(self):
+        # A starter question switches to Language generation without a change event, so a reload brought back
+        # the task type saved before it.
+        script = (self.web / "app.js").read_text()
+        chip = script[script.index('document.querySelectorAll("[data-prompt]")'):script.index('$("source-example")')]
+        self.assertIn('$("task-type").value = "language_generation";', chip)
+        self.assertIn("autosize(); syncComposer(); saveSettings();", chip)
+
     def test_question_tag_follows_the_task_type_of_the_answer_on_show(self):
         # Try again uses the current task type, but the tag and the saved Markdown kept the first answer's.
         node = shutil.which("node")

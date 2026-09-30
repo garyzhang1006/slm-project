@@ -107,6 +107,15 @@ class ScoreHoldoutTests(unittest.TestCase):
             self.assertIn("extra", stderr.getvalue())
             self.assertIn("error:", stderr.getvalue())
 
+    def test_jsonl_answer_keeps_raw_line_separator(self):
+        # json.dumps(ensure_ascii=False) leaves U+2028 raw, and str.splitlines() would cut the record there.
+        predictions = [{"id": "a", "answer": "one\u2028two"}, {"id": "b", "answer": "three"}]
+        with tempfile.TemporaryDirectory() as directory:
+            jsonl = Path(directory) / "predictions.jsonl"
+            jsonl.write_text("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in predictions),
+                             encoding="utf-8")
+            self.assertEqual(self.module.load_predictions(jsonl), predictions)
+
     def test_cli_scores_another_file_with_categories(self):
         holdout = ROOT / "data/everyday_eval.json"
         rows = json.loads(holdout.read_text())["rows"]

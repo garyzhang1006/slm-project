@@ -34,7 +34,7 @@ def question_probes(base: str, root: Path) -> list[dict]:
     sys.path.insert(0, str(root))
     from scripts.build_curriculum_data import build_rows
 
-    train = build_rows("train") + [json.loads(line) for line in (root / "data/demo.jsonl").read_text().splitlines() if line.strip()]
+    train = build_rows("train") + [json.loads(line) for line in (root / "data/demo.jsonl").read_text().split("\n") if line.strip()]
     train_prompts = {" ".join(row["prompt"].casefold().split()) for row in train}
     rows = []
     for name, prompt, task, expected in QUESTION_PROBES:

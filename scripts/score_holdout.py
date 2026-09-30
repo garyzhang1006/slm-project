@@ -125,7 +125,8 @@ def load_predictions(path: Path, report_key: str = "simple_questions") -> list[d
     try:
         value = json.loads(text)
     except json.JSONDecodeError:
-        value = [json.loads(line) for line in text.splitlines() if line.strip()]
+        # splitlines() would also break on U+2028, which json.dumps(ensure_ascii=False) leaves raw in answers.
+        value = [json.loads(line) for line in text.split("\n") if line.strip()]
     if isinstance(value, dict):
         # A one-line JSONL file parses as a single prediction object rather than a report.
         value = [value] if "id" in value else value.get(report_key, value.get("predictions"))

@@ -67,7 +67,7 @@ def _final_training_report(stdout: str) -> dict:
 def _probes_in_training(probes, train_path: Path) -> list[str]:
     # Probes that repeat a training prompt measure recall, not quality.
     train_prompts = {" ".join(json.loads(line)["prompt"].casefold().split())
-                     for line in train_path.read_text().splitlines() if line.strip()}
+                     for line in train_path.read_text().split("\n") if line.strip()}
     return [name for name, prompt, _, _ in probes if " ".join(prompt.casefold().split()) in train_prompts]
 
 

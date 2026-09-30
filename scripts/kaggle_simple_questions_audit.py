@@ -36,7 +36,7 @@ def main():
     holdout = json.loads(holdout_path.read_text())
     training_prompts = set()
     normalize = lambda text: " ".join(text.casefold().split())
-    for line in (checkpoint.parent / "broad_train.jsonl").read_text().splitlines():
+    for line in (checkpoint.parent / "broad_train.jsonl").read_text().split("\n"):
         if line.strip():
             training_prompts.add(normalize(json.loads(line)["prompt"]))
     for row in holdout["rows"]:

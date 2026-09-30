@@ -12,7 +12,7 @@ The dedicated `kaggle_500m_quality_run.py` uses the same combined curriculum wit
 
 The completed 1,200-step result is recorded in [`reports/slm-500m-language-quality-verification.json`](../reports/slm-500m-language-quality-verification.json). Its probes returned the expected greeting, grammar correction, code functions, debugging fix, code explanation, and capability response. Algorithm output is concise and may end at the configured generation limit.
 
-The source package uses the runtime's installed PyTorch and NumPy; it does not install dependencies or need internet. PyTorch 2.3 or later is required. See the [PyTorch mixed-precision API](https://docs.pytorch.org/docs/2.3/amp.html) and [official Kaggle kernel commands](https://github.com/Kaggle/kaggle-cli/blob/main/docs/kernels.md).
+The source package uses the runtime's installed PyTorch and NumPy and installs nothing. Most runners also need no internet, but `kaggle_english_run.py`, `kaggle_qa_run.py` and `kaggle_long_run.py` stream pinned Hugging Face datasets, so they need the runtime's `datasets` package and internet, which `prepare_kaggle.py` turns on for those three. PyTorch 2.3 or later is required. See the [PyTorch mixed-precision API](https://docs.pytorch.org/docs/2.3/amp.html) and [official Kaggle kernel commands](https://github.com/Kaggle/kaggle-cli/blob/main/docs/kernels.md).
 
 For real training, replace the synthetic fixture with licensed canonical JSONL records and a disjoint evaluation split. Run the existing audit first. Include examples that exercise the intended context length; increasing `block_size` alone cannot teach long-range dependencies. Inspect `truncated_records` and `max_tokens` in the training report.
 

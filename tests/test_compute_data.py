@@ -279,6 +279,14 @@ class ShortFactTests(unittest.TestCase):
         self.assertEqual(answer["Spell the plural of the word roof."], "roofs")
         self.assertEqual(answer["What is the singular of fungi?"], "fungus")
 
+    def test_inverted_phrasings_ask_for_the_word_not_a_sentence(self):
+        # The 2026-09-29 1.7B adapter answered "Add is the opposite of which word?" with "was" and
+        # "How do you say more than one shelf?" with "more than one shelf".
+        answer = {row["prompt"]: row["answer"] for row in short_facts.short_fact_rows()}
+        self.assertEqual(answer["Loud is the opposite of what?"], "quiet")
+        self.assertEqual(answer["Quiet is the opposite of what?"], "loud")
+        self.assertEqual(answer["How would you say more than one wolf?"], "wolves")
+
     def test_counting_rows_skip_the_eval_neighbors(self):
         answer = {row["prompt"]: row["answer"] for row in short_facts.short_fact_rows()}
         self.assertEqual(answer["Today is Thursday. What day will it be the day after tomorrow?"], "Saturday")

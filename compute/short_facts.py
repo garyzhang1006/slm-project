@@ -589,6 +589,7 @@ def opposite_rows() -> list[dict]:
                 _row(f"What is the opposite of {first}?", second, "english", group),
                 _row(f"Give the opposite of {first}. Reply with one word.", second, "english", group),
                 _row(f"Name a word that means the opposite of {first}.", second, "english", group),
+                _row(f"{first[0].upper() + first[1:]} is the opposite of what?", second, "english", group),
             ]
     return rows
 
@@ -604,6 +605,7 @@ def plural_rows() -> list[dict]:
             _row(f"Give the plural of {singular}. Reply with one word.", plural, "english", group),
             _row(f"One {singular}, two what?", plural, "english", group),
             _row(f"What do you call more than one {singular}?", plural, "english", group),
+            _row(f"How would you say more than one {singular}?", plural, "english", group),
             _row(f"Spell the plural of the word {singular}.", plural, "english", group),
             _row(f"What is the singular of {plural}?", singular, "english", group),
         ]

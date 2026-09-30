@@ -114,6 +114,11 @@ class GroundingTests(unittest.TestCase):
         self.assertEqual(self.answer("Is it open at 9 am?", "The library opens at 9 am.")["sources"][0]["text"],
                          "The library opens at 9 am.")
 
+    def test_am_after_a_number_is_the_time_of_day(self):
+        # As a stop word everywhere, "am" left only {free, 9}, so the shorter 9 pm passage ranked first.
+        source = "Room B is free at 9 pm.\n\nRoom A, on the second floor near the lifts, is free at 9 am."
+        self.assertIn("9 am", self.answer("Which room is free at 9 am?", source)["sources"][0]["text"])
+
     def test_question_words_typed_without_apostrophes_are_not_topics(self):
         # "theres" stemmed to the topic "ther", and "whats" to "what", so these questions abstained.
         passage = "Members can borrow up to 12 books at a time."

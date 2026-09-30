@@ -15,7 +15,7 @@ _LETTER = f"(?:[^\\W_{_SINGLE}]|[{_MARKS}])"
 # Words are runs of letters, digits and marks in any script, found the same way in questions,
 # ranking and highlights, so a highlight always covers a whole ranked word.
 _WORDS = re.compile(f"(?=[^\\W_])[{_SINGLE}]|{_LETTER}+(?:'{_LETTER}+)?")
-_STOP = frozenset("a an the am is are was were be been being do does did can could would should will shall may might what which who whom whose when where why how i you he she it we they me us him them my your his her its our their of to in on at by for from with about and or but as that this these those please tell explain answer question according source passage text many much any some there".split())
+_STOP = frozenset("a an the is are was were be been being do does did can could would should will shall may might what which who whom whose when where why how i you he she it we they me us him them my your his her its our their of to in on at by for from with about and or but as that this these those please tell explain answer question according source passage text many much any some there".split())
 # Questions typed without apostrophes spell "what's" as "whats", which would otherwise stem into a topic.
 _STOP |= frozenset("whats wheres whos hows whens whys theres thats".split())
 # A negated auxiliary says no more about the topic than the auxiliary does, so "Why can't I print?" asks about printing.
@@ -73,7 +73,9 @@ def _terms(text: str) -> set[str]:
     # Dropping accents after the second NFKD lets cafe match café, and the dotted capital I folds to i plus a dot.
     folded = unicodedata.normalize("NFKD", unicodedata.normalize("NFKD", text).casefold().replace("\u2019", "'"))
     words = _WORDS.findall("".join(char for char in folded if unicodedata.category(char) != "Mn"))
-    words = (word.removesuffix("'s") for word in words)
+    words = [word.removesuffix("'s") for word in words]
+    # "am" next to I is the verb, as in "Am I a member?", but elsewhere it is the time of day, as in "9 am".
+    words = [word for index, word in enumerate(words) if word != "am" or "i" not in words[max(index - 1, 0):index + 2]]
     return {_stem(_IRREGULAR.get(word, word)) for word in words if word not in _STOP}
 
 

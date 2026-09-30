@@ -149,3 +149,8 @@
 | 2026-09-30 | kaggle and data scripts | score_holdout could not read the simple questions audit report (closes the deferred row) | `scripts/score_holdout.py:127` | fixed | 41987f1 |
 | 2026-09-30 | kaggle and data scripts | launch_500m_kaggle.sh reused a fixed folder in shared /tmp (closes the deferred row) | `scripts/launch_500m_kaggle.sh:7` | fixed | ac81b3d |
 | 2026-09-30 | kaggle and data scripts | prepare_data's flags overwrote every record's own provenance (closes the deferred row) | `scripts/prepare_data.py:24` | fixed | 28ffeb9 |
+| 2026-09-30 | studio page | the markdown download escaped only `<!--`, so an answer or quoted passage line starting `<style`, `<?` or `<![CDATA[` still hid the rest of the file | `src/cognition_slm/web/app.js:629` | fixed | 7336b08 |
+| 2026-09-30 | studio server and search | the `--lora-adapter` help said it serves smollm2-360m, but a 1.7b adapter folder loads the 1.7b base | `src/cognition_slm/server.py:328` | fixed | 12c04a0 |
+| 2026-09-30 | docs and results | the readme said about 370 tests; the suite has about 460 | `README.md:24` | fixed | edd9487 |
+| 2026-09-30 | docs and results | the cognition measurement protocol benchmarked legacy.pt and modern.pt, which none of its commands create | `docs/cognition.md:49` | fixed | c77c2a5 |
+| 2026-09-30 | kaggle and data scripts | the studio verify bundle attaches the -v2 quality kernel while launch_500m_kaggle.sh defaults to a slug without -v2 | `scripts/prepare_kaggle.py:88` | rejected | no doc chains the two; every attached parent in prepare_kaggle.py names the owner's own kernels, and the launcher takes the slug as an argument |

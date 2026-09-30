@@ -10,7 +10,7 @@ import unittest
 
 
 class LauncherTests(unittest.TestCase):
-    def run_launcher(self, arguments, imports_ok):
+    def run_launcher(self, arguments, imports_ok, cwd=None):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             shutil.copy(Path(__file__).resolve().parents[1] / "launch-studio.command", root)
@@ -26,7 +26,7 @@ class LauncherTests(unittest.TestCase):
             python.chmod(0o755)
             result = subprocess.run(
                 ["/bin/bash", str(root / "launch-studio.command"), *arguments],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True, text=True, timeout=10, cwd=cwd,
             )
             calls = [json.loads(line) for line in (root / "calls.jsonl").read_text().splitlines()]
             self.assertEqual(result.returncode, 0, result.stderr)
@@ -42,6 +42,17 @@ class LauncherTests(unittest.TestCase):
         calls = self.run_launcher(arguments, True)
         self.assertEqual([call[0] for call in calls], ["-c", "-c", "-m"])
         self.assertEqual(calls[-1], ["-m", "cognition_slm.server", "--open", *arguments])
+
+    def test_relative_model_paths_resolve_from_the_callers_folder(self):
+        # The launcher moves into the project folder, so a path typed relative to where it ran is rewritten.
+        arguments = ["--sources-only", "--lora-adapter", "adapter", "--checkpoint=model.pt", "--port", "8767"]
+        with tempfile.TemporaryDirectory() as caller:
+            calls = self.run_launcher(arguments, False, cwd=caller)
+            here = str(Path(caller).resolve())
+        self.assertEqual(calls, [["-m", "cognition_slm.server", "--open", "--sources-only", "--lora-adapter",
+                                  f"{here}/adapter", f"--checkpoint={here}/model.pt", "--port", "8767"]])
+        # No arguments at all must still start the server under set -u.
+        self.assertEqual(self.run_launcher([], True)[-1], ["-m", "cognition_slm.server", "--open"])
 
 
 if __name__ == "__main__":

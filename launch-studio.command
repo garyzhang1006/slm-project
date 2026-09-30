@@ -1,5 +1,22 @@
 #!/bin/bash
 set -euo pipefail
+# Model paths the user typed are relative to where they ran this, not to the project folder it moves into.
+CALLER_DIR="$(pwd -P)"
+ARGS=()
+EXPECT_PATH=false
+for arg in "$@"; do
+  if [ "$EXPECT_PATH" = true ] && [ -n "$arg" ] && [ "${arg#/}" = "$arg" ]; then
+    arg="$CALLER_DIR/$arg"
+  fi
+  EXPECT_PATH=false
+  case "$arg" in
+    --checkpoint|--lora-adapter) EXPECT_PATH=true ;;
+    --checkpoint=?*|--lora-adapter=?*)
+      value="${arg#*=}"
+      if [ "${value#/}" = "$value" ]; then arg="${arg%%=*}=$CALLER_DIR/$value"; fi ;;
+  esac
+  ARGS+=("$arg")
+done
 cd "$(dirname "$0")"
 VENV_DIR=".venv-ui-py313"
 if [ ! -x "$VENV_DIR/bin/python" ]; then
@@ -38,4 +55,5 @@ fi
 export PYTHONPATH="$PWD/src${PYTHONPATH:+:$PYTHONPATH}"
 echo "Starting slm studio. It opens in your browser once the server is up."
 echo "Keep this window open while you use it, and press Control-C here to stop it."
-exec "$VENV_DIR/bin/python" -m cognition_slm.server --open "$@"
+# ${ARGS[@]+...} stops bash 3.2, the macOS default, from treating an empty array as unbound under set -u.
+exec "$VENV_DIR/bin/python" -m cognition_slm.server --open ${ARGS[@]+"${ARGS[@]}"}

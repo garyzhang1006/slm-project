@@ -335,6 +335,14 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.generate()[0], 500)
         self.assertFalse(self.runtime.lock.locked())
 
+    def test_runtime_value_error_is_a_bad_request(self):
+        # Only the loaded model knows its context window, so this check runs after request validation.
+        self.runtime.generate.side_effect = ValueError("Total 2100 exceeds context window 2048. Shorten the prompt or reduce output length.")
+        status, payload = self.generate()
+        self.assertEqual(status, 400)
+        self.assertIn("exceeds context window 2048", payload["error"])
+        self.assertFalse(self.runtime.lock.locked())
+
     def test_body_and_content_type_limits(self):
         self.assertEqual(self.request(body="{}")[0], 415)
         headers = {"Content-Type": "application/json"}

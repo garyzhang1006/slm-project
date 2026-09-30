@@ -120,6 +120,9 @@ class LoraRuntime(ModelRuntime):
         new_ids = output[0, len(prompt_ids):].tolist()
         text = self.tokenizer.decode(new_ids, skip_special_tokens=True)
         finish_reason = "eos" if new_ids and new_ids[-1] == self.tokenizer.eos_token_id else "length"
+        if finish_reason == "length":
+            # A byte-level token can end partway through a character, which SmolLM2's tokenizer decodes as U+FFFD.
+            text = text.rstrip("\ufffd")
         if finish_reason == "length" and options["stop_sequences"]:
             # The final token can run past the stop string, so cut at its first occurrence.
             found = [index for index in (text.find(item) for item in options["stop_sequences"]) if index >= 0]

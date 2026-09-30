@@ -110,6 +110,11 @@ class LoraRuntimeTests(unittest.TestCase):
         result = loaded.generate({"prompt": "Go", "stop_sequences": ["\n"], "max_new_tokens": 8})
         self.assertEqual((result["text"], result["finish_reason"]), ("yes", "stop"))
 
+    def test_a_character_cut_off_at_the_length_limit_is_dropped(self):
+        # SmolLM2's tokenizer decodes 东 plus half of 京, cut off at the length limit, as 东 and U+FFFD.
+        result = runtime([ord("东"), 0xFFFD]).generate({"prompt": "Go", "max_new_tokens": 2})
+        self.assertEqual((result["text"], result["finish_reason"]), ("东", "length"))
+
     def test_context_window_is_enforced(self):
         with self.assertRaisesRegex(ValueError, "exceeds context window"):
             runtime([EOS], window=10).generate({"prompt": "hello there", "max_new_tokens": 5})

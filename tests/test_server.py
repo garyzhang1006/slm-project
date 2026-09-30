@@ -338,7 +338,7 @@ class StudioAssetTests(unittest.TestCase):
         script = (self.web / "app.js").read_text()
         # In a CommonMark viewer a line opening <!--, <?, <style and the like hides the rest of the file, and an
         # inline tag such as the <String> in List<String> vanishes, in answers and in quoted passages alike.
-        self.assertIn("return code ? line : escapeHtml(line);", script)
+        self.assertIn("    return escapeHtml(line);\n", script)
         self.assertIn('source.text.split("\\n").map(escapeHtml).join("\\n> ")', script)
         # Questions, errors, settings and the model name are plain text, so *args and <answer> show as typed.
         self.assertIn('add("", `## ${escapeMarkdown(run.prompt.replace(/\\s+/g, " "))}`, "");', script)
@@ -352,19 +352,18 @@ class StudioAssetTests(unittest.TestCase):
             self.skipTest("node is not installed")
         start = script.index("const escapeHtml = ")
         end = script.index("\n}\n", script.index("function markdownAnswer(")) + 3
+        # A zero-width space after each < that opens a tag stops the tag in text and is invisible in code, so
+        # no line needs its context judged; lines inside a fence at the top level stay as typed.
         cases = [
-            ("Use List<String> here", "Use List\\<String> here"),
+            ("Use List<String> here", "Use List<\u200bString> here"),
             ("a < b and x<5", "a < b and x<5"),
-            ("`List<String>` and <b>", "`List<String>` and \\<b>"),
-            ("   <!-- hidden", "   \\<!-- hidden"),
-            # An indented line after a paragraph line or in a list item is text, so its tags are escaped too.
-            ("Use a list:\n    List<String> names;", "Use a list:\n    List\\<String> names;"),
-            ("1. Pick a type:\n    - use List<String> here", "1. Pick a type:\n    - use List\\<String> here"),
-            # After a blank line an indented line is code, where a backslash would show.
-            ("Code:\n\n    List<String> x;\nDone <b>", "Code:\n\n    List<String> x;\nDone \\<b>"),
-            ("```\n<b>\n```\n<i>", "```\n<b>\n```\n\\<i>"),
-            # One backslash before <br> would escape the added one and leave the tag live.
-            ("use \\<br> for breaks", "use \\\\\\<br> for breaks"),
+            ("`List<String>` and <b>", "`List<\u200bString>` and <\u200bb>"),
+            ("   <!-- hidden", "   <\u200b!-- hidden"),
+            ("Use a list:\n    List<String> names;", "Use a list:\n    List<\u200bString> names;"),
+            ("- Example:\n    ```java\n    List<String> names;\n    ```", "- Example:\n    ```java\n    List<\u200bString> names;\n    ```"),
+            ("## Example\n    <div>x</div>", "## Example\n    <\u200bdiv>x<\u200b/div>"),
+            ("```\n<b>\n```\n<i>", "```\n<b>\n```\n<\u200bi>"),
+            ("use \\<br> for breaks", "use \\<\u200bbr> for breaks"),
         ]
         probe = script[start:end] + (f"\nconsole.log(JSON.stringify([...{json.dumps([text for text, _ in cases])}"
                                      ".map((text) => markdownAnswer(text)[0]), escapeMarkdown('*args & List<String> in C#')]));")

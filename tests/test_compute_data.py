@@ -142,7 +142,12 @@ class ShortFactTests(unittest.TestCase):
                        "What is 3 x 4?", "Divide 18 by 3.", "Subtract 6 from 15.",
                        "What is the opposite of tall?", "What is the plural of book?",
                        "Write only the word window.", "What is 2 x 6?", "What is 6 times 2? Reply with the number.",
-                       "What is double 6?", "What is 4 - 1?"):
+                       "What is double 6?", "What is 4 - 1?",
+                       # The same facts in other forms: 4 plus 9 as a story, four oranges less one as a neighbor.
+                       "Beth has 4 stickers and finds 9 more. How many stickers does Beth have now?",
+                       "Beth has 9 stickers and finds 4 more. How many stickers does Beth have now?",
+                       "Beth had 4 cookies and lost 1 of them. How many cookies are left?",
+                       "What number comes just before 4?", "What number comes right after 3?"):
             self.assertNotIn(prompt, prompts)
         self.assertIn("What is 5 + 9?", prompts)
         stems = corpus.holdout_stems(HOLDOUT_PROMPTS)
@@ -163,10 +168,13 @@ class ShortFactTests(unittest.TestCase):
                        "What bright star do we see in the daytime sky?", "What orbits Earth and shines at night?"):
             self.assertNotIn(prompt, prompts)
         self.assertIn("What day comes after Thursday?", prompts)
-        groups = {row["group"] for row in rows}
-        self.assertFalse(groups & {"story:add:6:2", "story:add:2:6", "story:sub:3:1", "story:sub:10:4",
-                                   "story:sub:4:1"})
-        self.assertIn("story:add:6:3", groups)
+        # The sums the reading passages ask stay out of stories and plain arithmetic alike.
+        for prompt in ("Alice has 6 stickers and finds 2 more. How many stickers does Alice have now?",
+                       "Diego had 10 cookies and lost 4 of them. How many cookies are left?",
+                       "What is 6 + 2?", "Add 2 and 6.", "What is 10 - 4?", "What is 12 - 12?", "What is 2 x 4?",
+                       "What is double 4?", "What is double 16?", "What number comes just before 3?"):
+            self.assertNotIn(prompt, prompts)
+        self.assertIn("Ivan has 6 stickers and finds 3 more. How many stickers does Ivan have now?", prompts)
 
     def test_stage3_screen_keeps_every_project_row(self):
         # Stage 3 drops rows sharing a sentence with either eval file; a dropped project row is wasted work.

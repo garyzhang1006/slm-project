@@ -26,17 +26,16 @@ HOLDOUT_ARITHMETIC = {
     "divided by": {(18, 3)},
 }
 HOLDOUT_COMPARISONS = {(8, 3), (3, 8)}
-# The same facts asked by data/everyday_eval.json, as sums, splits, packs and "3 less than 2".
+# The same facts asked by data/everyday_eval.json: 16 + 16, splits, packs and "3 less than 2", and the
+# sums its reading passages ask (6 + 2 flowers, 3 - 1 pears, 10 - 4 marbles, 12 - 12 muffins, 4 apples
+# at 2 dollars).
 EVERYDAY_ARITHMETIC = {
-    "plus": set(),
-    "minus": set(),
-    "times": {(5, 6), (6, 5)},
+    "plus": {(16, 16), (6, 2), (2, 6)},
+    "minus": {(3, 1), (10, 4), (12, 12)},
+    "times": {(5, 6), (6, 5), (2, 4), (4, 2)},
     "divided by": {(72, 8), (20, 4), (42, 7)},
 }
 EVERYDAY_COMPARISONS = {(3, 2), (2, 3)}
-# (kind, a, b) story facts the eval passages ask: 6 + 2 flowers, 3 - 1 pears, 10 - 4 marbles, and the
-# holdout's 4 - 1 oranges.
-EVAL_STORIES = {("add", 6, 2), ("add", 2, 6), ("sub", 3, 1), ("sub", 10, 4), ("sub", 4, 1)}
 
 DAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
 MONTHS = ("January", "February", "March", "April", "May", "June", "July", "August",
@@ -509,6 +508,32 @@ def _pair(kind: str, first, second) -> str:
     return f"{kind}-pair:{first}:{second}"
 
 
+def _fact(operation: str, a: int, b: int) -> tuple:
+    return (operation, *sorted((a, b))) if operation in ("plus", "times") else (operation, a, b)
+
+
+def _facts(group: str) -> set[tuple]:
+    """The arithmetic facts a row group states: double 4 states 4 + 4, 2 x 4 and 8 / 2, and the number
+    after 3 states 3 + 1 and 4 - 1."""
+    kind, *parts = group.split(":")
+    if kind == "arithmetic":
+        facts = [(parts[0], int(parts[1]), int(parts[2]))]
+    elif kind == "story":
+        facts = [("plus" if parts[0] == "add" else "minus", int(parts[1]), int(parts[2]))]
+    elif kind == "double":
+        number = int(parts[0])
+        facts = [("plus", number, number), ("times", 2, number), ("divided by", 2 * number, 2)]
+    elif kind == "number-pair":
+        facts = [("plus", int(parts[0]), 1), ("minus", int(parts[1]), 1)]
+    else:
+        return set()
+    return {_fact(*fact) for fact in facts}
+
+
+EVAL_FACTS = {_fact(operation, a, b) for table in (HOLDOUT_ARITHMETIC, EVERYDAY_ARITHMETIC)
+              for operation, pairs in table.items() for a, b in pairs}
+
+
 def arithmetic_rows() -> list[dict]:
     cases = []
     for a in range(13):
@@ -521,8 +546,6 @@ def arithmetic_rows() -> list[dict]:
             cases.append(("divided by", a * b, b, a))
     rows = []
     for operation, a, b, result in cases:
-        if (a, b) in HOLDOUT_ARITHMETIC[operation] | EVERYDAY_ARITHMETIC[operation]:
-            continue
         # a + b and b + a state one fact, as the holdout exclusions above already treat them, so both orders
         # share a group and the eval split never holds out one while the other trains.
         first, second = sorted((a, b)) if operation in ("plus", "times") else (a, b)
@@ -731,8 +754,7 @@ def number_rows() -> list[dict]:
         if number > 0:
             rows.append(_row(f"What number comes just before {number}?", str(number - 1), "math",
                              _pair("number", number - 1, number)))
-    # 16 is skipped because data/everyday_eval.json asks 16 + 16, and 6 because the holdout asks 2 * 6.
-    for number in (value for value in range(1, 51) if value not in (6, 16)):
+    for number in range(1, 51):
         rows += [
             _row(f"What is double {number}?", str(2 * number), "math", f"double:{number}"),
             _row(f"What is half of {2 * number}?", str(number), "math", f"double:{number}"),
@@ -763,11 +785,10 @@ def story_rows() -> list[dict]:
         for b in range(1, 10):
             name = STORY_NAMES[(a + b) % len(STORY_NAMES)]
             items = STORY_ITEMS[(a * b) % len(STORY_ITEMS)]
-            if ("add", a, b) not in EVAL_STORIES:
-                rows.append(_row(f"{name} has {a} {items} and finds {b} more. "
-                                 f"How many {items} does {name} have now?", str(a + b), "math",
-                                 f"story:add:{a}:{b}"))
-            if b < a and ("sub", a, b) not in EVAL_STORIES:
+            rows.append(_row(f"{name} has {a} {items} and finds {b} more. "
+                             f"How many {items} does {name} have now?", str(a + b), "math",
+                             f"story:add:{a}:{b}"))
+            if b < a:
                 rows.append(_row(f"{name} had {a} {items} and lost {b} of them. How many {items} are left?",
                                  str(a - b), "math", f"story:sub:{a}:{b}"))
     return rows
@@ -983,7 +1004,9 @@ def short_fact_rows() -> list[dict]:
     unique, seen = [], set()
     for row in rows:
         key = " ".join(row["prompt"].casefold().split())
-        if key not in seen:
+        # A fact an eval file asks is left out in every form that states it: the holdout's 4 plus 9 as a
+        # story too, and its four oranges less one as the number before 4.
+        if key not in seen and not _facts(row["group"]) & EVAL_FACTS:
             seen.add(key)
             unique.append(row)
     return unique

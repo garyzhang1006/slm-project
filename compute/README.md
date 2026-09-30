@@ -1,6 +1,6 @@
 # Compute pipeline for an English-answering SLM
 
-The current 500M checkpoint answers 3 of 24 everyday questions in `data/simple_questions_holdout.json` correctly, mostly because it saw far too little plain English before it was taught to answer. This folder holds everything needed to fix that on Kaggle: a 1.5 GB English pretraining corpus, pretraining of the 160M preset across chained 11-hour GPU sessions, a short-answer fine-tune, and an evaluation against the same 24 questions. A LoRA fine-tune of an existing open model is included as a fast baseline to compare against.
+The 500M elementary checkpoint (`slm-500m-elementary.pt`) answers 3 of 24 everyday questions in `data/simple_questions_holdout.json` correctly, mostly because it saw far too little plain English before it was taught to answer. This folder holds everything needed to fix that on Kaggle: a 1.5 GB English pretraining corpus, pretraining of the 160M preset across chained 11-hour GPU sessions, a short-answer fine-tune, and an evaluation against the same 24 questions. A LoRA fine-tune of an existing open model is included as a fast baseline to compare against.
 
 Nothing in this folder trains or downloads on your own machine. Every stage runs as a private Kaggle kernel, and `compute/package.py` only bundles source files into a kernel directory.
 

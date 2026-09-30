@@ -47,7 +47,7 @@ PYTHONPATH=src .venv/bin/python -m cognition_slm.benchmark \
 | Required-symbol recall | 0.0000 | 0.0000 | 0.0000 |
 | Static code score | 0.4375 | 0.5000 | +0.0625 |
 
-Training validation loss at step 60 was `4.5671` for legacy and `4.5790` for modern. These are smoke results on 45 synthetic training records and 16 held-out records. They do not establish general coding competence. Exact match and required-symbol recall remained zero.
+Training validation loss at step 60 was `4.5671` for legacy and `4.5790` for modern. These are smoke results on 45 synthetic training records and 16 held-out records. They do not establish general coding competence. Exact match and required-symbol recall remained zero. Task accuracy scores the task_type head on prompts that already carry the `<task_type>` tag, so a high score only shows that the head can read that tag back.
 
 ## Scope limits
 

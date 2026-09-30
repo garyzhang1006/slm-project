@@ -181,6 +181,8 @@ def evaluate(model, tokenizer, examples, *, max_new_tokens: int) -> dict:
     return {
         "records": total,
         "task_records": task_records,
+        # The pooled position follows the prompt's own <task_type> tag, so this checks that the head reads
+        # the label back. No generation path uses the task head.
         "task_accuracy": task_correct / task_records if task_records else None,
         "error_accuracy": error_correct / total,
         "confidence_bucket_accuracy": confidence_correct / total,

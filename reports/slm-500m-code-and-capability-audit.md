@@ -27,7 +27,7 @@ Prompts were fixed before testing, and their expected rubrics were not supplied 
 | Unknown pet name | Acknowledge missing information | Greeting |
 | Two apples plus three | Five apples | Unrelated request |
 
-The [training report](slm-500m-language-quality-verification.json) records 373 training examples, 1,200 training iterations from scratch, and a maximum actual training sequence of 362 byte tokens. Its historical evaluation split included training-prompt overlap. Its `task_accuracy` measures an auxiliary task-label classifier, not answer correctness. A small training loss on this corpus is insufficient evidence of general language learning.
+The [training report](slm-500m-language-quality-verification.json) records 373 training examples, 1,200 training iterations from scratch, and a maximum actual training sequence of 362 byte tokens. Its historical evaluation split included training-prompt overlap. Its `task_accuracy` measures an auxiliary task-label classifier, not answer correctness. That classifier pools after the prompt's own `<task_type>` tag, so its 1.0 only shows the head reading the label back. A small training loss on this corpus is insufficient evidence of general language learning.
 
 ## Code fixes
 

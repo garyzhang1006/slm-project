@@ -41,6 +41,15 @@ class PrepareKaggleTests(unittest.TestCase):
             metadata = json.loads((Path(directory) / "kernel-metadata.json").read_text())
         self.assertEqual(metadata["kernel_sources"], ["someone/slm-500m-english-corpus"])
 
+    def test_studio_verify_attaches_the_language_quality_checkpoint(self):
+        # kaggle_studio_verify.py looks for slm-500m-language-quality.pt, which the english-code-quality-v2
+        # kernel wrote (reports/slm-500m-language-quality-verification.json).
+        prepare = runner("prepare_kaggle")
+        with tempfile.TemporaryDirectory() as directory, contextlib.redirect_stdout(io.StringIO()):
+            prepare.prepare(Path(directory), "someone", "slug", "kaggle_studio_verify.py")
+            metadata = json.loads((Path(directory) / "kernel-metadata.json").read_text())
+        self.assertEqual(metadata["kernel_sources"], ["someone/slm-500m-english-code-quality-v2"])
+
 
 class LongRunHorizonTests(unittest.TestCase):
     def test_stage_horizon_is_reachable_within_budget(self):

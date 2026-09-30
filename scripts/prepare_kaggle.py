@@ -84,7 +84,7 @@ def prepare(output: Path, owner: str, slug: str, runner: str) -> None:
                            [f"{owner}/slm-500m-english-corpus"]
                            if runner == "kaggle_qa_run.py" else
                            [f"{owner}/slm-500m-english-code-quality-v2"]
-                           if runner == "kaggle_english_run.py" else []),
+                           if runner in {"kaggle_english_run.py", "kaggle_studio_verify.py"} else []),
     }, indent=2) + "\n")
     print(json.dumps({"output": str(output), "source_files": len(files), "kernel": f"{owner}/{slug}"}))
 

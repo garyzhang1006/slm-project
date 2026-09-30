@@ -268,6 +268,32 @@ class TrainingIntegrationTests(unittest.TestCase):
                 self.assertIn("--out must not be", stderr.getvalue())
                 run.assert_not_called()
 
+    def test_cli_reports_training_input_errors_without_a_traceback(self):
+        import contextlib
+        import io
+        import sys
+        from unittest.mock import patch
+        from cognition_slm.train import main
+
+        missing = self.root / "missing.jsonl"
+        out = str(self.root / "model.pt")
+        for data, message in ((missing, str(missing)), (self.root, str(self.root))):
+            argv = ["train", "--data", str(data), "--out", out]
+            with self.subTest(data=data.name), contextlib.redirect_stderr(io.StringIO()) as stderr, \
+                    patch.object(sys, "argv", argv):
+                with self.assertRaises(SystemExit) as raised:
+                    main()
+                self.assertEqual(raised.exception.code, 2)
+                self.assertIn(message, stderr.getvalue())
+        argv = ["train", "--data", str(self.data), "--out", out, "--resume", out,
+                "--steps", "3", "--warmup-steps", "0"]
+        with contextlib.redirect_stderr(io.StringIO()) as stderr, patch.object(sys, "argv", argv), \
+                patch("cognition_slm.train.train", side_effect=ValueError("--steps must exceed checkpoint step 3")):
+            with self.assertRaises(SystemExit) as raised:
+                main()
+        self.assertEqual(raised.exception.code, 2)
+        self.assertIn("--steps must exceed checkpoint step 3", stderr.getvalue())
+
     def test_accumulation_matches_combined_batch_with_unequal_lengths(self):
         import torch
         from cognition_slm.train import train

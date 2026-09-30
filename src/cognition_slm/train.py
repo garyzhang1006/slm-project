@@ -722,7 +722,11 @@ def main() -> None:
         path = getattr(args, flag[2:].replace("-", "_"))
         if path and Path(path).resolve() == out_path:
             parser.error(f"--out must not be the {flag} file, or the first checkpoint save would replace that data")
-    print(json.dumps(train(args), indent=2))
+    try:
+        result = train(args)
+    except (FileNotFoundError, IsADirectoryError, ValueError) as exc:
+        parser.error(str(exc))
+    print(json.dumps(result, indent=2))
 
 
 if __name__ == "__main__":

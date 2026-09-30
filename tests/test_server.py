@@ -288,6 +288,11 @@ class StudioAssetTests(unittest.TestCase):
         # Registered before syncComposer, so the redraw after a paste no longer shows the old notice.
         self.assertLess(script.index(clear), script.index('for (const id of ["prompt", "source-text"'))
         self.assertIn("if (phase() !== before) state.notice = null;", script)
+        # Try again's too-long notice asks for a lower Answer length, so changing a setting clears it
+        # ahead of the field's redraw, and so do a preset and Reset answer settings.
+        self.assertIn('$("settings").addEventListener("input", () => { state.notice = null; }, true);', script)
+        self.assertIn('state.stopTask = $("task-type").value;\n  state.notice = null;\n  syncComposer(); saveSettings();',
+                      script)
 
     def test_unreadable_answer_is_an_error(self):
         script = (self.web / "app.js").read_text()

@@ -780,6 +780,9 @@ function renderStatus() {
 $("prompt").addEventListener("input", () => { state.notice = null; autosize(); });
 // A notice about a file or earlier text no longer applies once the text to search changes.
 $("source-text").addEventListener("input", () => { state.notice = null; });
+// Try again's too-long notice asks for a change in Settings, so any change there retires it.
+// Capture runs this before the changed field's own redraw.
+$("settings").addEventListener("input", () => { state.notice = null; }, true);
 window.addEventListener("resize", () => { autosize(); syncScrollButton(); syncDock(); });
 // Dragging the pasted-text box taller changes the composer without any other event.
 new ResizeObserver(syncDock).observe(document.querySelector(".dock"), { box: "border-box" });
@@ -904,6 +907,7 @@ $("reset-settings").addEventListener("click", () => {
   state.stopEdited = false;
   $("stop-sequences").value = defaultStops($("task-type").value);
   state.stopTask = $("task-type").value;
+  state.notice = null;
   syncComposer(); saveSettings();
 });
 // Change events arrive after a preset has filled in its values, and after a slider is let go.

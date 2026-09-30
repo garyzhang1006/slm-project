@@ -13,6 +13,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import re
 import sys
 import time
 
@@ -35,6 +36,8 @@ MAX_PROMPT_CHARS = 300
 MAX_ANSWER_CHARS = 400
 # A period after these words, or after a single letter such as the J of "J. K." or the C of "D.C.", ends no sentence.
 ABBREVIATIONS = frozenset({"mr", "mrs", "ms", "dr", "st", "jr", "sr", "prof", "vs", "etc", "e.g", "i.e", "approx"})
+# A numbered list, on its own lines or inline as in "ways: 1. Rest 2. Eat".
+NUMBERED_LIST = re.compile(r"(?:^|\s)1[.)]\s.*?\s2[.)]\s", re.S)
 OUT_DIR = Path("/kaggle/working/distill")
 SOURCE = "distilled:SmolLM2-360M-Instruct+LoRA<-databricks/databricks-dolly-15k"
 
@@ -65,11 +68,12 @@ def trim_answer(text: str, limit: int = MAX_ANSWER_CHARS) -> str:
             return ""
         return paragraph
     cut = paragraph[:limit]
+    # A list cut short is no whole answer, so the cut may only fall before the list starts.
+    listed = NUMBERED_LIST.search(paragraph)
+    if listed and listed.start() < limit:
+        cut = paragraph[:listed.start() + 1]
     for end in range(len(cut) - 2, 0, -1):
         if cut[end] not in ".!?" or cut[end + 1] != " ":
-            continue
-        # The period of a list marker such as the "5." that starts a line ends no sentence.
-        if cut[:end].rsplit("\n", 1)[-1].strip().isdigit():
             continue
         word = cut[:end].rsplit(None, 1)[-1].lstrip("(\"'").lower()
         if cut[end] == "." and (word in ABBREVIATIONS or len(word.rsplit(".", 1)[-1]) == 1 and word[-1:].isalpha()):

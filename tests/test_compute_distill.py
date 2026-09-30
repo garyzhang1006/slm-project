@@ -56,6 +56,14 @@ class DistillTests(unittest.TestCase):
         self.assertEqual(distill_data.trim_answer("Here are some ways to stay healthy:" + items, limit=300), "")
         # A year that ends a sentence mid-line still ends it.
         self.assertEqual(distill_data.trim_answer("It opened in 1889. It is tall." + items, limit=300), "It opened in 1889.")
+        # Items with sentences of their own, and a list run inline, are cut before the list too.
+        sentences = "".join(f"\n{number}. Drink water. It helps you stay well all day" for number in range(1, 9))
+        inline = "".join(f" {number}. Drink water and sleep eight hours" for number in range(1, 9))
+        for text in ("Here are some ways to stay healthy:" + sentences, "Here are some ways to stay healthy:" + inline,
+                     "Drink more water daily. Here are some ways:" + inline):
+            with self.subTest(text=text[:40]):
+                kept = "" if text.startswith("Here") else "Drink more water daily."
+                self.assertEqual(distill_data.trim_answer(text, limit=300), kept)
 
     def test_build_records_filters_and_counts(self):
         holdout = ["What is 4 plus 9? Reply with the number."]

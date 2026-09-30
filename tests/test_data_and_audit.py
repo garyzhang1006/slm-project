@@ -331,6 +331,23 @@ class DataAndAuditTests(unittest.TestCase):
             self.assertEqual(raised.exception.code, 2)
             self.assertEqual(train.read_bytes(), data.read_bytes())
 
+    def test_audit_report_to_a_directory_is_a_usage_error(self):
+        import contextlib
+        import io
+        import sys
+        from cognition_slm.audit import main
+
+        with tempfile.TemporaryDirectory() as directory:
+            train = Path(directory) / "train.jsonl"
+            train.write_bytes((ROOT / "data" / "demo.jsonl").read_bytes())
+            stderr = io.StringIO()
+            argv = ["audit", "--train", str(train), "--report", directory]
+            with contextlib.redirect_stderr(stderr), contextlib.redirect_stdout(io.StringIO()), \
+                    patch.object(sys, "argv", argv), self.assertRaises(SystemExit) as raised:
+                main()
+            self.assertEqual(raised.exception.code, 2)
+            self.assertIn("cannot write --report", stderr.getvalue())
+
     def test_encoding_uses_the_model_label_sets(self):
         example = validate_record({"id": "chat", "prompt": "Say hi.", "answer": "Hi.", "task_type": "language_generation",
                                    "confidence": 0.5, "error_category": "none", "source": "test", "license": "CC0-1.0"})

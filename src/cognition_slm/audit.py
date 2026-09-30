@@ -172,8 +172,11 @@ def main() -> None:
     rendered = render_report(reports, overlap_errors)
     if args.report:
         report_path = Path(args.report)
-        report_path.parent.mkdir(parents=True, exist_ok=True)
-        report_path.write_text(rendered, encoding="utf-8")
+        try:
+            report_path.parent.mkdir(parents=True, exist_ok=True)
+            report_path.write_text(rendered, encoding="utf-8")
+        except OSError as exc:
+            parser.error(f"cannot write --report {report_path}: {exc}")
     print(json.dumps({"reports": [report.to_dict() for report in reports], "overlap_errors": overlap_errors}, indent=2))
     if any(report.errors for report in reports) or overlap_errors:
         raise SystemExit(1)

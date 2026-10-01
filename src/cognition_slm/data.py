@@ -157,7 +157,12 @@ def load_jsonl(path: str | Path) -> list[CognitionExample]:
     for record_number, line in _utf8_lines(path):
         if not line.strip():
             continue
-        example = validate_record(_parse_json_line(path, record_number, line), record_number)
+        raw = _parse_json_line(path, record_number, line)
+        try:
+            example = validate_record(raw, record_number)
+        except DataValidationError as exc:
+            # validate_record names only the record, so a bad --eval-data row would read as a --data error.
+            raise DataValidationError(f"{path}: {exc}") from None
         if example.id in seen_ids:
             raise DataValidationError(f"{path}:{record_number}: duplicate id {example.id!r}")
         seen_ids.add(example.id)

@@ -259,6 +259,37 @@ class GroundingTests(unittest.TestCase):
         result = self.answer("Where is room 100?", "Room 10 is upstairs.\n\nRoom 100 is in the basement.")
         self.assertEqual([source["text"] for source in result["sources"]], ["Room 100 is in the basement."])
 
+    def test_hyphenated_and_solid_spellings_meet(self):
+        # Wi-Fi gave only wi and fi, so a question about the wifi password matched half its terms and abstained.
+        for prompt, passage, words in (
+                ("What is the wifi password?", "The Wi-Fi password is on the router.", ["Wi-Fi", "password"]),
+                ("What is the Wi-Fi password?", "The wifi password is on the router.", ["wifi", "password"]),
+                ("How do I change my email?", "Change your e-mail address in settings.", ["Change", "e-mail"]),
+                ("Is it a follow-up meeting?", "The follow up meeting is on Monday.", ["follow", "up", "meeting"])):
+            with self.subTest(prompt=prompt):
+                spans = self.answer(prompt, passage)["sources"][0]["matches"]
+                self.assertEqual([passage[start:end] for start, end in spans], words)
+
+    def test_numbers_glued_to_units_match_spaced_ones(self):
+        # 10GB was one term, so a question about 10 GB matched half its terms and abstained.
+        for prompt, passage in (("Is the upload limit 10 GB?", "The upload limit is 10GB per file."),
+                                ("Is the upload limit 10GB?", "The upload limit is 10 GB per file.")):
+            with self.subTest(prompt=prompt):
+                self.assertEqual(self.answer(prompt, passage)["sources"][0]["text"], passage)
+        # A single letter stays glued, so gate 12B is not gate 12A.
+        self.assertTrue(self.answer("Where is gate 12B?", "Gate 12A is upstairs.")["abstained"])
+
+    def test_thousands_separators_keep_a_number_whole(self):
+        # 1,200 gave the terms 1 and 200, so the 1,500 passage ranked and the 1200 passage was dropped.
+        pro = "The pro plan costs 1200 a year."
+        result = self.answer("Which plan costs 1,200?", f"The basic plan costs 1,500 a year.\n\n{pro}")
+        self.assertEqual(result["sources"][0]["text"], pro)
+        passage = "The hall holds 1,200 people."
+        spans = self.answer("Which hall holds 1200 people?", passage)["sources"][0]["matches"]
+        self.assertEqual([passage[start:end] for start, end in spans], ["hall", "holds", "1,200", "people"])
+        # A zero after the comma stays, so 1,050 is not 50.
+        self.assertTrue(self.answer("Which room holds 50 people?", "The hall holds 1,050 people.")["abstained"])
+
     def test_irregular_past_forms_match(self):
         passage = "Hamlet was written by Shakespeare."
         self.assertEqual(self.answer("Who wrote Hamlet?", passage)["sources"][0]["text"], passage)

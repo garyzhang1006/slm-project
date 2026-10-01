@@ -21,9 +21,16 @@ _HOUR = re.compile(r"(?<![:\d])\d{1,2}")
 # A number written with leading zeros, as the 08 of "08:30", is the same number as a bare 8. A zero after a
 # decimal point, comma or colon stays, so 1.05 keeps apart from 1.5 and the minutes of 9:05 stay 05.
 _PADDED = re.compile(r"(?<![\d.,:])0+(?=\d)")
+# A number with thousands separators is one word, so 1,200 is the number 1200 and not the numbers 1 and 200.
+_THOUSANDS = r"\d{1,3}(?:,\d{3})+(?!\d)"
+# Letters joined by hyphens are one word, as in Wi-Fi; digits are left out, so 10-20 stays two numbers.
+_ALPHA = f"(?:[^\\W\\d_{_SINGLE}]|[{_MARKS}])"
 # Words are runs of letters, digits and marks in any script, found the same way in questions,
 # ranking and highlights, so a highlight always covers a whole ranked word.
-_WORDS = re.compile(f"{_CLOCK}|(?=[^\\W_])[{_SINGLE}]|{_LETTER}+(?:'{_LETTER}+)?")
+_WORDS = re.compile(f"{_CLOCK}|{_THOUSANDS}|(?=[^\\W_])[{_SINGLE}]|{_ALPHA}+(?:-{_ALPHA}+)+(?:'{_LETTER}+)?|"
+                    f"{_LETTER}+(?:'{_LETTER}+)?")
+# A number glued to a unit of two or more letters, as in 10GB, is also written apart; gate 12B stays one word.
+_GLUED = re.compile(r"(\d+)([^\W\d_]{2,})")
 _STOP = frozenset("a an the am is are was were be been being do does did can could would should will shall may might what which who whom whose when where why how i you he she it we they me us him them my your his her its our their of to in on at by for from with about and or but as that this these those please tell explain answer question according source passage text many much any some there".split())
 # Questions typed without apostrophes spell "what's" as "whats", which would otherwise stem into a topic.
 _STOP |= frozenset("whats wheres whos hows whens whys theres thats".split())
@@ -81,32 +88,55 @@ def _stem(word: str) -> str:
     return word[:-1] if word.endswith("e") and len(word) > 2 else word
 
 
-def _terms(text: str, before: str = "") -> set[str]:
+def _words(text: str, before: str = "") -> list[str]:
     # NFKD before casefolding turns styled letters such as a math bold P into a plain P that then folds to p.
     # Dropping accents after the second NFKD lets cafe match café, and the dotted capital I folds to i plus a dot.
     folded = unicodedata.normalize("NFKD", unicodedata.normalize("NFKD", text).casefold().replace("\u2019", "'"))
     plain = "".join(char for char in folded if unicodedata.category(char) != "Mn")
     # before is the character ahead of text in its passage, so a highlight reads the 05 of 1.05 as ranking did.
     words = _WORDS.findall(_PADDED.sub("", before + plain)[len(before):])
-    terms = set()
-    for word in (word.removesuffix("'s") for word in words):
-        if _TIME.fullmatch(word):
-            # "9:30 am" keeps 9 and 30 and adds 9am, so it still matches a bare 9 but ranks above "9:30 pm".
-            meridiem = word.replace(".", "")[-2] + "m"
-            other = "pm" if meridiem == "am" else "am"
-            hours = _HOUR.findall(word)
-            # "12 am" and "12 pm" are each written for both noon and midnight, so the first hour of a range that ends
-            # right on 12, as in "9-12 am", gets both halves of the day.
-            if len(hours) == 2 and re.findall(r"\d+(?::\d\d)?", word)[-1] in ("12", "12:00"):
-                terms.add(hours[0] + other)
-            # Otherwise the am or pm follows the last hour, so a first hour past it, as in "11-1 pm" or
-            # "11:30-12:30 pm", is in the other half of the day.
-            elif len(hours) == 2 and int(hours[0]) % 12 > int(hours[1]) % 12:
-                terms.add(hours.pop(0) + other)
-            terms |= set(re.findall(r"\d+", word)) | {hour + meridiem for hour in hours}
-        elif word not in _STOP:
-            terms.add(_stem(_IRREGULAR.get(word, word)))
-    return terms
+    return [word.removesuffix("'s").replace(",", "") for word in words]
+
+
+def _pieces(word: str) -> list[str]:
+    """The pieces a word is also written as, such as wi and fi for Wi-Fi or 10 and gb for 10GB."""
+    if _TIME.fullmatch(word):
+        return [word]
+    pieces: list[str] = []
+    for part in word.split("-"):
+        glued = _GLUED.fullmatch(part)
+        pieces += glued.groups() if glued else [part]
+    return pieces
+
+
+def _term(form: str) -> str | None:
+    return None if form in _STOP else _stem(_IRREGULAR.get(form, form))
+
+
+def _word_terms(word: str) -> set[str]:
+    if _TIME.fullmatch(word):
+        # "9:30 am" keeps 9 and 30 and adds 9am, so it still matches a bare 9 but ranks above "9:30 pm".
+        meridiem = word.replace(".", "")[-2] + "m"
+        other = "pm" if meridiem == "am" else "am"
+        hours = _HOUR.findall(word)
+        terms = set()
+        # "12 am" and "12 pm" are each written for both noon and midnight, so the first hour of a range that ends
+        # right on 12, as in "9-12 am", gets both halves of the day.
+        if len(hours) == 2 and re.findall(r"\d+(?::\d\d)?", word)[-1] in ("12", "12:00"):
+            terms.add(hours[0] + other)
+        # Otherwise the am or pm follows the last hour, so a first hour past it, as in "11-1 pm" or
+        # "11:30-12:30 pm", is in the other half of the day.
+        elif len(hours) == 2 and int(hours[0]) % 12 > int(hours[1]) % 12:
+            terms.add(hours.pop(0) + other)
+        return terms | set(re.findall(r"\d+", word)) | {hour + meridiem for hour in hours}
+    # A word in pieces is a term whole as well, so the wifi of a question meets the Wi-Fi of a passage.
+    pieces = _pieces(word)
+    forms = pieces + ["".join(pieces)] if len(pieces) > 1 else pieces
+    return {term for term in map(_term, forms) if term is not None}
+
+
+def _terms(text: str, before: str = "") -> set[str]:
+    return set().union(*(_word_terms(word) for word in _words(text, before)))
 
 
 def _kana_pairs(text: str) -> list[tuple[str, int, int]]:
@@ -162,6 +192,10 @@ def source_excerpts(request: dict) -> dict:
     if not request["prompt"].strip():
         raise ValueError("Enter a question.")
     query = _terms(request["prompt"])
+    # A passage that writes a word of the question the other way, as wifi for Wi-Fi or 10 GB for 10GB, has
+    # all of that word's terms: its whole form stands for its pieces, and all its pieces for its whole form.
+    spellings = [({_term("".join(pieces))} - {None}, {_term(piece) for piece in pieces} - {None})
+                 for pieces in map(_pieces, _words(request["prompt"])) if len(pieces) > 1]
     # A question spelled only in hiragana has no terms, so it matches on pairs of neighbouring hiragana, which
     # carry more of each word than the single letters that particles and verb endings share.
     pairs = not query
@@ -177,9 +211,15 @@ def source_excerpts(request: dict) -> dict:
             continue
         seen.add(passage)
         terms = {pair for pair, _, _ in _kana_pairs(passage)} if pairs else _terms(passage)
-        overlap = query & terms
-        if query and overlap and len(overlap) / len(query) >= 0.6:
-            ranked.append((len(overlap), len(overlap) / max(1, len(terms)), index, passage))
+        missing = query - terms
+        for whole, parts in spellings:
+            if whole & terms:
+                missing -= parts
+            elif parts and parts <= terms:
+                missing -= whole
+        matched = len(query) - len(missing)
+        if query and query & terms and matched / len(query) >= 0.6:
+            ranked.append((matched, matched / max(1, len(terms)), index, passage))
     ranked.sort(key=lambda item: (-item[0], -item[1], item[2]))
     sources = [{"id": f"S{i + 1}", "text": item[3], "matches": _matches(item[3], query, pairs)} for i, item in enumerate(ranked[:3])]
     return {

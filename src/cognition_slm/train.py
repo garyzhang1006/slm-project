@@ -401,11 +401,11 @@ def train(args: argparse.Namespace) -> dict:
             # Loading restores the old run's decay; apply --weight-decay so the update matches the metadata.
             # The first group is the decayed one in both the legacy and the split layout.
             optimizer.param_groups[0]["weight_decay"] = args.weight_decay
-            if fused_adamw:
-                # Resume restores old execution flags as well as Adam moments.
-                for group in optimizer.param_groups:
-                    group["fused"] = True
-                    group["foreach"] = False
+            # Resume restores old execution flags as well as Adam moments, so a fused run resumed without
+            # --fused-adamw would keep stepping fused; this run's own choice replaces them either way.
+            for group in optimizer.param_groups:
+                group["fused"] = True if fused_adamw else None
+                group["foreach"] = False if fused_adamw else None
             _move_optimizer_state(torch, optimizer, device)
             start_step = int(metadata.get("step", 0))
             samples_seen = metadata.get("samples_seen")

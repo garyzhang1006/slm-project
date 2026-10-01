@@ -255,6 +255,23 @@ class TrainingIntegrationTests(unittest.TestCase):
             resumed = train(self.args("resumed.pt", resume=str(legacy), steps=2))
         self.assertEqual(resumed["resumed_from_step"], 1)
 
+    def test_resume_without_fused_adamw_drops_the_checkpoints_fused_flag(self):
+        # Loading an optimizer state restores its execution flags, so a fused run resumed without --fused-adamw
+        # kept stepping fused, even on a CPU, while its metadata said fused_adamw false.
+        import torch
+        from cognition_slm.train import train
+
+        parent = train(self.args("parent.pt", steps=1))
+        payload = torch.load(parent["checkpoint"], weights_only=True)
+        for group in payload["optimizer_state_dict"]["param_groups"]:
+            group["fused"] = True
+        fused = self.root / "fused.pt"
+        torch.save(payload, fused)
+        resumed = train(self.args("resumed.pt", resume=str(fused), steps=2))
+        saved = torch.load(resumed["checkpoint"], weights_only=True)
+        self.assertFalse(any(group["fused"] for group in saved["optimizer_state_dict"]["param_groups"]))
+        self.assertFalse(saved["metadata"]["fused_adamw"])
+
     def test_unwritable_out_fails_before_any_step(self):
         from unittest.mock import patch
         from cognition_slm.train import train

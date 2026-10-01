@@ -27,16 +27,14 @@ from compute.stage1_corpus import HOLDOUT_PATH, contains_secret, digest, normali
 from compute.short_facts import SENTENCE_CUE  # noqa: E402
 from compute.stages import DISTILL_FILTERS_VERSION  # noqa: E402
 from compute.stage3_sft_data import (EVERYDAY_EVAL_PATH, MAX_DOLLY_RESPONSE_CHARS, SOURCES,  # noqa: E402
-                                     _load_rows, holdout_conflict, holdout_stems, one_sentence_answer,
-                                     sft_record, write_jsonl)
+                                     _load_rows, abbreviated, holdout_conflict, holdout_stems,
+                                     one_sentence_answer, sft_record, write_jsonl)
 
 DOLLY = "databricks/databricks-dolly-15k"
 # Categories that ask a question a short answer can settle; brainstorming and creative writing do not.
 CATEGORIES = frozenset({"open_qa", "general_qa", "classification"})
 MAX_PROMPT_CHARS = 300
 MAX_ANSWER_CHARS = 400
-# A period after these words, or after a single letter such as the J of "J. K." or the C of "D.C.", ends no sentence.
-ABBREVIATIONS = frozenset({"mr", "mrs", "ms", "dr", "st", "jr", "sr", "prof", "vs", "etc", "e.g", "i.e", "approx"})
 # A numbered list starts a line or follows a colon, as in "ways: 1. Rest 2. Eat"; "on May 1. ... on June 2." is none.
 NUMBERED_LIST = re.compile(r"(?:^|[\n:])\s*1[.)]\s.*?\s2[.)]\s", re.S)
 # A bullet list starts a line with "- ", "* " or a bullet sign.
@@ -70,15 +68,13 @@ def candidate_prompts(raws, limit: int) -> list[tuple[int, str]]:
     return chosen[:limit]
 
 
-def abbreviated(word: str) -> bool:
-    """Whether a period after word ends no sentence, as after "Dr" or the S of "U.S"."""
-    word = word.lstrip("(\"'").lower()
-    return word in ABBREVIATIONS or len(word.rsplit(".", 1)[-1]) == 1 and word[-1:].isalpha()
-
-
 def trim_answer(text: str, limit: int = MAX_ANSWER_CHARS) -> str:
     """First paragraph, cut back to a sentence end when it runs past limit; '' when nothing usable is left."""
-    paragraph = text.strip().split("\n\n", 1)[0].strip()
+    paragraph, _, rest = text.strip().partition("\n\n")
+    paragraph = paragraph.strip()
+    # A list with a blank line between items would keep only its first item, which is no whole answer.
+    if LIST_MARKER.match(paragraph) and LIST_MARKER.match(rest.lstrip("\n")):
+        return ""
     if len(paragraph) <= limit:
         # A lead-in such as "Here are some examples:" introduces the answer, and an exclamation such as "Sure!" or
         # "That's a great question!" or an opener such as "Certainly." before more paragraphs greets it; kept

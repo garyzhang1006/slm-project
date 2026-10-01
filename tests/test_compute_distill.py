@@ -28,6 +28,12 @@ class DistillTests(unittest.TestCase):
         self.assertEqual(sorted(index for index, _ in chosen), [0, 4])
         self.assertEqual(len(distill_data.candidate_prompts(raws, 1)), 1)
 
+    def test_trim_answer_drops_a_list_split_by_blank_lines(self):
+        # The first paragraph was the whole first item, so the row trained "1. Drink plenty of water." as the answer.
+        for text in ("1. Drink plenty of water.\n\n2. Get enough sleep.", "- Rest.\n\n\n- Eat well."):
+            with self.subTest(text=text):
+                self.assertEqual(distill_data.trim_answer(text), "")
+
     def test_trim_answer_keeps_first_paragraph_and_sentence_ends(self):
         self.assertEqual(distill_data.trim_answer(" Blue light scatters.\n\nMore detail."), "Blue light scatters.")
         long = "The first sentence. " + "word " * 100

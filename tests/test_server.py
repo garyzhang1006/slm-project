@@ -89,6 +89,19 @@ class RequestValidationTests(unittest.TestCase):
             runtime.load()
             self.assertEqual(runtime.state, "error")
             self.assertIn("Expected 499,524,075 parameters", runtime.error)
+            # A checkpoint picked with --checkpoint has no size to match, so the same weights load.
+            runtime = ModelRuntime(checkpoint)
+            runtime.load()
+            self.assertEqual(runtime.state, "ready", runtime.error)
+
+    def test_explicit_checkpoint_skips_the_500m_size_check(self):
+        with patch("sys.argv", ["studio", "--checkpoint", "small.pt"]), patch.object(Path, "is_file", return_value=True), \
+             patch("cognition_slm.server.ModelRuntime") as runtime, \
+             patch("cognition_slm.server.WorkbenchServer") as server, \
+             patch("cognition_slm.server.threading.Thread"):
+            server.return_value.serve_forever.side_effect = KeyboardInterrupt
+            main()
+            runtime.assert_called_once_with(Path("small.pt"), "cpu", expected_parameters=None)
 
     def test_invalid_sampling_options(self):
         for key, value in (
@@ -552,6 +565,12 @@ class ServerTests(unittest.TestCase):
                 status, _ = self.generate({"Content-Type": "application/json", **header})
                 self.assertEqual(status, 403)
         self.runtime.generate.assert_not_called()
+
+    def test_same_origin_request_is_allowed(self):
+        # Browsers send Origin with fetch, and only foreign origins were tested, so a check that refused every
+        # Origin would have blocked each Studio question while every test passed.
+        origin = f"http://127.0.0.1:{self.server.server_address[1]}"
+        self.assertEqual(self.generate({"Content-Type": "application/json", "Origin": origin})[0], 200)
 
     def test_busy_returns_conflict(self):
         with self.runtime.lock:

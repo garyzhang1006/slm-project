@@ -458,9 +458,13 @@ class SftDataTests(unittest.TestCase):
             {"instruction": "Who won?", "context": "Mo won the race.", "response": "Mo won the race."},
             {"instruction": "What is the capital of Peru?", "context": "", "response": "Lima."},
             {"instruction": "Describe a cat.", "context": "", "response": "A cat is a small furry pet."},
+            # The period of D.C. read as a second sentence, so this one sentence went without the cue.
+            {"instruction": "What is the capital of the United States?", "context": "",
+             "response": "Washington, D.C. is the capital of the United States."},
         ]))
         cue = short_facts.SENTENCE_CUE
         self.assertEqual(rows["dolly:0"]["prompt"], "Which planet is the hottest?" + cue)
+        self.assertEqual(rows["dolly:5"]["prompt"], "What is the capital of the United States?" + cue)
         for group in ("dolly:1", "dolly:2", "dolly:3", "dolly:4"):
             self.assertNotIn(cue, rows[group]["prompt"], group)
 

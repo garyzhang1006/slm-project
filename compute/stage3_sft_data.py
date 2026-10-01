@@ -36,6 +36,8 @@ SOURCES = {
 MAX_RECORD_BYTES = 1024  # serialized prompt template plus answer, well inside a 2048-byte block
 MAX_DOLLY_RESPONSE_CHARS = 400
 MAX_CUED_SENTENCE_CHARS = 200
+# A period after these words, or after a single letter such as the J of "J. K." or the C of "D.C.", ends no sentence.
+ABBREVIATIONS = frozenset({"mr", "mrs", "ms", "dr", "st", "jr", "sr", "prof", "vs", "etc", "e.g", "i.e", "approx"})
 MAX_OASST_PROMPT_CHARS = 400
 MAX_OASST_ANSWER_CHARS = 600
 MAX_OASST_TOXICITY = 0.2
@@ -70,8 +72,18 @@ def one_sentence_answer(question: str, answer: str) -> bool:
     dolly_rows adds short_facts.SENTENCE_CUE to them, so a sentence is only trained where one is asked for.
     """
     question, answer = question.strip(), answer.strip()
-    return (question.endswith("?") and len(answer) <= MAX_CUED_SENTENCE_CHARS and len(answer.split()) >= 4
-            and answer[-1] in ".!" and not re.search(r"[.!?]\s", answer[:-1]))
+    if not (question.endswith("?") and len(answer) <= MAX_CUED_SENTENCE_CHARS and len(answer.split()) >= 4
+            and answer[-1] in ".!"):
+        return False
+    # The period of "Washington, D.C. is the capital" ends no sentence, so that answer is still one sentence.
+    return not any(end.group() != "." or not abbreviated((answer[:end.start()].split() or [""])[-1])
+                   for end in re.finditer(r"[.!?](?=\s)", answer[:-1]))
+
+
+def abbreviated(word: str) -> bool:
+    """Whether a period after word ends no sentence, as after "Dr" or the S of "U.S"."""
+    word = word.lstrip("(\"'").lower()
+    return word in ABBREVIATIONS or len(word.rsplit(".", 1)[-1]) == 1 and word[-1:].isalpha()
 
 
 def dolly_rows(raws) -> list[tuple[str, dict]]:

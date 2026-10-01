@@ -65,6 +65,15 @@ class ContextTherapyTests(unittest.TestCase):
         self.assertEqual(assessment.observations[0].code, "contradictory_directives")
         self.assertEqual(assessment.actions[0].code, "resolve_conflict")
 
+    def test_agreeing_negations_are_not_contradictions(self):
+        # Only must, should and do counted as negations, so "I will not use eval" read as the positive "use eval".
+        for reply in ("Understood, I will not use eval.", "I won't use eval.", "The code does not use eval.",
+                      "It didn't use eval.", "I would never use eval."):
+            with self.subTest(reply=reply):
+                assessment = ContextTherapist().assess([{"role": "user", "content": "Never use eval."},
+                                                        {"role": "assistant", "content": reply}])
+                self.assertNotIn("contradictory_directives", [item.code for item in assessment.observations])
+
     def test_repetition_evidence_redacts_secrets_before_case_normalization(self):
         secret = "AKIA" + "ABCDEFGHIJKLMNOP"
         content = f"Deployment credential {secret} is recorded here."

@@ -27,8 +27,10 @@ _SECRET_PATTERNS = (
     *SECRET_PATTERNS,
 )
 _DIRECTIVE_PATTERN = re.compile(
-    r"(?ix)\b(?:(?P<negative>(?:must|should)\s+(?:not|never)|(?:must|should)n't|do\s+not|don't|"
-    r"cannot|can't|never|avoid)|"
+    # "I will not use eval" agrees with "Never use eval", so every auxiliary's negation is negative, not only
+    # must, should and do; otherwise "use eval" after the "not" reads as a positive directive.
+    r"(?ix)\b(?:(?P<negative>(?:must|should|will|would|shall|do|does|did|could)\s+(?:not|never)|"
+    r"(?:must|should|would|do|does|did|could)n't|won't|shan't|cannot|can't|never|avoid)|"
     r"(?P<positive>must|should|always|use|include|keep|preserve))\s+"
     r"(?P<topic>[^.!?\n]{2,100})"
 )

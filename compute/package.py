@@ -77,7 +77,8 @@ def prepare(stage: str, output: Path, owner: str = OWNER, session: int | None = 
     runner = STAGES[stage]["runner"]
     # source_files globs these folders, so a run.py or JSON written into one would ship in the next payload.
     for folder in ("compute", "data", "src/cognition_slm"):
-        if output.resolve().is_relative_to((root / folder).resolve()):
+        # macOS disks ignore case, so Compute/ there is compute/, and resolve() keeps the case as typed.
+        if Path(str(output.resolve()).casefold()).is_relative_to(str((root / folder).resolve()).casefold()):
             raise ValueError(f"--out {output} is inside {folder}/, which is packaged; "
                              "choose a folder outside it, such as /tmp/slm-kernel")
     files = source_files(root, runner)

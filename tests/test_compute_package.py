@@ -157,7 +157,9 @@ class PackageTests(unittest.TestCase):
         package = module("package")
         with tempfile.TemporaryDirectory() as directory:
             root = fake_root(Path(directory) / "project", "compute/stage3_sft_data.py")
-            for out in (root / "compute", root / "compute" / "kernel", root / "data"):
+            # macOS disks ignore case, so Compute/ there is compute/, which resolve() does not reveal.
+            for out in (root / "compute", root / "compute" / "kernel", root / "data", root / "Compute",
+                        root / "DATA" / "kernel"):
                 with self.subTest(out=out), self.assertRaisesRegex(ValueError, "outside"):
                     package.prepare("sft_data", out, root=root)
             self.assertFalse((root / "compute" / "run.py").exists())

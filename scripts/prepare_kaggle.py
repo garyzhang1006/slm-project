@@ -20,7 +20,8 @@ PACKAGED = (("src/cognition_slm", "*.py"), ("compute", "*.py"), ("tests", "*.py"
 def prepare(output: Path, owner: str, slug: str, runner: str) -> None:
     # A run.py or JSON written into a packaged folder would ship, stale, in every later bundle.
     for folder, _ in PACKAGED:
-        if output.resolve().is_relative_to((ROOT / folder).resolve()):
+        # macOS disks ignore case, so Compute/ there is compute/, and resolve() keeps the case as typed.
+        if Path(str(output.resolve()).casefold()).is_relative_to(str((ROOT / folder).resolve()).casefold()):
             raise ValueError(f"--out {output} is inside {folder}/, which is packaged; "
                              "choose a folder outside it, such as /tmp/slm-kernel")
     files = [ROOT / name for name in ("pyproject.toml", "README.md", "LICENSE")]

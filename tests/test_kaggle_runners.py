@@ -58,7 +58,8 @@ class PrepareKaggleTests(unittest.TestCase):
     def test_output_inside_a_packaged_folder_is_refused(self):
         # A run.py written into compute/ or tests/ would ship, stale, in every later bundle.
         prepare = runner("prepare_kaggle")
-        for folder in ("compute", "tests", "data", "src/cognition_slm"):
+        # macOS disks ignore case, so Compute/ there is compute/, which resolve() does not reveal.
+        for folder in ("compute", "tests", "data", "src/cognition_slm", "Compute", "Src/Cognition_SLM"):
             output = ROOT / folder / "kernel-bundle"
             with self.subTest(folder=folder), self.assertRaisesRegex(ValueError, "packaged"):
                 prepare.prepare(output, "someone", "slug", "kaggle_run.py")

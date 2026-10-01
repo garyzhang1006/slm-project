@@ -8,6 +8,7 @@ import re
 import sys
 import tempfile
 import unittest
+from unittest import mock
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -90,7 +91,7 @@ class StageTableTests(unittest.TestCase):
 
 
 class PackageTests(unittest.TestCase):
-    def build(self, stage, session=None):
+    def build(self, stage, session=None, pretrain_session=None):
         package = module("package")
         runner = package.STAGES[stage]["runner"]
         directory = tempfile.TemporaryDirectory()
@@ -98,7 +99,7 @@ class PackageTests(unittest.TestCase):
         root = fake_root(Path(directory.name) / "project", runner)
         out = Path(directory.name) / "out"
         with contextlib.redirect_stdout(io.StringIO()):
-            package.prepare(stage, out, "someone", session, root=root)
+            package.prepare(stage, out, "someone", session, pretrain_session, root=root)
         return out, runner
 
     def payload(self, out):
@@ -142,6 +143,17 @@ class PackageTests(unittest.TestCase):
         self.assertEqual(metadata["kernel_sources"], ["someone/slm-sft-data"])
         script, _ = self.payload(out)
         self.assertIn("] + ['--model', '1.7b', '--max-seconds', '14400']", script)
+
+    def test_sft_kernel_attaches_the_chosen_pretrain_session(self):
+        # The watcher passes the session it saw finish; dropped on the way, the kernel attached the estimated last one.
+        package = module("package")
+        chosen = module("stages").pretrain_sessions() + 1
+        out, _ = self.build("sft", pretrain_session=chosen)
+        metadata = json.loads((out / "kernel-metadata.json").read_text())
+        self.assertEqual(metadata["kernel_sources"][0], f"someone/slm-160m-pretrain-{chosen}")
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(package, "prepare") as prepare:
+            package.main(["--stage", "sft", "--pretrain-session", str(chosen), "--out", directory])
+        self.assertEqual(prepare.call_args.args[4], chosen)
 
     def test_cli_rejects_flags_for_the_wrong_stage(self):
         package = module("package")

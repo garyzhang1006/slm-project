@@ -346,14 +346,21 @@ class TrainingIntegrationTests(unittest.TestCase):
 
         held_out = self.root / "eval.jsonl"
         held_out.write_text(self.data.read_text())
-        for argv in (["train", "--data", str(self.data), "--out", str(self.data)],
-                     ["train", "--data", str(self.data), "--eval-data", str(held_out), "--out", str(held_out)]):
+        # Another spelling of the same file, which only resolve() reveals; Path keeps the "..".
+        (self.root / "sub").mkdir()
+        respelled = f"{self.root}/sub/../{self.data.name}"
+        for argv, message in ((["train", "--data", str(self.data), "--out", str(self.data)], "--out must not be"),
+                              (["train", "--data", str(self.data), "--eval-data", str(held_out), "--out", str(held_out)],
+                               "--out must not be"),
+                              (["train", "--data", str(self.data), "--out", respelled], "--out must not be"),
+                              (["train", "--data", str(self.data), "--eval-data", respelled],
+                               "--eval-data must be different from the training data")):
             with self.subTest(argv=argv[3:]), contextlib.redirect_stderr(io.StringIO()) as stderr, \
                     patch.object(sys, "argv", argv), patch("cognition_slm.train.train") as run:
                 with self.assertRaises(SystemExit) as raised:
                     main()
                 self.assertEqual(raised.exception.code, 2)
-                self.assertIn("--out must not be", stderr.getvalue())
+                self.assertIn(message, stderr.getvalue())
                 run.assert_not_called()
 
     def test_cli_reports_training_input_errors_without_a_traceback(self):

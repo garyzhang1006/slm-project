@@ -85,6 +85,8 @@ class StageTableTests(unittest.TestCase):
                     (lambda: stages.stage_slug("sft", 2)), (lambda: stages.stage_slug("nope"))):
             with self.assertRaises(ValueError):
                 bad()
+        with self.assertRaisesRegex(ValueError, "--pretrain-session needs k >= 1, got 0"):
+            stages.stage_attaches("sft", pretrain_session=0)
 
 
 class PackageTests(unittest.TestCase):

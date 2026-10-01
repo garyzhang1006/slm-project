@@ -104,6 +104,9 @@ def stage_attaches(stage: str, session: int | None = None, pretrain_session: int
         if session > 1:
             attaches.append(stage_slug("pretrain", session - 1))
     elif stage == "sft":
+        # stage_slug would reject it too, but its message names --session, which sft doesn't take.
+        if pretrain_session is not None and pretrain_session < 1:
+            raise ValueError(f"--pretrain-session needs k >= 1, got {pretrain_session}")
         last = pretrain_sessions() if pretrain_session is None else pretrain_session
         attaches.insert(0, stage_slug("pretrain", last))
     return attaches

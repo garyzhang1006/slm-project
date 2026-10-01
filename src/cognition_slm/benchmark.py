@@ -53,6 +53,10 @@ def benchmark(
     if max_new_tokens < 1:
         raise ValueError("max_new_tokens must be positive")
     examples = load_jsonl(data_path)
+    # A mistyped later path would otherwise fail only after every earlier model had run through the data.
+    for _, path in checkpoints:
+        if not Path(path).is_file():
+            raise FileNotFoundError(f"{path}: no such checkpoint file")
     if device is None:
         device = torch.device("cpu")
     models = []

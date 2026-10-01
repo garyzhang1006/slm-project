@@ -41,7 +41,7 @@ class BenchmarkTests(unittest.TestCase):
                   "confidence_bucket_accuracy": 1.0, "exact_match_accuracy": 1.0}
         # Not cpu, which benchmark() also falls back to, so a dropped --device would fail this.
         argv = ["benchmark", "--model", "a=a.pt", "--data", "d.jsonl", "--device", "meta"]
-        with patch("sys.argv", argv), \
+        with patch("sys.argv", argv), patch.object(Path, "is_file", return_value=True), \
                 patch("cognition_slm.benchmark.load_jsonl", return_value=[]), \
                 patch("cognition_slm.benchmark.load_checkpoint", return_value=(model, None)) as load, \
                 patch("cognition_slm.benchmark.evaluate", return_value=result), \
@@ -72,6 +72,21 @@ class BenchmarkTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, 2)
         self.assertIn("--max-new-tokens must be positive, got 0", stderr.getvalue())
 
+    def test_a_missing_later_checkpoint_fails_before_any_model_runs(self):
+        # The second path was tried only after the first model had been evaluated on every record.
+        import tempfile
+
+        with tempfile.TemporaryDirectory() as directory:
+            present = Path(directory) / "a.pt"
+            present.write_bytes(b"")
+            with patch("cognition_slm.benchmark.load_jsonl", return_value=[]), \
+                    patch("cognition_slm.benchmark.load_checkpoint") as load, \
+                    patch("cognition_slm.benchmark.evaluate") as run, \
+                    self.assertRaisesRegex(FileNotFoundError, "b.pt: no such checkpoint file"):
+                benchmark([("a", present), ("b", Path(directory) / "b.pt")], "d.jsonl", 1)
+        load.assert_not_called()
+        run.assert_not_called()
+
     def test_benchmark_defaults_to_cpu(self):
         import torch
 
@@ -79,7 +94,8 @@ class BenchmarkTests(unittest.TestCase):
         model.config = type("Config", (), {"architecture": "legacy"})()
         result = {"task_accuracy": 1.0, "task_records": 1, "error_accuracy": 1.0,
                   "confidence_bucket_accuracy": 1.0, "exact_match_accuracy": 1.0}
-        with patch("cognition_slm.benchmark.load_jsonl", return_value=[]), \
+        with patch.object(Path, "is_file", return_value=True), \
+                patch("cognition_slm.benchmark.load_jsonl", return_value=[]), \
                 patch("cognition_slm.benchmark.load_checkpoint", return_value=(model, None)) as load, \
                 patch("cognition_slm.benchmark.evaluate", return_value=result):
             benchmark([("a", Path("a.pt"))], "d.jsonl", 1)
@@ -94,7 +110,8 @@ class BenchmarkTests(unittest.TestCase):
                   "confidence_bucket_accuracy": 0.5, "exact_match_accuracy": 0.0}
         modern = {"task_accuracy": 0.9, "task_records": 2, "error_accuracy": 0.75,
                   "confidence_bucket_accuracy": 0.5, "exact_match_accuracy": 0.5}
-        with patch("cognition_slm.benchmark.load_jsonl", return_value=[]), \
+        with patch.object(Path, "is_file", return_value=True), \
+                patch("cognition_slm.benchmark.load_jsonl", return_value=[]), \
                 patch("cognition_slm.benchmark.load_checkpoint", return_value=(model, None)), \
                 patch("cognition_slm.benchmark.evaluate", side_effect=[legacy, modern]):
             result = benchmark([("old", Path("a.pt")), ("new", Path("b.pt"))], "d.jsonl", 1)

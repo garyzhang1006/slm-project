@@ -242,7 +242,8 @@ class DataAndAuditTests(unittest.TestCase):
         for token in tokens:
             with self.subTest(token=token[:12]):
                 self.assertTrue(any(pattern.search(f"key: {token} end") for pattern in SECRET_PATTERNS))
-        for text in ("-----BEGIN PUBLIC KEY-----", "Ask live questions.", "Set the npm_package field."):
+        for text in ("-----BEGIN PUBLIC KEY-----", "Ask live questions.", "Set the npm_package field.",
+                     "eval-task-decomposition-planning", "laughs_per_minute_average_value"):
             with self.subTest(text=text):
                 self.assertFalse(any(pattern.search(text) for pattern in SECRET_PATTERNS))
 

@@ -11,11 +11,13 @@ from pathlib import Path
 from .data import DataValidationError, load_jsonl
 
 
+# A token starts a word, so kebab and snake case words that contain sk- or ghs_, such as
+# eval-task-decomposition-planning or laughs_per_minute_average_value, are not read as one.
 SECRET_PATTERNS = (
-    re.compile(r"gh[pousr]_[A-Za-z0-9_]{20,}"),
+    re.compile(r"(?<![A-Za-z0-9])gh[pousr]_[A-Za-z0-9_]{20,}"),
     re.compile(r"github_pat_[A-Za-z0-9_]{22,}"),
     re.compile(r"hf_[A-Za-z0-9]{30,}"),
-    re.compile(r"sk-[A-Za-z0-9_-]{20,}"),
+    re.compile(r"(?<![A-Za-z0-9])sk-[A-Za-z0-9_-]{20,}"),
     re.compile(r"A(?:KIA|SIA)[0-9A-Z]{16}"),
     re.compile(r"-----BEGIN (?:[A-Z0-9]+ )*PRIVATE KEY(?: BLOCK)?-----"),
     re.compile(r"xox[abposr]-[A-Za-z0-9-]{10,}"),

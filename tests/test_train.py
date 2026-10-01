@@ -177,6 +177,29 @@ class TrainingIntegrationTests(unittest.TestCase):
                             learning_rate=1e-5, override_learning_rate=True))
         self.assertEqual(rates[0], {1e-5})
 
+    def test_resume_without_warmup_steps_keeps_the_checkpoints_warmup(self):
+        # The flag's default of 5 replaced a saved warmup of 2, so the resumed step ran at 2/5 of the peak rate.
+        import torch
+        from unittest.mock import patch
+        from cognition_slm.train import build_parser, train
+
+        parent = train(self.args("parent.pt", steps=1, learning_rate=3e-4, warmup_steps=2))
+        args = self.args("resumed.pt", resume=parent["checkpoint"])
+        args.warmup_steps = build_parser().get_default("warmup_steps")
+        rates = []
+        step = torch.optim.AdamW.step
+
+        def record(optimizer, *arguments, **kwargs):
+            rates.append({group["lr"] for group in optimizer.param_groups})
+            return step(optimizer, *arguments, **kwargs)
+
+        with patch.object(torch.optim.AdamW, "step", record):
+            resumed = train(args)
+        self.assertEqual(len(rates[0]), 1)
+        self.assertAlmostEqual(rates[0].pop(), 3e-4)
+        saved = torch.load(resumed["checkpoint"], weights_only=True)
+        self.assertEqual(saved["metadata"]["warmup_steps"], 2)
+
     def test_resume_applies_and_records_the_requested_weight_decay(self):
         import torch
         from cognition_slm.train import train

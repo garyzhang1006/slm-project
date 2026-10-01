@@ -20,6 +20,7 @@ from .tokenizer import ByteTokenizer
 
 DEFAULT_LEARNING_RATE = 3e-4
 DEFAULT_AUX_LOSS_WEIGHT = 0.25
+DEFAULT_WARMUP_STEPS = 5
 
 
 def _import_torch():
@@ -239,6 +240,7 @@ def _runtime_options(args):
 def train(args: argparse.Namespace) -> dict:
     precision, accumulation, save_every = _runtime_options(args)
     aux_loss_weight = getattr(args, "aux_loss_weight", None)
+    warmup_steps = getattr(args, "warmup_steps", None)
     pretrain_text = getattr(args, "pretrain_text", None)
     pretrain_eval_text = getattr(args, "pretrain_eval_text", None)
     if (pretrain_text is None) == (getattr(args, "data", None) is None):
@@ -272,6 +274,10 @@ def train(args: argparse.Namespace) -> dict:
         # An omitted flag keeps the resumed run's weight; older checkpoints predate it and used 0.25.
         if aux_loss_weight is None and isinstance(saved_weight, (int, float)):
             aux_loss_weight = float(saved_weight)
+        # Likewise the warmup, or a resumed run would rejoin its schedule at the default warmup's rate.
+        saved_warmup = saved_metadata.get("warmup_steps") if isinstance(saved_metadata, dict) else None
+        if warmup_steps is None and isinstance(saved_warmup, int):
+            warmup_steps = saved_warmup
     else:
         preset = MODEL_PRESETS[getattr(args, "preset", "demo")]
         for name, value in preset.items():
@@ -288,6 +294,8 @@ def train(args: argparse.Namespace) -> dict:
     config.validate()
     if aux_loss_weight is None:
         aux_loss_weight = DEFAULT_AUX_LOSS_WEIGHT
+    if warmup_steps is None:
+        warmup_steps = DEFAULT_WARMUP_STEPS
     tokenizer = ByteTokenizer(vocab_size=config.vocab_size)
     if pretrain_text:
         encoded = pack_pretrain_text(examples, tokenizer, config.block_size)
@@ -427,7 +435,7 @@ def train(args: argparse.Namespace) -> dict:
         raise ValueError(f"--steps must exceed checkpoint step {start_step}")
     scheduler = torch.optim.lr_scheduler.LambdaLR(
         optimizer,
-        lambda step: _lr_scale(step, args.steps, args.warmup_steps),
+        lambda step: _lr_scale(step, args.steps, warmup_steps),
     )
     if checkpoint is not None and isinstance(checkpoint.get("scheduler_state_dict"), dict):
         scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
@@ -444,7 +452,7 @@ def train(args: argparse.Namespace) -> dict:
             checkpoint.get("scheduler_state_dict"), dict
         ) else start_step
         next_learning_rate = base_learning_rate * _lr_scale(
-            schedule_step, args.steps, args.warmup_steps
+            schedule_step, args.steps, warmup_steps
         )
         for parameter_group in optimizer.param_groups:
             parameter_group["lr"] = next_learning_rate
@@ -493,7 +501,7 @@ def train(args: argparse.Namespace) -> dict:
                 "token_counter_scope": "current invocation; non-padding UTF-8 byte tokens including special tokens",
                 "seed": args.seed, "device": str(device),
                 "learning_rate": base_learning_rate, "weight_decay": args.weight_decay,
-                "warmup_steps": args.warmup_steps, "resumed_from_step": start_step,
+                "warmup_steps": warmup_steps, "resumed_from_step": start_step,
                 "final_loss": final_loss, "validation_history": validation_history,
                 "precision": precision, "gradient_accumulation_steps": accumulation,
                 "parameter_count": parameter_count,
@@ -666,7 +674,10 @@ def build_parser() -> argparse.ArgumentParser:
              "the schedule position and optimizer moments",
     )
     parser.add_argument("--weight-decay", type=float, default=0.01)
-    parser.add_argument("--warmup-steps", type=int, default=5)
+    parser.add_argument(
+        "--warmup-steps", type=int,
+        help=f"Learning-rate warmup steps (default {DEFAULT_WARMUP_STEPS}, or the checkpoint's warmup on --resume)",
+    )
     parser.add_argument("--grad-clip", type=float, default=1.0)
     parser.add_argument("--log-every", type=int, default=10)
     parser.add_argument("--eval-data", help="Held-out supervised JSONL, usable with --data or --pretrain-text")
@@ -705,6 +716,8 @@ def main() -> None:
     for name, value in MODEL_PRESETS[args.preset].items():
         if getattr(args, name, None) is None:
             setattr(args, name, value)
+    if args.warmup_steps is None and not args.resume:
+        args.warmup_steps = DEFAULT_WARMUP_STEPS
     try:
         _runtime_options(args)
     except ValueError as exc:
@@ -714,12 +727,12 @@ def main() -> None:
     if args.n_layer < 1 or args.n_head < 1 or args.n_embd < 1:
         parser.error("--n-layer, --n-head, and --n-embd must be positive")
     # nan passes a plain "< 0" check, and nan or inf in any of these makes the weights non-finite after one update.
-    if not 0 <= args.weight_decay < math.inf or args.warmup_steps < 0 or args.eval_every < 1:
+    if not 0 <= args.weight_decay < math.inf or (args.warmup_steps or 0) < 0 or args.eval_every < 1:
         parser.error("--weight-decay must be non-negative and finite; --warmup-steps and --eval-every must be positive")
     if (args.learning_rate is not None and not 0 < args.learning_rate < math.inf) or not 0 < args.grad_clip < math.inf \
             or args.log_every < 1:
         parser.error("--learning-rate and --grad-clip must be positive and finite; --log-every must be positive")
-    if args.warmup_steps > args.steps:
+    if (args.warmup_steps or 0) > args.steps:
         parser.error("--warmup-steps cannot exceed --steps")
     if args.dry_run and args.resume:
         parser.error("--dry-run cannot be combined with --resume")

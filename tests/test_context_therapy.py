@@ -289,11 +289,15 @@ class ContextTherapyTests(unittest.TestCase):
             conversation = Path(directory) / "ctx.json"
             original = json.dumps([{"role": "user", "content": "Use Python."}])
             conversation.write_text(original)
-            argv = ["context-therapist", "--input", str(conversation), "--output", str(conversation)]
-            with patch("sys.argv", argv), redirect_stdout(StringIO()), patch("sys.stderr", StringIO()):
-                with self.assertRaises(SystemExit):
-                    main()
-            self.assertEqual(conversation.read_text(), original)
+            # The second spelling names the same file, which only resolve() reveals; Path keeps the "..".
+            (Path(directory) / "sub").mkdir()
+            for output in (str(conversation), f"{directory}/sub/../ctx.json"):
+                argv = ["context-therapist", "--input", str(conversation), "--output", output]
+                with self.subTest(output=output), patch("sys.argv", argv), redirect_stdout(StringIO()), \
+                        patch("sys.stderr", StringIO()):
+                    with self.assertRaises(SystemExit):
+                        main()
+                self.assertEqual(conversation.read_text(), original)
 
     def test_excerpts_redact_every_token_the_data_audit_catches(self):
         secrets = ["github_pat_" + "a" * 30, "hf_" + "b" * 34, "sk_live_" + "c" * 24, "ASIA" + "D" * 16,

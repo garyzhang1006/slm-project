@@ -104,6 +104,9 @@ def main() -> None:
     parser.add_argument("--max-new-tokens", type=int, default=96)
     parser.add_argument("--device", default="auto")
     args = parser.parse_args()
+    # benchmark() rejects it too, but its message names the argument rather than the flag.
+    if args.max_new_tokens < 1:
+        parser.error(f"--max-new-tokens must be positive, got {args.max_new_tokens}")
     try:
         checkpoints = [parse_model_spec(value) for value in args.model]
         result = benchmark(checkpoints, args.data, args.max_new_tokens, _device(args.device))

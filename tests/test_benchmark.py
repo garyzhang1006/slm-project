@@ -61,6 +61,17 @@ class BenchmarkTests(unittest.TestCase):
         self.assertEqual(caught.exception.code, 2)
         self.assertIn("Is a directory", stderr.getvalue())
 
+    def test_cli_names_the_flag_when_max_new_tokens_is_not_positive(self):
+        # benchmark() said "max_new_tokens must be positive", which names no flag; evaluate names --max-new-tokens.
+        import io
+
+        with patch("sys.argv", ["benchmark", "--model", "a=a.pt", "--data", "d.jsonl", "--max-new-tokens", "0"]), \
+                patch("sys.stderr", new_callable=io.StringIO) as stderr, \
+                self.assertRaises(SystemExit) as caught:
+            main()
+        self.assertEqual(caught.exception.code, 2)
+        self.assertIn("--max-new-tokens must be positive, got 0", stderr.getvalue())
+
     def test_benchmark_defaults_to_cpu(self):
         import torch
 

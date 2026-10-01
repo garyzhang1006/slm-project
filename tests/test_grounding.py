@@ -145,6 +145,13 @@ class GroundingTests(unittest.TestCase):
         self.assertFalse(self.answer("Open at 08:30 am?", "Opens at 08:30.")["abstained"])
         self.assertFalse(self.answer("Is it open at 9:05 am?", "Opens at 9:05.")["abstained"])
 
+    def test_a_zero_after_a_decimal_point_stays(self):
+        # ed9ba99 read the 05 of 1.05 as 5, so a question about 1.05 tied with a passage about 1.5.
+        nut = "The nut costs 1.05 dollars."
+        source = self.answer("What costs 1.05 dollars?", f"The bolt costs 1.5 dollars.\n\n{nut}")["sources"][0]
+        self.assertEqual(source["text"], nut)
+        self.assertEqual([nut[start:end] for start, end in source["matches"]], ["costs", "1", "05", "dollars"])
+
     def test_search_quotes_at_most_three_passages_densest_first(self):
         # The README promises up to three passages, and among equal overlaps the passage with fewer other words
         # ranks first; no test gave more than two matches or two overlaps of different density.

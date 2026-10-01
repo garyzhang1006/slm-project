@@ -18,6 +18,9 @@ _CLOCK = r"\d{1,2}(?::\d\d)?(?: ?[-\u2013] ?\d{1,2}(?::\d\d)?)? ?[aApP]\.?[mM]\b
 _TIME = re.compile(_CLOCK)
 # Hours are the numbers not written after a colon.
 _HOUR = re.compile(r"(?<![:\d])\d{1,2}")
+# A number written with leading zeros, as the 08 of "08:30", is the same number as a bare 8. A zero after a
+# decimal point, comma or colon stays, so 1.05 keeps apart from 1.5 and the minutes of 9:05 stay 05.
+_PADDED = re.compile(r"(?<![\d.,:])0+(?=\d)")
 # Words are runs of letters, digits and marks in any script, found the same way in questions,
 # ranking and highlights, so a highlight always covers a whole ranked word.
 _WORDS = re.compile(f"{_CLOCK}|(?=[^\\W_])[{_SINGLE}]|{_LETTER}+(?:'{_LETTER}+)?")
@@ -78,16 +81,16 @@ def _stem(word: str) -> str:
     return word[:-1] if word.endswith("e") and len(word) > 2 else word
 
 
-def _terms(text: str) -> set[str]:
+def _terms(text: str, before: str = "") -> set[str]:
     # NFKD before casefolding turns styled letters such as a math bold P into a plain P that then folds to p.
     # Dropping accents after the second NFKD lets cafe match café, and the dotted capital I folds to i plus a dot.
     folded = unicodedata.normalize("NFKD", unicodedata.normalize("NFKD", text).casefold().replace("\u2019", "'"))
-    words = _WORDS.findall("".join(char for char in folded if unicodedata.category(char) != "Mn"))
+    plain = "".join(char for char in folded if unicodedata.category(char) != "Mn")
+    # before is the character ahead of text in its passage, so a highlight reads the 05 of 1.05 as ranking did.
+    words = _WORDS.findall(_PADDED.sub("", before + plain)[len(before):])
     terms = set()
     for word in (word.removesuffix("'s") for word in words):
         if _TIME.fullmatch(word):
-            # A zero-padded hour, as in "08:30 am", is the same hour as a bare 8.
-            word = re.sub(r"(?<![:\d])0(?=\d)", "", word)
             # "9:30 am" keeps 9 and 30 and adds 9am, so it still matches a bare 9 but ranks above "9:30 pm".
             meridiem = word.replace(".", "")[-2] + "m"
             other = "pm" if meridiem == "am" else "am"
@@ -100,10 +103,7 @@ def _terms(text: str) -> set[str]:
             # "11:30-12:30 pm", is in the other half of the day.
             elif len(hours) == 2 and int(hours[0]) % 12 > int(hours[1]) % 12:
                 terms.add(hours.pop(0) + other)
-            terms |= {number.lstrip("0") or "0" for number in re.findall(r"\d+", word)} | {hour + meridiem for hour in hours}
-        elif word.isdigit():
-            # Without am or pm, "08:30" is the plain numbers 08 and 30, which must still meet the 8 of "08:30 am".
-            terms.add(word.lstrip("0") or "0")
+            terms |= set(re.findall(r"\d+", word)) | {hour + meridiem for hour in hours}
         elif word not in _STOP:
             terms.add(_stem(_IRREGULAR.get(word, word)))
     return terms
@@ -137,10 +137,12 @@ def _matches(passage: str, query: set[str], pairs: bool = False) -> list[list[in
         pieces.append(piece)
         origins += [index] * len(piece)
     spans: list[list[int]] = []
-    for match in _WORDS.finditer("".join(pieces)):
+    joined = "".join(pieces)
+    for match in _WORDS.finditer(joined):
         start, end = origins[match.start()], origins[match.end() - 1] + 1
+        before = joined[match.start() - 1] if match.start() else ""
         # ½ decomposes to 1⁄2, two words from one character, which get one span.
-        if (not spans or start >= spans[-1][1]) and _terms(passage[start:end]) & query:
+        if (not spans or start >= spans[-1][1]) and _terms(passage[start:end], before) & query:
             spans.append([start, end])
     return spans
 

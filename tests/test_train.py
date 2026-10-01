@@ -308,6 +308,21 @@ class TrainingIntegrationTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, message):
                     train(args)
 
+    def test_a_record_that_cannot_be_encoded_names_its_file(self):
+        # encode_examples names only the record, so a bad --eval-data row read as if --data held it.
+        import json
+        import re
+        from cognition_slm.train import train
+
+        bad = self.root / "bad.jsonl"
+        bad.write_text(json.dumps({"id": "q17", "prompt": "x" * 300, "answer": "y",
+                                   "task_type": "code_generation", "confidence": 0.8,
+                                   "error_category": "none", "source": "test", "license": "CC0-1.0"}))
+        message = f"^{re.escape(str(bad))}: example 'q17' has no answer tokens within block_size 256"
+        for flag in ("data", "eval_data"):
+            with self.subTest(flag=flag), self.assertRaisesRegex(ValueError, message):
+                train(self.args(dry_run=True, **{flag: str(bad)}))
+
     def test_allow_data_change_requires_resume(self):
         import contextlib
         import io

@@ -220,6 +220,15 @@ def _training_source_changes(metadata: dict, current: dict) -> list[str] | None:
     return changes if "training_source_sha256" in metadata else None
 
 
+def _encode(path: str, examples, tokenizer: ByteTokenizer, config: ModelConfig) -> list[dict]:
+    try:
+        return encode_examples(examples, tokenizer, config.block_size, task_types=config.task_types,
+                               error_categories=config.error_categories)
+    except ValueError as exc:
+        # encode_examples names only the record, so a bad --eval-data row would read as a --data error.
+        raise type(exc)(f"{path}: {exc}") from None
+
+
 def _runtime_options(args):
     precision = getattr(args, "precision", "fp32")
     accumulation = getattr(args, "gradient_accumulation_steps", 1)
@@ -300,14 +309,12 @@ def train(args: argparse.Namespace) -> dict:
     if pretrain_text:
         encoded = pack_pretrain_text(examples, tokenizer, config.block_size)
     else:
-        encoded = encode_examples(examples, tokenizer, config.block_size, task_types=config.task_types,
-                                  error_categories=config.error_categories)
+        encoded = _encode(args.data, examples, tokenizer, config)
     objective = "pretrain" if pretrain_text else "sft"
     validation_encoded = None
     if args.eval_data:
         validation_examples = load_jsonl(args.eval_data)
-        validation_encoded = encode_examples(validation_examples, tokenizer, config.block_size,
-                                             task_types=config.task_types, error_categories=config.error_categories)
+        validation_encoded = _encode(args.eval_data, validation_examples, tokenizer, config)
     elif pretrain_eval_text:
         validation_encoded = pack_pretrain_text(
             load_pretrain_text(pretrain_eval_text), tokenizer, config.block_size

@@ -270,6 +270,18 @@ class GroundingTests(unittest.TestCase):
                 spans = self.answer(prompt, passage)["sources"][0]["matches"]
                 self.assertEqual([passage[start:end] for start, end in spans], words)
 
+    def test_a_word_in_pieces_counts_once(self):
+        # 2605efa counted Wi-Fi as three terms and to-do as a term no "to do" passage could hold, so these abstained.
+        for prompt, passage in (("Is the Wi-Fi password printed on the router?", "The password is printed on the router."),
+                                ("Where is my to-do list?", "Your to do list is in the app."),
+                                # Only the spaced pieces of 10GB can clear the cutoff here.
+                                ("Is the 10GB limit?", "The limit is 10 GB per file.")):
+            with self.subTest(prompt=prompt):
+                self.assertEqual(self.answer(prompt, passage)["sources"][0]["text"], passage)
+        # Density counted Wi-Fi as three words, so the passage with an extra word ranked first.
+        sources = self.answer("Is the Wi-Fi free?", "Wifi is free downstairs.\n\nWi-Fi is free.")["sources"]
+        self.assertEqual(sources[0]["text"], "Wi-Fi is free.")
+
     def test_numbers_glued_to_units_match_spaced_ones(self):
         # 10GB was one term, so a question about 10 GB matched half its terms and abstained.
         for prompt, passage in (("Is the upload limit 10 GB?", "The upload limit is 10GB per file."),

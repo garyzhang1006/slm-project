@@ -139,6 +139,28 @@ def _terms(text: str, before: str = "") -> set[str]:
     return set().union(*(_word_terms(word) for word in _words(text, before)))
 
 
+def _units(text: str) -> dict[object, tuple[list[frozenset[str]], bool]]:
+    """Each distinct word of text once, with the term sets that spell it and whether a question may leave it out.
+
+    Wi-Fi is spelled {wifi} or {wi, fi}, so it counts once, and a passage with either spelling has it. To-do has only
+    its whole form, since to and do are stop words, and a passage writing "to do" can never hold it, so a question
+    may leave it out, as it did when to-do was two stop words.
+    """
+    units: dict[object, tuple[list[frozenset[str]], bool]] = {}
+    for word in _words(text):
+        pieces = _pieces(word)
+        if len(pieces) == 1:
+            # A clock time gives several terms, such as 9, 30 and 9am for "9:30 am", and each counts on its own.
+            units.update((term, ([frozenset({term})], False)) for term in _word_terms(word))
+            continue
+        whole = _term("".join(pieces))
+        parts = frozenset(term for term in map(_term, pieces) if term is not None)
+        spellings = [spelling for spelling in (frozenset({whole} if whole else ()), parts) if spelling]
+        if spellings:
+            units[(whole, parts)] = (spellings, not parts)
+    return units
+
+
 def _kana_pairs(text: str) -> list[tuple[str, int, int]]:
     """Each pair of neighbouring hiragana letters, with its start and end offsets in code points."""
     letters = [(unicodedata.normalize("NFC", match.group()), match.start(), match.end()) for match in _KANA.finditer(text)]
@@ -191,16 +213,13 @@ def source_excerpts(request: dict) -> dict:
             raise ValueError(f"{key} exceeds {limit} UTF-8 bytes. Shorten the text.")
     if not request["prompt"].strip():
         raise ValueError("Enter a question.")
-    query = _terms(request["prompt"])
-    # A passage that writes a word of the question the other way, as wifi for Wi-Fi or 10 GB for 10GB, has
-    # all of that word's terms: its whole form stands for its pieces, and all its pieces for its whole form.
-    spellings = [({_term("".join(pieces))} - {None}, {_term(piece) for piece in pieces} - {None})
-                 for pieces in map(_pieces, _words(request["prompt"])) if len(pieces) > 1]
+    units = _units(request["prompt"])
     # A question spelled only in hiragana has no terms, so it matches on pairs of neighbouring hiragana, which
     # carry more of each word than the single letters that particles and verb endings share.
-    pairs = not query
+    pairs = not units
     if pairs:
-        query = {pair for pair, _, _ in _kana_pairs(request["prompt"])}
+        units = {pair: ([frozenset({pair})], False) for pair, _, _ in _kana_pairs(request["prompt"])}
+    query = set().union(*(spelling for spellings, _ in units.values() for spelling in spellings))
     # Keep paragraph context: a later sentence may correct an earlier claim.
     passages = re.split(r"\r?\n\s*\r?\n", request["source_text"])
     ranked = []
@@ -210,16 +229,19 @@ def source_excerpts(request: dict) -> dict:
         if not passage or passage in seen:
             continue
         seen.add(passage)
-        terms = {pair for pair, _, _ in _kana_pairs(passage)} if pairs else _terms(passage)
-        missing = query - terms
-        for whole, parts in spellings:
-            if whole & terms:
-                missing -= parts
-            elif parts and parts <= terms:
-                missing -= whole
-        matched = len(query) - len(missing)
-        if query and query & terms and matched / len(query) >= 0.6:
-            ranked.append((matched, matched / max(1, len(terms)), index, passage))
+        if pairs:
+            terms = {pair for pair, _, _ in _kana_pairs(passage)}
+            size = len(terms)
+        else:
+            # Density counts the passage's words as the question's are counted, so Wi-Fi is one word, not three.
+            passage_units = _units(passage)
+            terms = set().union(*(spelling for spellings, _ in passage_units.values() for spelling in spellings))
+            size = len(passage_units)
+        found = [(any(spelling <= terms for spelling in spellings), optional) for spellings, optional in units.values()]
+        matched = sum(hit for hit, _ in found)
+        asked = sum(1 for hit, optional in found if hit or not optional)
+        if matched and matched / asked >= 0.6:
+            ranked.append((matched, matched / max(1, size), index, passage))
     ranked.sort(key=lambda item: (-item[0], -item[1], item[2]))
     sources = [{"id": f"S{i + 1}", "text": item[3], "matches": _matches(item[3], query, pairs)} for i, item in enumerate(ranked[:3])]
     return {

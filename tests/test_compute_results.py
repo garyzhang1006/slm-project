@@ -121,6 +121,8 @@ class RenderTests(unittest.TestCase):
         self.assertIn("## LoRA adapter (SmolLM2-1.7B-Instruct)", text)
         large = text.split("## SmolLM2-1.7B-Instruct: LoRA vs base", 1)[1]
         self.assertIn("| category | base exact |", large)
+        # Both reports name the same adapter, so the note that the predictions came from another one stays out.
+        self.assertNotIn("different adapter", large)
         small = text.split("## SmolLM2-360M-Instruct: LoRA vs base", 1)[1].split("## LoRA adapter", 1)[0]
         self.assertIn("No finished lora_eval report yet.", small)
 

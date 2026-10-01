@@ -343,13 +343,20 @@ class DataAndAuditTests(unittest.TestCase):
         data = ROOT / "data" / "demo.jsonl"
         with tempfile.TemporaryDirectory() as directory:
             train = Path(directory) / "train.jsonl"
-            train.write_bytes(data.read_bytes())
-            argv = ["audit", "--train", str(train), "--report", str(train)]
-            with contextlib.redirect_stderr(io.StringIO()), contextlib.redirect_stdout(io.StringIO()), \
-                    patch.object(sys, "argv", argv), self.assertRaises(SystemExit) as raised:
-                main()
-            self.assertEqual(raised.exception.code, 2)
+            evaluation = Path(directory) / "eval.jsonl"
+            for path in (train, evaluation):
+                path.write_bytes(data.read_bytes())
+            # The eval file and another spelling of a path, which only resolve() reveals; Path keeps the "..".
+            (Path(directory) / "sub").mkdir()
+            for report in (str(train), str(evaluation), f"{directory}/sub/../train.jsonl"):
+                argv = ["audit", "--train", str(train), "--eval", str(evaluation), "--report", report]
+                with self.subTest(report=report), contextlib.redirect_stderr(io.StringIO()), \
+                        contextlib.redirect_stdout(io.StringIO()), patch.object(sys, "argv", argv), \
+                        self.assertRaises(SystemExit) as raised:
+                    main()
+                self.assertEqual(raised.exception.code, 2)
             self.assertEqual(train.read_bytes(), data.read_bytes())
+            self.assertEqual(evaluation.read_bytes(), data.read_bytes())
 
     def test_audit_report_to_a_directory_is_a_usage_error(self):
         import contextlib

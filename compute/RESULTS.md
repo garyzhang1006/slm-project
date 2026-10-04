@@ -1,6 +1,6 @@
 # Results
 
-Collected from Kaggle kernel reports on 2026-10-03 19:11 by `compute/collect_results.py`. Regenerate it rather than editing by hand.
+Collected from Kaggle kernel reports on 2026-10-04 14:38 by `compute/collect_results.py`. Regenerate it rather than editing by hand.
 
 ## slm-160m pretraining
 
@@ -8,6 +8,7 @@ Collected from Kaggle kernel reports on 2026-10-03 19:11 by `compute/collect_res
 |---|---|---|---|---|
 | 1 | 4570 | 8.72 | 1.289 | session_complete_resume_next |
 | 2 | 9140 | 8.72 | 1.193 | session_complete_resume_next |
+| 3 | 13319 | 9.54 | 1.139 | session_complete_resume_next |
 
 ## LoRA adapter (SmolLM2-360M-Instruct)
 
@@ -81,7 +82,7 @@ These rows ask the model to admit it doesn't know, so a person judges them and t
 
 ## Distilled answers
 
-No distill_data manifest yet.
+1736 rows kept from 2182 prompts (dropped: cut_off 222, empty_or_invalid 112, repetitive 112).
 
 ## slm-160m SFT
 

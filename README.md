@@ -158,7 +158,7 @@ it counts tokens with this project's byte tokenizer, so if your real model uses 
 
 ## data and licenses
 
-`data/demo.jsonl` and `data/eval.jsonl` are small synthetic sets i wrote myself, with 57 training records and 22 held-out records, released as cc0. `data/simple_questions_holdout.json` has the 24 everyday questions the model keeps getting wrong, and `scripts/score_holdout.py` grades answers against it automatically.
+`data/demo.jsonl` and `data/eval.jsonl` are small synthetic sets i wrote myself, with 57 training records and 22 held-out records, released as cc0. `data/simple_questions_holdout.json` has the 24 everyday questions the model keeps getting wrong, and `scripts/score_holdout.py` grades answers against it automatically. pass `--holdout data/everyday_eval.json` to grade the 252 everyday questions instead. if the `--holdout` file isn't a question file, for example because the two file arguments got swapped, it prints an error instead of crashing.
 
 nothing downloaded is committed to the repo. the kaggle jobs download these datasets at fixed revisions, and every converted record keeps its source and license fields:
 

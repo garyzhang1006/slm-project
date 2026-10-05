@@ -287,6 +287,10 @@ def train(args: argparse.Namespace) -> dict:
         saved_warmup = saved_metadata.get("warmup_steps") if isinstance(saved_metadata, dict) else None
         if warmup_steps is None and isinstance(saved_warmup, int):
             warmup_steps = saved_warmup
+            # main checks only an explicit flag, and a warmup past --steps would never reach the decay.
+            if warmup_steps > args.steps:
+                raise ValueError(f"the checkpoint's warmup of {warmup_steps} steps exceeds --steps {args.steps}; "
+                                 "pass a shorter --warmup-steps")
     else:
         preset = MODEL_PRESETS[getattr(args, "preset", "demo")]
         for name, value in preset.items():

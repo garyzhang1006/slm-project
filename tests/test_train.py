@@ -200,6 +200,16 @@ class TrainingIntegrationTests(unittest.TestCase):
         saved = torch.load(resumed["checkpoint"], weights_only=True)
         self.assertEqual(saved["metadata"]["warmup_steps"], 2)
 
+    def test_resume_rejects_a_checkpoint_warmup_longer_than_steps(self):
+        # An inherited warmup past --steps kept every resumed step in warmup, so the rate never decayed.
+        from cognition_slm.train import build_parser, train
+
+        parent = train(self.args("parent.pt", steps=1, warmup_steps=5))
+        args = self.args("resumed.pt", resume=parent["checkpoint"])
+        args.warmup_steps = build_parser().get_default("warmup_steps")
+        with self.assertRaisesRegex(ValueError, "warmup of 5 steps exceeds --steps 3"):
+            train(args)
+
     def test_resume_applies_and_records_the_requested_weight_decay(self):
         import torch
         from cognition_slm.train import train

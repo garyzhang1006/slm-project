@@ -100,6 +100,16 @@ class DataAndAuditTests(unittest.TestCase):
                 hashlib.sha256(file_path.read_bytes()).hexdigest(),
             )
 
+    def test_committed_demo_files_match_demo_data(self):
+        # scripts/make_demo_data.py writes both files from demo_data.py, so a fix made in one place must reach the other.
+        from cognition_slm.demo_data import EVAL_ROWS, TRAIN_ROWS, write_jsonl
+
+        with tempfile.TemporaryDirectory() as directory:
+            for name, rows in (("demo.jsonl", TRAIN_ROWS), ("eval.jsonl", EVAL_ROWS)):
+                with self.subTest(name=name):
+                    write_jsonl(rows, Path(directory) / name)
+                    self.assertEqual((Path(directory) / name).read_bytes(), (ROOT / "data" / name).read_bytes())
+
     def test_committed_data_passes_audit(self):
         report = audit_dataset(ROOT / "data" / "demo.jsonl")
         self.assertTrue(report.ok, report.errors)

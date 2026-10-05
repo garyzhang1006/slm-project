@@ -9,7 +9,7 @@
       "retrieval": "authored locally",
       "license": "CC0-1.0",
       "purpose": "smoke training",
-      "sha256": "fa72b9eb2c2c39ff3c2060e645eaf2cd7707cef501f349dc404fb4a7d3f7acce"
+      "sha256": "5765bdac6a784536c5c19bc7262f5116ca6963df143f22e24c56aaa219d96a7e"
     },
     {
       "path": "data/eval.jsonl",

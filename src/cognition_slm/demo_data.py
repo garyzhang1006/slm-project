@@ -330,7 +330,7 @@ TRAIN_ROWS = [
     {
         "id": "train-code-merge-sorted",
         "prompt": "Write a Python function that merges two sorted lists into one sorted list.",
-        "answer": "def merge_sorted(left, right):\n    result = []\n    while left and right:\n        result.append((left if left[0] <= right[0] else right).pop(0))\n    return result + left + right",
+        "answer": "def merge_sorted(left, right):\n    left, right = list(left), list(right)\n    result = []\n    while left and right:\n        result.append((left if left[0] <= right[0] else right).pop(0))\n    return result + left + right",
         "task_type": "code_generation",
         "confidence": 0.68,
         "error_category": "none",

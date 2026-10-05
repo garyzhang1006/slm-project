@@ -96,6 +96,22 @@ class GroundingTests(unittest.TestCase):
                 self.assertEqual(self.answer(prompt, passage)["sources"][0]["text"], passage)
         self.assertTrue(self.answer("How much is there?", passage)["abstained"])
 
+    def test_questions_about_the_text_ask_only_about_their_topic(self):
+        # As required terms, say and sources made "What does the text say about printing?" abstain on the printing passage.
+        source = ("The library is closed on Sundays.\n\nLaptops can be borrowed for one day.\n\n"
+                  "Printing costs 10 cents per page.")
+        for prompt, start in (("What does the text say about printing?", "Printing"),
+                              ("What do the sources say about laptops?", "Laptops"),
+                              ("Does the text mention laptops?", "Laptops")):
+            with self.subTest(prompt=prompt):
+                self.assertTrue(self.answer(prompt, source)["sources"][0]["text"].startswith(start))
+        # As a stop word, sources would leave this passage only protein of main and protein, so the question would abstain.
+        source = "Protein helps build muscle.\n\nBeans and eggs are good sources of protein."
+        self.assertTrue(self.answer("What are the main sources of protein?", source)["sources"][0]["text"].startswith("Beans"))
+        # Texting keeps text required though texts is optional, and a question of only such words still needs them.
+        self.assertTrue(self.answer("Is texting mentioned in the texts?", "As mentioned above, phones must be silenced.")["abstained"])
+        self.assertTrue(self.answer("What do the sources say?", "The mayor says taxes will rise.")["abstained"])
+
     def test_negated_auxiliaries_are_not_topics(self):
         # As a term, "can't" made "Why can't I print?" need a word the passage lacks, so it abstained.
         passage = "Printing costs 10 cents per page."

@@ -32,6 +32,9 @@ _WORDS = re.compile(f"{_CLOCK}|{_THOUSANDS}|(?=[^\\W_])[{_SINGLE}]|{_ALPHA}+(?:-
 # A number glued to a unit of two or more letters, as in 10GB, is also written apart; gate 12B stays one word.
 _GLUED = re.compile(r"(\d+)([^\W\d_]{2,})")
 _STOP = frozenset("a an the am is are was were be been being do does did can could would should will shall may might what which who whom whose when where why how i you he she it we they me us him them my your his her its our their of to in on at by for from with about and or but as that this these those please tell explain answer question according source passage text many much any some there".split())
+# "What do the sources say about printing?" asks only about printing, yet "What are the sources of protein?" asks
+# about sources, so these words count when a passage has them and a question may leave them out.
+_OPTIONAL = frozenset("say says said saying mention mentions mentioned sources passages texts".split())
 # Questions typed without apostrophes spell "what's" as "whats", which would otherwise stem into a topic.
 _STOP |= frozenset("whats wheres whos hows whens whys theres thats".split())
 # A negated auxiliary says no more about the topic than the auxiliary does, so "Why can't I print?" asks about printing.
@@ -147,17 +150,26 @@ def _units(text: str) -> dict[object, tuple[list[frozenset[str]], bool]]:
     may leave it out, as it did when to-do was two stop words.
     """
     units: dict[object, tuple[list[frozenset[str]], bool]] = {}
+    meta: set[str] = set()
     for word in _words(text):
         pieces = _pieces(word)
         if len(pieces) == 1:
             # A clock time gives several terms, such as 9, 30 and 9am for "9:30 am", and each counts on its own.
-            units.update((term, ([frozenset({term})], False)) for term in _word_terms(word))
+            for term in _word_terms(word):
+                # "texts" leaves the text of "Is texting mentioned in the texts?" required.
+                optional = word in _OPTIONAL and units.get(term, ([], True))[1]
+                units[term] = ([frozenset({term})], optional)
+                if optional:
+                    meta.add(term)
             continue
         whole = _term("".join(pieces))
         parts = frozenset(term for term in map(_term, pieces) if term is not None)
         spellings = [spelling for spelling in (frozenset({whole} if whole else ()), parts) if spelling]
         if spellings:
             units[(whole, parts)] = (spellings, not parts)
+    # "What do the sources say?" has no other topic, so its words stay required.
+    if all(optional for _, optional in units.values()):
+        units.update((term, (units[term][0], False)) for term in meta)
     return units
 
 

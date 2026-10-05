@@ -21,6 +21,7 @@ from .tokenizer import ByteTokenizer
 DEFAULT_LEARNING_RATE = 3e-4
 DEFAULT_AUX_LOSS_WEIGHT = 0.25
 DEFAULT_WARMUP_STEPS = 5
+DEFAULT_WEIGHT_DECAY = 0.01
 
 
 def _import_torch():
@@ -250,6 +251,7 @@ def train(args: argparse.Namespace) -> dict:
     precision, accumulation, save_every = _runtime_options(args)
     aux_loss_weight = getattr(args, "aux_loss_weight", None)
     warmup_steps = getattr(args, "warmup_steps", None)
+    weight_decay = getattr(args, "weight_decay", None)
     pretrain_text = getattr(args, "pretrain_text", None)
     pretrain_eval_text = getattr(args, "pretrain_eval_text", None)
     if (pretrain_text is None) == (getattr(args, "data", None) is None):
@@ -291,6 +293,10 @@ def train(args: argparse.Namespace) -> dict:
             if warmup_steps > args.steps:
                 raise ValueError(f"the checkpoint's warmup of {warmup_steps} steps exceeds --steps {args.steps}; "
                                  "pass a shorter --warmup-steps")
+        # And the weight decay, or the default would replace the decay the optimizer state was trained with.
+        saved_decay = saved_metadata.get("weight_decay") if isinstance(saved_metadata, dict) else None
+        if weight_decay is None and isinstance(saved_decay, (int, float)):
+            weight_decay = float(saved_decay)
     else:
         preset = MODEL_PRESETS[getattr(args, "preset", "demo")]
         for name, value in preset.items():
@@ -309,6 +315,8 @@ def train(args: argparse.Namespace) -> dict:
         aux_loss_weight = DEFAULT_AUX_LOSS_WEIGHT
     if warmup_steps is None:
         warmup_steps = DEFAULT_WARMUP_STEPS
+    if weight_decay is None:
+        weight_decay = DEFAULT_WEIGHT_DECAY
     tokenizer = ByteTokenizer(vocab_size=config.vocab_size)
     if pretrain_text:
         encoded = pack_pretrain_text(examples, tokenizer, config.block_size)
@@ -387,8 +395,8 @@ def train(args: argparse.Namespace) -> dict:
     legacy_groups = isinstance(previous_optimizer, dict) and len(previous_optimizer.get("param_groups", [])) == 1
     requested_learning_rate = getattr(args, "learning_rate", None)
     optimizer = torch.optim.AdamW(
-        _optimizer_parameters(model, args.weight_decay, legacy_groups),
-        lr=requested_learning_rate or DEFAULT_LEARNING_RATE, weight_decay=args.weight_decay,
+        _optimizer_parameters(model, weight_decay, legacy_groups),
+        lr=requested_learning_rate or DEFAULT_LEARNING_RATE, weight_decay=weight_decay,
         **({"fused": True} if fused_adamw else {}),
     )
     start_step = 0
@@ -417,9 +425,9 @@ def train(args: argparse.Namespace) -> dict:
                 base_learning_rate = saved_learning_rate
         if isinstance(optimizer_state, dict):
             optimizer.load_state_dict(optimizer_state)
-            # Loading restores the old run's decay; apply --weight-decay so the update matches the metadata.
+            # Loading restores the old run's decay; apply this run's decay so the update matches the metadata.
             # The first group is the decayed one in both the legacy and the split layout.
-            optimizer.param_groups[0]["weight_decay"] = args.weight_decay
+            optimizer.param_groups[0]["weight_decay"] = weight_decay
             # Resume restores old execution flags as well as Adam moments, so a fused run resumed without
             # --fused-adamw would keep stepping fused; this run's own choice replaces them either way.
             for group in optimizer.param_groups:
@@ -511,7 +519,7 @@ def train(args: argparse.Namespace) -> dict:
                 "updated_supervised_tokens": updated_supervised_tokens,
                 "token_counter_scope": "current invocation; non-padding UTF-8 byte tokens including special tokens",
                 "seed": args.seed, "device": str(device),
-                "learning_rate": base_learning_rate, "weight_decay": args.weight_decay,
+                "learning_rate": base_learning_rate, "weight_decay": weight_decay,
                 "warmup_steps": warmup_steps, "resumed_from_step": start_step,
                 "final_loss": final_loss, "validation_history": validation_history,
                 "precision": precision, "gradient_accumulation_steps": accumulation,
@@ -684,7 +692,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="With --resume, replace the checkpoint's peak learning rate by --learning-rate while keeping "
              "the schedule position and optimizer moments",
     )
-    parser.add_argument("--weight-decay", type=float, default=0.01)
+    parser.add_argument(
+        "--weight-decay", type=float,
+        help=f"AdamW weight decay (default {DEFAULT_WEIGHT_DECAY:g}, or the checkpoint's decay on --resume)",
+    )
     parser.add_argument(
         "--warmup-steps", type=int,
         help=f"Learning-rate warmup steps (default {DEFAULT_WARMUP_STEPS}, or the checkpoint's warmup on --resume)",
@@ -738,7 +749,8 @@ def main() -> None:
     if args.n_layer < 1 or args.n_head < 1 or args.n_embd < 1:
         parser.error("--n-layer, --n-head, and --n-embd must be positive")
     # nan passes a plain "< 0" check, and nan or inf in any of these makes the weights non-finite after one update.
-    if not 0 <= args.weight_decay < math.inf or (args.warmup_steps or 0) < 0 or args.eval_every < 1:
+    if (args.weight_decay is not None and not 0 <= args.weight_decay < math.inf) or (args.warmup_steps or 0) < 0 \
+            or args.eval_every < 1:
         parser.error("--weight-decay must be non-negative and finite; --warmup-steps and --eval-every must be positive")
     if (args.learning_rate is not None and not 0 < args.learning_rate < math.inf) or not 0 < args.grad_clip < math.inf \
             or args.log_every < 1:

@@ -221,6 +221,21 @@ class TrainingIntegrationTests(unittest.TestCase):
         groups = saved["optimizer_state_dict"]["param_groups"]
         self.assertEqual([group["weight_decay"] for group in groups], [0.1, 0.0])
 
+    def test_resume_keeps_the_checkpoint_weight_decay_when_the_flag_is_omitted(self):
+        # The parser default of 0.01 replaced a resumed 0.1 run's decay, so it no longer matched an unbroken run.
+        import torch
+        from cognition_slm.train import DEFAULT_WEIGHT_DECAY, train
+
+        fresh = train(self.args("fresh.pt", steps=1))
+        self.assertEqual(torch.load(fresh["checkpoint"], weights_only=True)["metadata"]["weight_decay"],
+                         DEFAULT_WEIGHT_DECAY)
+        parent = train(self.args("parent.pt", steps=1, weight_decay=0.1))
+        resumed = train(self.args("resumed.pt", resume=parent["checkpoint"], steps=2))
+        saved = torch.load(resumed["checkpoint"], weights_only=True)
+        self.assertEqual(saved["metadata"]["weight_decay"], 0.1)
+        groups = saved["optimizer_state_dict"]["param_groups"]
+        self.assertEqual([group["weight_decay"] for group in groups], [0.1, 0.0])
+
     def test_resume_rejects_a_different_seed_mid_stream(self):
         from cognition_slm.train import train
 

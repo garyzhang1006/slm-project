@@ -1,4 +1,4 @@
-"""Studio runtime for SmolLM2-360M-Instruct plus the LoRA adapter trained by compute/lora_baseline.py."""
+"""Studio runtime for SmolLM2-Instruct (360M or 1.7B) plus a LoRA adapter trained by compute/lora_baseline.py."""
 
 from __future__ import annotations
 
@@ -52,6 +52,13 @@ class LoraRuntime(ModelRuntime):
                     f"No adapter_config.json or config.json in {self.checkpoint}. Download artifacts/lora-adapter "
                     "or artifacts/lora-merged from the slm-lora-baseline Kaggle output and pass that folder."
                 )
+            model_id, revision = BASE_MODEL_ID, BASE_MODEL_REVISION
+            if (self.checkpoint / BASE_MODEL_FILE).is_file():
+                recorded = json.loads((self.checkpoint / BASE_MODEL_FILE).read_text())
+                model_id, revision = recorded["model_id"], recorded["model_revision"]
+            # Merged folders record their base too, so Studio names the model that is actually served. Named before
+            # the imports and downloads, so the loading and error states show it too.
+            self.metadata["name"] = f"{model_id.rsplit('/', 1)[-1]} + LoRA"
             import torch
             from transformers import AutoModelForCausalLM, AutoTokenizer
 
@@ -59,12 +66,6 @@ class LoraRuntime(ModelRuntime):
 
             device = _device(self.device)
             tokenizer = AutoTokenizer.from_pretrained(self.checkpoint)
-            model_id, revision = BASE_MODEL_ID, BASE_MODEL_REVISION
-            if (self.checkpoint / BASE_MODEL_FILE).is_file():
-                recorded = json.loads((self.checkpoint / BASE_MODEL_FILE).read_text())
-                model_id, revision = recorded["model_id"], recorded["model_revision"]
-            # Merged folders record their base too, so Studio names the model that is actually served.
-            self.metadata["name"] = f"{model_id.rsplit('/', 1)[-1]} + LoRA"
             # fp32: the first Kaggle run showed fp16 overflowing SmolLM2 activations.
             if merged:
                 # lora-merged already has the adapter folded into the weights, so peft is not needed.

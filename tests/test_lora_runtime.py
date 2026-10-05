@@ -184,6 +184,19 @@ class LoraRuntimeTests(unittest.TestCase):
         self.assertEqual(loaded.metadata["name"], "SmolLM2-1.7B-Instruct + LoRA")
         self.assertEqual(loaded.metadata["architecture"], "llama+lora (merged)")
 
+    def test_recorded_base_is_named_when_loading_fails(self):
+        # Studio shows the model name in the error state, so a 1.7B adapter must not read as 360M there.
+        with tempfile.TemporaryDirectory() as directory, patch.dict("sys.modules", {"transformers": None}):
+            adapter = Path(directory)
+            (adapter / "adapter_config.json").write_text("{}")
+            (adapter / "base_model.json").write_text(
+                '{"model_id": "HuggingFaceTB/SmolLM2-1.7B-Instruct", "model_revision": "abc"}')
+            loaded = LoraRuntime(adapter)
+            loaded.load()
+        self.assertEqual(loaded.state, "error")
+        self.assertIn("transformers", loaded.error)
+        self.assertEqual(loaded.metadata["name"], "SmolLM2-1.7B-Instruct + LoRA")
+
     def test_missing_adapter_is_reported(self):
         loaded = LoraRuntime(Path("/nonexistent/lora-adapter"))
         loaded.load()

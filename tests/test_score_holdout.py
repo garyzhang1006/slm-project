@@ -200,6 +200,21 @@ class ScoreHoldoutTests(unittest.TestCase):
         self.assertIn("no predictions", stderr.getvalue())
         self.assertEqual(stdout.getvalue(), "")
 
+    def test_cli_rejects_a_holdout_without_a_rows_list(self):
+        # A predictions list passed as --holdout used to end in a TypeError traceback instead of exit code 2.
+        with tempfile.TemporaryDirectory() as directory:
+            predictions = Path(directory) / "predictions.json"
+            predictions.write_text(json.dumps([{"id": self.rows[0]["id"], "answer": "7"}]))
+            numbers = Path(directory) / "numbers.json"
+            numbers.write_text(json.dumps({"rows": 5}))
+            for holdout in (predictions, numbers):
+                stdout, stderr = io.StringIO(), io.StringIO()
+                with self.subTest(holdout=holdout.name), contextlib.redirect_stdout(stdout), \
+                        contextlib.redirect_stderr(stderr):
+                    self.assertEqual(self.module.main([str(predictions), "--holdout", str(holdout)]), 2)
+                    self.assertIn("expected a question file with a rows list", stderr.getvalue())
+                    self.assertEqual(stdout.getvalue(), "")
+
     def test_cli_scores_another_file_with_categories(self):
         holdout = ROOT / "data/everyday_eval.json"
         rows = json.loads(holdout.read_text())["rows"]

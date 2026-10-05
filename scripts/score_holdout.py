@@ -212,7 +212,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--json", action="store_true", help="Print the full score report as JSON")
     args = parser.parse_args(argv)
     try:
-        rows = json.loads(args.holdout.read_text(encoding="utf-8"))["rows"]
+        holdout = json.loads(args.holdout.read_text(encoding="utf-8"))
+        rows = holdout.get("rows") if isinstance(holdout, dict) else None
+        # A swapped argument order passes a predictions list here, which would crash with a TypeError.
+        if not isinstance(rows, list) or not all(isinstance(row, dict) for row in rows):
+            raise ValueError(f"{args.holdout}: expected a question file with a rows list, "
+                             "like data/simple_questions_holdout.json")
         report_key = REPORT_KEYS.get(args.holdout.name, "simple_questions")
         report = score_predictions(rows, load_predictions(args.predictions, report_key))
     except (OSError, ValueError, KeyError) as error:

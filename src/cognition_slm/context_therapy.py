@@ -47,9 +47,13 @@ _CLAIM_PATTERN = re.compile(r"(?i)\b(?:works?|fixed|correct|verified|done|passes
 _EVIDENCE_PATTERN = re.compile(
     r"(?i)\b(?:test(?:ed|s)?|ran|run|output|traceback|benchmark|evidence|source|commit|ci)\b"
 )
-# "haven't run the tests" or "nothing was tested" states the absence of evidence, so a negator within
-# three words before an evidence word, or a "have not"/"were never" right after it, disqualifies that hit.
-_EVIDENCE_NEGATOR = re.compile(r"(?i)not|never|no|nothing|without|cannot|\w+n['\u2019]t")
+# "haven't run the tests" or "nothing was tested" states the absence of evidence, so a negator earlier in the
+# clause, or a "have not"/"were never" right after an evidence word, disqualifies that hit. A negator holds until
+# and, but, so, when or after starts a new statement, so "didn't have time to run the tests" is negated while
+# "no longer crashes and the tests pass" is not; the three words right before always count, so "didn't build and
+# run" holds.
+_EVIDENCE_NEGATOR = re.compile(r"(?i)not|never|no|none|nothing|without|cannot|\w+n['\u2019]t")
+_EVIDENCE_SCOPE_BREAK = re.compile(r"(?i)and|but|so|when|after")
 _NEGATED_AFTER_EVIDENCE = re.compile(
     r"(?i)\s+(?:(?:have|has|had|was|were|is|are)(?:n['\u2019]t|\s+not|\s+never)|not|never)\b"
 )
@@ -353,8 +357,9 @@ def _instruction_drift_observation(messages: tuple[ContextMessage, ...]) -> Cont
 def _has_evidence(text: str) -> bool:
     for clause in re.split(r"[,;:.!?\n]+", text):
         for match in _EVIDENCE_PATTERN.finditer(clause):
-            before = re.findall(r"[\w'\u2019]+", clause[: match.start()])[-3:]
-            if any(_EVIDENCE_NEGATOR.fullmatch(word) for word in before):
+            before = re.findall(r"[\w'\u2019]+", clause[: match.start()])
+            last_break = max((i for i, word in enumerate(before) if _EVIDENCE_SCOPE_BREAK.fullmatch(word)), default=-1)
+            if any(_EVIDENCE_NEGATOR.fullmatch(word) for word in before[min(last_break + 1, max(0, len(before) - 3)):]):
                 continue
             if _NEGATED_AFTER_EVIDENCE.match(clause, match.end()):
                 continue

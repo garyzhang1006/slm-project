@@ -64,6 +64,16 @@ class DistillTests(unittest.TestCase):
             with self.subTest(text=text):
                 self.assertEqual(distill_data.trim_answer(text), kept)
 
+    def test_trim_answer_drops_an_opener_that_only_offers_help(self):
+        # The 2026-10-03 build kept "Sure, I'd be happy to help you with that." as the whole answer to a trash question.
+        for text in ("Sure, I'd be happy to help you with that.", "Of course, I can help with that!",
+                     "Certainly, happy to help.\n\nPaper goes in the recycling."):
+            with self.subTest(text=text):
+                self.assertEqual(distill_data.trim_answer(text), "")
+        for text in ("Sure, Paris is the capital of France.", "Sure, I can help. Soda cans go in the recycling."):
+            with self.subTest(text=text):
+                self.assertEqual(distill_data.trim_answer(text), text)
+
     def test_trim_answer_never_cuts_at_a_list_marker(self):
         items = "".join(f"\n{number}. Drink water and sleep eight hours every night" for number in range(1, 9))
         self.assertEqual(distill_data.trim_answer("Here are some ways to stay healthy:" + items, limit=300), "")

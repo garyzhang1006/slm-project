@@ -42,6 +42,8 @@ BULLETED_LIST = re.compile(r"(?:^|\n)[ \t]*[-*\u2022][ \t]")
 # Greetings that open a reply without answering it, as the first paragraph before the answer.
 OPENERS = frozenset({"sure", "certainly", "of course", "okay", "ok", "absolutely", "alright", "all right",
                      "great question", "good question", "sure thing", "happy to help"})
+# One sentence that only offers help, the part after the opener in "Sure, I'd be happy to help you with that.".
+HELP_OFFER = re.compile(r"[^.!?]*\bhelp\b[^.!?]*[.!]?", re.I)
 # A list marker such as "- " or "2. " at the start of a line, set aside when comparing lines.
 LIST_MARKER = re.compile(r"^[ \t]*(?:[-*\u2022]|\d+[.)])\s+", re.M)
 # An item number after a space and before the item's text on the same line, as in "Try these: 1. Rest 2. Eat",
@@ -81,6 +83,10 @@ def trim_answer(text: str, limit: int = MAX_ANSWER_CHARS) -> str:
         # alone, neither is an answer.
         greeting = paragraph.endswith("!") or paragraph.rstrip(".!").lower() in OPENERS
         if paragraph.endswith(":") or ("\n\n" in text.strip() and greeting):
+            return ""
+        # An opener followed only by an offer to help answers nothing, even as the whole reply.
+        opener, comma, offer = paragraph.partition(",")
+        if comma and opener.strip().lower() in OPENERS and HELP_OFFER.fullmatch(offer.strip()):
             return ""
         return paragraph
     cut = paragraph[:limit]

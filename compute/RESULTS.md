@@ -1,6 +1,6 @@
 # Results
 
-Collected from Kaggle kernel reports on 2026-10-05 18:40 by `compute/collect_results.py`. Regenerate it rather than editing by hand.
+Collected from Kaggle kernel reports on 2026-10-05 19:09 by `compute/collect_results.py`. Regenerate it rather than editing by hand.
 
 ## slm-160m pretraining
 
@@ -81,7 +81,7 @@ These rows ask the model to admit it doesn't know, so a person judges them and t
 
 ## Distilled answers
 
-1736 rows kept from 2182 prompts (dropped: cut_off 222, empty_or_invalid 112, repetitive 112).
+1735 rows kept from 2182 prompts (dropped: cut_off 222, empty_or_invalid 113, repetitive 112).
 
 ## slm-160m SFT
 

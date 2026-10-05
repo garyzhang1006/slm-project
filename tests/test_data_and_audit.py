@@ -206,6 +206,15 @@ class DataAndAuditTests(unittest.TestCase):
                     self.assertFalse(report.ok)
                     self.assertIn(name, report.errors[0])
 
+    def test_audit_reports_an_integer_over_pythons_digit_limit(self):
+        # json.loads raises a plain ValueError past 4,300 digits, which the audit let escape as a traceback.
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "huge.jsonl"
+            path.write_text('{"id": "a", "confidence": ' + "1" * 5000 + "}\n")
+            report = audit_dataset(path)
+            self.assertFalse(report.ok)
+            self.assertIn("huge.jsonl:1: invalid JSON", report.errors[0])
+
     def test_audit_reports_a_directory_instead_of_raising(self):
         with tempfile.TemporaryDirectory() as directory:
             report = audit_dataset(directory)

@@ -184,8 +184,9 @@ def _utf8_lines(path: Path) -> Iterator[tuple[int, str]]:
 def _parse_json_line(path: Path, record_number: int, line: str) -> Any:
     try:
         return json.loads(line, object_pairs_hook=_reject_duplicate_keys, parse_constant=_reject_constant)
-    except (DataValidationError, json.JSONDecodeError, RecursionError) as exc:
-        # Deep nesting overflows the parser's stack and raises RecursionError, not a decode error.
+    except (ValueError, RecursionError) as exc:
+        # Deep nesting overflows the parser's stack and raises RecursionError, and an integer over Python's
+        # 4,300 digit limit raises a plain ValueError; neither is a decode error.
         detail = exc.msg if isinstance(exc, json.JSONDecodeError) else str(exc)
         raise DataValidationError(f"{path}:{record_number}: invalid JSON: {detail}") from exc
 

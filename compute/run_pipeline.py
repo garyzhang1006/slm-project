@@ -2,7 +2,7 @@
 
 Beside it run two LoRA chains: sft_data, the 360M adapter, then lora_eval on that adapter; and the 1.7B adapter
 (lora_1b7), then lora_1b7_eval and distill_data, the answers sft trains on, on that adapter. The 1.7B chain gets
-whatever GPU quota the other chains leave.
+GPU quota before the 360M chain, since sft waits on it.
 Each round reads kernel statuses and reports, decides one action per chain, and (unless --dry-run) pushes the
 next kernels. It never runs a model locally; every push goes to a Kaggle GPU. It checks the weekly GPU quota before
 each push, so a session that would be killed half way for lack of quota waits for the reset instead.
@@ -313,14 +313,15 @@ def follow_up_action(status, report, quota_hours: float, followers: dict[str, st
 
 
 def decide_round(status, report, quota_hours: float) -> list[dict]:
-    """[main chain, 360M LoRA chain, 1.7B LoRA chain] decisions, in priority order: each push leaves less
-    quota for the chains after it."""
-    decisions = []
-    for chooser in (next_action, lora_action, large_lora_action):
+    """[main chain, 360M LoRA chain, 1.7B LoRA chain] decisions. Quota goes to the main chain, then the 1.7B chain,
+    then the 360M chain: each push leaves less for the chains after it."""
+    decisions = [None, None, None]
+    # The 1.7B chain charges quota before the 360M one: sft waits on its distill_data, and nothing waits on the 360M.
+    for index, chooser in ((0, next_action), (2, large_lora_action), (1, lora_action)):
         decision = chooser(status, report, quota_hours)
         if decision["kind"] == "push":
             quota_hours -= decision.get("hours", STAGE_HOURS[decision["stage"]])
-        decisions.append(decision)
+        decisions[index] = decision
     main, large = decisions[0], decisions[2]
     if main.get("needs") == "lora_1b7" and large["kind"] == "stop":
         decisions[0] = action("stop", f"{main['reason']}, but the 1.7B LoRA chain stopped")

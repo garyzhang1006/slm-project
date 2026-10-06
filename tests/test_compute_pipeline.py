@@ -283,9 +283,15 @@ class LoraChainTests(unittest.TestCase):
         self.assertEqual((main["kind"], main["stage"]), ("push", "pretrain"))
         self.assertEqual((side["kind"], side["stage"]), ("wait", "lora"))  # 14 - 12 hours left
         self.assertEqual((large["kind"], large["stage"]), ("wait", "lora_1b7"))
+        # sft waits on the 1.7B chain, so it takes the quota first and the 360M adapter waits for the reset.
+        reports[("slm-160m-pretrain-1", "pretrain_session_1.json")] = DONE
+        main, side, large = run_pipeline.decide_round(lambda slug: statuses.get(slug, "missing"),
+                                                      lambda slug, filename: reports.get((slug, filename)), 9.0)
+        self.assertEqual((main["kind"], main["needs"]), ("wait", "lora_1b7"))
+        self.assertEqual((large["kind"], large["stage"]), ("push", "lora_1b7"))
+        self.assertEqual((side["kind"], side["stage"]), ("wait", "lora"))  # 9 - 5.5 hours left
         # sft needs only the 1.7B chain, so a stopped 360M chain leaves the main chain waiting for it.
         statuses.update({"slm-160m-pretrain-1": "complete", "slm-lora-baseline": "error"})
-        reports[("slm-160m-pretrain-1", "pretrain_session_1.json")] = DONE
         main, side, large = run_pipeline.decide_round(lambda slug: statuses.get(slug, "missing"),
                                                       lambda slug, filename: reports.get((slug, filename)), 30.0)
         self.assertEqual((main["kind"], main["needs"], side["kind"], large["stage"]),

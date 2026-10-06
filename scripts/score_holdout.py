@@ -34,12 +34,16 @@ _MERIDIEM = re.compile(r"(?<![^\W\d_])([ap])\. ?m\b\.?")
 _CLOCK = re.compile(r"\b(\d{1,2}):00(?!\d)")
 # Spelled numbers continue only across spaces and hyphens, so "One hundred. Ten decades" stays two numbers.
 _JOINER = re.compile(r"[\s-]*")
-# An abstain reply is exact when every clause between punctuation or a spaced dash, after one leading
-# and, so or but, is an accepted refusal or an opener below followed by the object of not knowing, such as
-# "I don't know your name" or "I don't know what you ate"; so "I don't know your name, it's Sam." is not.
-_CLAUSES = re.compile("[.,;:!?()\u2013\u2014]+|\\s-+\\s")
+# An abstain reply is exact when every clause between punctuation, a spaced dash or a spaced "but", after
+# one leading and, so or but, is an accepted refusal or an opener below followed by an object of at most
+# five words that starts with your, about or a question word and has no answer word before its last word.
+# So "I don't know who your best friend is" is exact, and "I don't know your name, it's Sam." and
+# "I don't know your name is Sam." are not.
+_CLAUSES = re.compile("[.,;:!?()\u2013\u2014]+|\\s-+\\s|\\sbut\\s", re.IGNORECASE)
 _REFUSAL_OPENERS = ("i dont know", "i do not know", "you havent told me", "you have not told me")
 _REFUSAL_OBJECTS = frozenset({"your", "about", "what", "where", "who", "when", "which", "how"})
+_REFUSAL_OBJECT_WORDS = 5
+_ANSWER_WORDS = frozenset({"i", "is", "was", "it", "its", "maybe", "probably"})
 _CLAUSE_JOINERS = frozenset({"and", "so", "but"})
 
 
@@ -137,8 +141,12 @@ def _is_refusal(clause: str, accepted: list[str]) -> bool:
         words = words[1:]
     if " ".join(words) in accepted:
         return True
-    return any(len(words) > len(opener) and words[:len(opener)] == opener and words[len(opener)] in _REFUSAL_OBJECTS
-               for opener in map(str.split, _REFUSAL_OPENERS))
+    for opener in map(str.split, _REFUSAL_OPENERS):
+        tail = words[len(opener):]
+        if (words[:len(opener)] == opener and 0 < len(tail) <= _REFUSAL_OBJECT_WORDS and tail[0] in _REFUSAL_OBJECTS
+                and not _ANSWER_WORDS.intersection(tail[:-1])):
+            return True
+    return False
 
 
 def score_answer(row: dict, answer: str) -> dict | None:

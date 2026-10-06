@@ -92,11 +92,13 @@ class ScoreHoldoutTests(unittest.TestCase):
         refusal = {"id": "r", "category": "abstain", "expected_rubric": "I don't know",
                    "accepted_answers": ["I don't know", "you haven't told me"]}
         for answer in ("I don't know your name. You haven't told me.", "I don't know what you ate.",
-                       "I don't know where you are, so you haven't told me."):
+                       "I don't know where you are, so you haven't told me.", "I don't know who your best friend is."):
             with self.subTest(answer=answer):
                 self.assertEqual(self.module.score_answer(refusal, answer), {"exact": True, "contains": True})
         for answer in ("I don't know, but it is Paris.", "I don't know. It is 42.", "I don't know your name, it's Sam.",
-                       "I don't know your name. It's Sam.", "I don't know it is Paris.", "Sam. I don't know."):
+                       "I don't know your name. It's Sam.", "I don't know it is Paris.", "Sam. I don't know.",
+                       "I don't know what you ate but I think it was pizza.", "I don't know your name is Sam.",
+                       "I don't know what you are wearing maybe a red shirt."):
             with self.subTest(answer=answer):
                 self.assertFalse(self.module.score_answer(refusal, answer)["exact"])
         # Other categories keep the sentence rule, so naming the object there still misses exact.

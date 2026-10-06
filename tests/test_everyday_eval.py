@@ -77,6 +77,20 @@ class EverydayEvalTests(unittest.TestCase):
         self.assertEqual(report["total"]["exact"], len(self.rows))
         self.assertEqual(report["total"]["manual_review"], 0)
 
+    def test_abstain_rows_take_every_trained_refusal_as_exact(self):
+        # "I can't see you, so I don't know." and "I don't know. You haven't shown me." missed exact.
+        refusals = sorted({answer for _, answer in short_facts.REFUSALS} | {short_facts.NOT_STATED})
+        abstain = [row for row in self.rows if row["category"] == "abstain"]
+        self.assertEqual(len(abstain), 20)
+        for row in abstain:
+            for answer in refusals:
+                with self.subTest(row=row["id"], answer=answer):
+                    self.assertEqual(self.module.score_answer(row, answer), {"exact": True, "contains": True})
+            for answer in ("I don't know, but it is Paris.", "I don't know. It is 42.",
+                           "I don't know your name, it's Sam."):
+                with self.subTest(row=row["id"], answer=answer):
+                    self.assertFalse(self.module.score_answer(row, answer)["exact"])
+
     def test_prompts_do_not_contain_their_answer(self):
         # Contains-match would credit a model that only echoes the prompt. Reading passages, yes/no
         # questions and "X or Y" choices name the answer by design.

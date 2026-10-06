@@ -85,8 +85,28 @@ class ScoreHoldoutTests(unittest.TestCase):
                    "accepted_answers": ["I don't know", "you haven't told me"]}
         self.assertEqual(self.module.score_answer(refusal, "I don't know. You haven't told me."),
                          {"exact": True, "contains": True})
-        self.assertFalse(self.module.score_answer(refusal, "I don't know your name. You haven't told me.")["exact"])
         self.assertFalse(self.module.score_answer({"id": "x", "category": "math", "expected_rubric": "3"}, "3. It is 4.")["exact"])
+
+    def test_an_abstain_refusal_may_name_what_it_does_not_know(self):
+        # The trained "I don't know your name. You haven't told me." scored contains but never exact.
+        refusal = {"id": "r", "category": "abstain", "expected_rubric": "I don't know",
+                   "accepted_answers": ["I don't know", "you haven't told me"]}
+        for answer in ("I don't know your name. You haven't told me.", "I don't know what you ate.",
+                       "I don't know where you are, so you haven't told me."):
+            with self.subTest(answer=answer):
+                self.assertEqual(self.module.score_answer(refusal, answer), {"exact": True, "contains": True})
+        for answer in ("I don't know, but it is Paris.", "I don't know. It is 42.", "I don't know your name, it's Sam.",
+                       "I don't know your name. It's Sam.", "I don't know it is Paris.", "Sam. I don't know."):
+            with self.subTest(answer=answer):
+                self.assertFalse(self.module.score_answer(refusal, answer)["exact"])
+        # Other categories keep the sentence rule, so naming the object there still misses exact.
+        other = {**refusal, "category": "fact"}
+        self.assertEqual(self.module.score_answer(other, "I don't know your name. You haven't told me."),
+                         {"exact": False, "contains": True})
+        # The holdout's abstain questions stay with a human reviewer.
+        holdout = {row["id"]: row for row in self.rows}
+        for key in ("simple-v1-21", "simple-v1-22"):
+            self.assertIsNone(self.module.score_answer(holdout[key], "I don't know. You haven't told me."))
 
     def test_everyday_keys_accept_the_common_forms_of_their_answer(self):
         # v1-143 took "the Atlantic Ocean" but not "Atlantic Ocean", and v1-185 took "five" but not "5 pm".

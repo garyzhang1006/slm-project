@@ -34,6 +34,13 @@ _MERIDIEM = re.compile(r"(?<![^\W\d_])([ap])\. ?m\b\.?")
 _CLOCK = re.compile(r"\b(\d{1,2}):00(?!\d)")
 # Spelled numbers continue only across spaces and hyphens, so "One hundred. Ten decades" stays two numbers.
 _JOINER = re.compile(r"[\s-]*")
+# An abstain reply is exact when every clause between punctuation or a spaced dash, after one leading
+# and, so or but, is an accepted refusal or an opener below followed by the object of not knowing, such as
+# "I don't know your name" or "I don't know what you ate"; so "I don't know your name, it's Sam." is not.
+_CLAUSES = re.compile("[.,;:!?()\u2013\u2014]+|\\s-+\\s")
+_REFUSAL_OPENERS = ("i dont know", "i do not know", "you havent told me", "you have not told me")
+_REFUSAL_OBJECTS = frozenset({"your", "about", "what", "where", "who", "when", "which", "how"})
+_CLAUSE_JOINERS = frozenset({"and", "so", "but"})
 
 
 def _decimal(token: str) -> str:
@@ -123,6 +130,17 @@ def inflections(word: str) -> set[str]:
     return forms
 
 
+def _is_refusal(clause: str, accepted: list[str]) -> bool:
+    """Whether a normalized clause of an abstain reply only refuses, by the rule above _CLAUSES."""
+    words = clause.split()
+    if words and words[0] in _CLAUSE_JOINERS:
+        words = words[1:]
+    if " ".join(words) in accepted:
+        return True
+    return any(len(words) > len(opener) and words[:len(opener)] == opener and words[len(opener)] in _REFUSAL_OBJECTS
+               for opener in map(str.split, _REFUSAL_OPENERS))
+
+
 def score_answer(row: dict, answer: str) -> dict | None:
     """Return exact/contains flags, or None when the row needs manual review."""
     if row["category"] in MANUAL_CATEGORIES:
@@ -137,6 +155,9 @@ def score_answer(row: dict, answer: str) -> dict | None:
     # A reply made only of accepted answers, such as "I don't know. You haven't told me.", says nothing else.
     sentences = [normalize_answer(part) for part in re.split(r"(?<=[.!?])\s+", answer.strip())]
     exact = predicted in accepted or (len(sentences) > 1 and all(sentence in accepted for sentence in sentences))
+    if row["category"] == "abstain" and not exact:
+        clauses = [clause for clause in map(normalize_answer, _CLAUSES.split(answer)) if clause]
+        exact = bool(clauses) and all(_is_refusal(clause, accepted) for clause in clauses)
     # Whole-token containment, so "3" does not match inside "13".
     return {"exact": exact,
             "contains": any(f" {expected} " in padded for expected in accepted)}

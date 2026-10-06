@@ -2,7 +2,7 @@
 
 Stage 3 keeps only Dolly rows whose human answer fits in 400 characters, so thousands of good open_qa and
 general_qa questions go unused because their answers run to paragraphs a 160M byte model cannot imitate.
-This stage asks the attached adapter, the 1.7B one (208 of 252 everyday questions exact), for a short answer to
+This stage asks the attached adapter, the 1.7B one (215 of 252 everyday questions exact), for a short answer to
 each of those questions and writes them in the stage 3 record format. Stage 4 merges them into sft_train when
 this kernel is attached.
 """

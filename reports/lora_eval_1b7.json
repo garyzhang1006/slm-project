@@ -1,0 +1,2226 @@
+{
+  "adapter_sha256": "445e381edec482033e9b46cc8fac05edb392e2711456906bd3071175b1e8f13d",
+  "kernel": "slm-lora-1b7-eval",
+  "predictions": {
+    "data/everyday_eval.json": {
+      "base": [
+        {
+          "answer": "The sum of fourteen and twenty-three is thirty-seven.",
+          "id": "everyday-v1-001"
+        },
+        {
+          "answer": "The sum of 25 and 17 is 42.",
+          "id": "everyday-v1-002"
+        },
+        {
+          "answer": "The answer is 25.",
+          "id": "everyday-v1-003"
+        },
+        {
+          "answer": "11 x 3 = 33.",
+          "id": "everyday-v1-004"
+        },
+        {
+          "answer": "If you take 18 away from 50, you get 32.",
+          "id": "everyday-v1-005"
+        },
+        {
+          "answer": "The sum of 13 and 19 is 32.",
+          "id": "everyday-v1-006"
+        },
+        {
+          "answer": "The result of 100 divided by 4 is 25.",
+          "id": "everyday-v1-007"
+        },
+        {
+          "answer": "Sixty minus twenty-four equals forty.",
+          "id": "everyday-v1-008"
+        },
+        {
+          "answer": "Twelve multiplied by five equals 60.",
+          "id": "everyday-v1-009"
+        },
+        {
+          "answer": "The result of 72 divided by 8 is 9.",
+          "id": "everyday-v1-010"
+        },
+        {
+          "answer": "16 + 16 = 32.",
+          "id": "everyday-v1-011"
+        },
+        {
+          "answer": "The total is 75.",
+          "id": "everyday-v1-012"
+        },
+        {
+          "answer": "12 x 12 equals 144.",
+          "id": "everyday-v1-013"
+        },
+        {
+          "answer": "The result of 90 - 46 is 44.",
+          "id": "everyday-v1-014"
+        },
+        {
+          "answer": "Each child gets 5 sweets.",
+          "id": "everyday-v1-015"
+        },
+        {
+          "answer": "The answer is 77.",
+          "id": "everyday-v1-016"
+        },
+        {
+          "answer": "Thirty-three plus seven equals forty.",
+          "id": "everyday-v1-017"
+        },
+        {
+          "answer": "200 + 50 = 250.",
+          "id": "everyday-v1-018"
+        },
+        {
+          "answer": "64 - 8 = 56.",
+          "id": "everyday-v1-019"
+        },
+        {
+          "answer": "The number eleven times eleven is 121.",
+          "id": "everyday-v1-020"
+        },
+        {
+          "answer": "42 divided by 7 equals 6. Each group would have 6 items.",
+          "id": "everyday-v1-021"
+        },
+        {
+          "answer": "15 + 15 + 15 = 45.",
+          "id": "everyday-v1-022"
+        },
+        {
+          "answer": "The number you get from 1000 - 1 is 999.",
+          "id": "everyday-v1-023"
+        },
+        {
+          "answer": "30 x 3 = 90.",
+          "id": "everyday-v1-024"
+        },
+        {
+          "answer": "54 - 28 = 26",
+          "id": "everyday-v1-025"
+        },
+        {
+          "answer": "The result of 48 divided by 12 is 4.",
+          "id": "everyday-v1-026"
+        },
+        {
+          "answer": "5 packs hold 30 eggs.",
+          "id": "everyday-v1-027"
+        },
+        {
+          "answer": "The total of 22, 8, and 10 is 40.",
+          "id": "everyday-v1-028"
+        },
+        {
+          "answer": "In a leap year, there are 366 days.",
+          "id": "everyday-v1-029"
+        },
+        {
+          "answer": "February has 29 days in a leap year.",
+          "id": "everyday-v1-030"
+        },
+        {
+          "answer": "There are approximately 52 weeks in one year.",
+          "id": "everyday-v1-031"
+        },
+        {
+          "answer": "A normal year that is not a leap year has 365 days.",
+          "id": "everyday-v1-032"
+        },
+        {
+          "answer": "Half an hour is equal to 30 minutes.",
+          "id": "everyday-v1-033"
+        },
+        {
+          "answer": "Two whole days contain 144 hours.",
+          "id": "everyday-v1-034"
+        },
+        {
+          "answer": "A hexagon has 6 sides. The total number of sides in a hexagon is 6.",
+          "id": "everyday-v1-035"
+        },
+        {
+          "answer": "A pentagon has five straight sides.",
+          "id": "everyday-v1-036"
+        },
+        {
+          "answer": "An octagon has 8 sides.",
+          "id": "everyday-v1-037"
+        },
+        {
+          "answer": "One dollar is worth 100 cents.",
+          "id": "everyday-v1-038"
+        },
+        {
+          "answer": "One meter equals 100 centimeters.",
+          "id": "everyday-v1-039"
+        },
+        {
+          "answer": "One kilogram is equal to 1000 grams.",
+          "id": "everyday-v1-040"
+        },
+        {
+          "answer": "A century is 100 years.",
+          "id": "everyday-v1-041"
+        },
+        {
+          "answer": "A decade is equal to 10 years.",
+          "id": "everyday-v1-042"
+        },
+        {
+          "answer": "A bicycle typically has two wheels.",
+          "id": "everyday-v1-043"
+        },
+        {
+          "answer": "There are 3 wheels on a tricycle.",
+          "id": "everyday-v1-044"
+        },
+        {
+          "answer": "The English alphabet has 26 letters.",
+          "id": "everyday-v1-045"
+        },
+        {
+          "answer": "April sits between March and May.",
+          "id": "everyday-v1-046"
+        },
+        {
+          "answer": "Tomorrow will be Saturday.",
+          "id": "everyday-v1-047"
+        },
+        {
+          "answer": "Yesterday was Tuesday.",
+          "id": "everyday-v1-048"
+        },
+        {
+          "answer": "Christmas Day falls in December.",
+          "id": "everyday-v1-049"
+        },
+        {
+          "answer": "There are 12 hours from 9 in the morning until noon.",
+          "id": "everyday-v1-050"
+        },
+        {
+          "answer": "A dozen eggs means 12 eggs.",
+          "id": "everyday-v1-051"
+        },
+        {
+          "answer": "A pair of shoes is two shoes.",
+          "id": "everyday-v1-052"
+        },
+        {
+          "answer": "Halloween is celebrated in October.",
+          "id": "everyday-v1-053"
+        },
+        {
+          "answer": "There are 30 days in the month of April.",
+          "id": "everyday-v1-054"
+        },
+        {
+          "answer": "The opposite of cheap is expensive.",
+          "id": "everyday-v1-055"
+        },
+        {
+          "answer": "The word that means the reverse of smooth is \"rough\".",
+          "id": "everyday-v1-056"
+        },
+        {
+          "answer": "The opposite of \"sharp\" is \"dull\".",
+          "id": "everyday-v1-057"
+        },
+        {
+          "answer": "The opposite of \"tight\" is \"loose\".",
+          "id": "everyday-v1-058"
+        },
+        {
+          "answer": "The word that means the reverse of safe is \"unsafe\".",
+          "id": "everyday-v1-059"
+        },
+        {
+          "answer": "The opposite of \"heavy\" is \"light\".",
+          "id": "everyday-v1-060"
+        },
+        {
+          "answer": "The opposite of north is south.",
+          "id": "everyday-v1-061"
+        },
+        {
+          "answer": "The word that means the reverse of king is \"queen\".",
+          "id": "everyday-v1-062"
+        },
+        {
+          "answer": "The opposite of \"opposite\" is \"same\".",
+          "id": "everyday-v1-063"
+        },
+        {
+          "answer": "The opposite of entrance is exit.",
+          "id": "everyday-v1-064"
+        },
+        {
+          "answer": "The word that means the reverse of love is \"hate\".",
+          "id": "everyday-v1-065"
+        },
+        {
+          "answer": "The opposite of \"ancient\" is \"modern\".",
+          "id": "everyday-v1-066"
+        },
+        {
+          "answer": "The opposite of odd is even.",
+          "id": "everyday-v1-067"
+        },
+        {
+          "answer": "The word that means the reverse of same is \"different\".",
+          "id": "everyday-v1-068"
+        },
+        {
+          "answer": "The opposite of polite is impolite or rude.",
+          "id": "everyday-v1-069"
+        },
+        {
+          "answer": "The opposite of \"tiny\" is \"large\".",
+          "id": "everyday-v1-070"
+        },
+        {
+          "answer": "The word that means the reverse of whisper is \"shout\".",
+          "id": "everyday-v1-071"
+        },
+        {
+          "answer": "The opposite of \"add\" is \"subtract\".",
+          "id": "everyday-v1-072"
+        },
+        {
+          "answer": "The opposite of \"borrow\" is \"return\".",
+          "id": "everyday-v1-073"
+        },
+        {
+          "answer": "The word that means the reverse of \"floor\" is \"ceiling\".",
+          "id": "everyday-v1-074"
+        },
+        {
+          "answer": "The opposite of \"top\" is \"bottom\".",
+          "id": "everyday-v1-075"
+        },
+        {
+          "answer": "The opposite of catch is let go or release.",
+          "id": "everyday-v1-076"
+        },
+        {
+          "answer": "The word that means the reverse of increase is decrease.",
+          "id": "everyday-v1-077"
+        },
+        {
+          "answer": "The opposite of \"boy\" is \"girl\".",
+          "id": "everyday-v1-078"
+        },
+        {
+          "answer": "The plural form of the noun \"wife\" is \"wives\".",
+          "id": "everyday-v1-079"
+        },
+        {
+          "answer": "In English, you can say \"more than one half\" by saying \"over half\" or \"more than half\".",
+          "id": "everyday-v1-080"
+        },
+        {
+          "answer": "The plural form of the noun \"church\" is \"churches.\"",
+          "id": "everyday-v1-081"
+        },
+        {
+          "answer": "In English, you can say \"more than one berry\" by saying \"more than one berry\" or \"more than two berries.\" However, if you want to specify the type of berries, you can say \"more than one type of berry\" or \"more than two types of berries.\"",
+          "id": "everyday-v1-082"
+        },
+        {
+          "answer": "The plural form of the noun \"puppy\" is \"puppies\".",
+          "id": "everyday-v1-083"
+        },
+        {
+          "answer": "In English, you can say \"more than one ox\" by saying \"more than one ox\" or \"more than one oxes.\" However, the correct phrase is \"more than one ox\" because \"oxes\" is a plural noun.",
+          "id": "everyday-v1-084"
+        },
+        {
+          "answer": "The plural form of the noun \"calf\" is \"calves.\"",
+          "id": "everyday-v1-085"
+        },
+        {
+          "answer": "In English, you can say \"more than one shelf\" as \"multiple shelves\" or \"several shelves\".",
+          "id": "everyday-v1-086"
+        },
+        {
+          "answer": "The plural form of the noun \"loaf\" is \"loaves.\"",
+          "id": "everyday-v1-087"
+        },
+        {
+          "answer": "In English, you can say \"more than one bench\" as \"multiple benches\" or \"several benches.\"",
+          "id": "everyday-v1-088"
+        },
+        {
+          "answer": "The plural form of the noun \"peach\" is \"peaches.\"",
+          "id": "everyday-v1-089"
+        },
+        {
+          "answer": "In English, you can say \"more than one kiss\" by saying \"more than one kiss\" or \"multiple kisses.\"",
+          "id": "everyday-v1-090"
+        },
+        {
+          "answer": "The plural form of the noun class is \"cats\".",
+          "id": "everyday-v1-091"
+        },
+        {
+          "answer": "In English, you can say \"more than one monkey\" as \"more than one monkey\" or \"more than two monkeys.\"",
+          "id": "everyday-v1-092"
+        },
+        {
+          "answer": "The plural form of the noun \"family\" is \"families\".",
+          "id": "everyday-v1-093"
+        },
+        {
+          "answer": "You can say \"more than one country\" by using phrases like \"multiple countries,\" \"several countries,\" \"a number of countries,\" or \"multiple nations.\"",
+          "id": "everyday-v1-094"
+        },
+        {
+          "answer": "The plural form of the noun cherry is cherries.",
+          "id": "everyday-v1-095"
+        },
+        {
+          "answer": "In English, you can say \"more than one cactus\" as \"more than one cactus\" or \"more than two cacti.\"",
+          "id": "everyday-v1-096"
+        },
+        {
+          "answer": "The plural form of the noun \"echo\" is \"echoes.\"",
+          "id": "everyday-v1-097"
+        },
+        {
+          "answer": "In English, you can say \"more than one thief\" by saying \"more than one thief\" or \"multiple thieves.\"",
+          "id": "everyday-v1-098"
+        },
+        {
+          "answer": "The plural form of the noun \"horse\" is \"horses.\"",
+          "id": "everyday-v1-099"
+        },
+        {
+          "answer": "In English, you can say \"more than one lunch\" by saying \"more than one meal.\" This phrase is commonly used to refer to eating more than one meal in a day.",
+          "id": "everyday-v1-100"
+        },
+        {
+          "answer": "Mixing blue paint with yellow paint gives green paint.",
+          "id": "everyday-v1-101"
+        },
+        {
+          "answer": "Mixing red paint with white paint gives pink.",
+          "id": "everyday-v1-102"
+        },
+        {
+          "answer": "When you mix red and yellow paint together, you get orange.",
+          "id": "everyday-v1-103"
+        },
+        {
+          "answer": "Coal is usually black.",
+          "id": "everyday-v1-104"
+        },
+        {
+          "answer": "A ripe tomato is usually red.",
+          "id": "everyday-v1-105"
+        },
+        {
+          "answer": "Polar bears have white fur.",
+          "id": "everyday-v1-106"
+        },
+        {
+          "answer": "Most crows have feathers of black color.",
+          "id": "everyday-v1-107"
+        },
+        {
+          "answer": "The color that tells cars to stop is usually red.",
+          "id": "everyday-v1-108"
+        },
+        {
+          "answer": "The color on a traffic light that means go is typically green.",
+          "id": "everyday-v1-109"
+        },
+        {
+          "answer": "Milk chocolate is usually a brown color.",
+          "id": "everyday-v1-110"
+        },
+        {
+          "answer": "Most pumpkins are orange.",
+          "id": "everyday-v1-111"
+        },
+        {
+          "answer": "A young cat is called a kitten.",
+          "id": "everyday-v1-112"
+        },
+        {
+          "answer": "A young dog is called a puppy.",
+          "id": "everyday-v1-113"
+        },
+        {
+          "answer": "A baby sheep is called a lamb.",
+          "id": "everyday-v1-114"
+        },
+        {
+          "answer": "A baby duck is called a duckling.",
+          "id": "everyday-v1-115"
+        },
+        {
+          "answer": "A baby horse is called a foal.",
+          "id": "everyday-v1-116"
+        },
+        {
+          "answer": "The large gray animal with a trunk is an elephant.",
+          "id": "everyday-v1-117"
+        },
+        {
+          "answer": "The giraffe is the tall animal with the longest neck.",
+          "id": "everyday-v1-118"
+        },
+        {
+          "answer": "The Australian animal that hops and carries its baby in a pouch is the Kangaroo.",
+          "id": "everyday-v1-119"
+        },
+        {
+          "answer": "A pig makes a sound called a \"piglet's squeal\" or simply \"oink.\"",
+          "id": "everyday-v1-120"
+        },
+        {
+          "answer": "A horse makes a sound called a neigh.",
+          "id": "everyday-v1-121"
+        },
+        {
+          "answer": "A lion makes a roar.",
+          "id": "everyday-v1-122"
+        },
+        {
+          "answer": "The animal you are referring to is a zebra.",
+          "id": "everyday-v1-123"
+        },
+        {
+          "answer": "The penguin.",
+          "id": "everyday-v1-124"
+        },
+        {
+          "answer": "A snake has no legs.",
+          "id": "everyday-v1-125"
+        },
+        {
+          "answer": "An octopus has eight arms.",
+          "id": "everyday-v1-126"
+        },
+        {
+          "answer": "The capital city of Germany is Berlin.",
+          "id": "everyday-v1-127"
+        },
+        {
+          "answer": "Egypt's capital city is Cairo.",
+          "id": "everyday-v1-128"
+        },
+        {
+          "answer": "The capital city of Russia is Moscow.",
+          "id": "everyday-v1-129"
+        },
+        {
+          "answer": "China's capital city is Beijing.",
+          "id": "everyday-v1-130"
+        },
+        {
+          "answer": "The capital city of Greece is Athens.",
+          "id": "everyday-v1-131"
+        },
+        {
+          "answer": "Ireland's capital city is Dublin.",
+          "id": "everyday-v1-132"
+        },
+        {
+          "answer": "The capital city of Portugal is Lisbon.",
+          "id": "everyday-v1-133"
+        },
+        {
+          "answer": "Norway's capital city is Oslo.",
+          "id": "everyday-v1-134"
+        },
+        {
+          "answer": "The capital city of Kenya is Nairobi.",
+          "id": "everyday-v1-135"
+        },
+        {
+          "answer": "Peru's capital city is Lima.",
+          "id": "everyday-v1-136"
+        },
+        {
+          "answer": "Egypt is located in the continent of Africa.",
+          "id": "everyday-v1-137"
+        },
+        {
+          "answer": "Brazil is located in South America.",
+          "id": "everyday-v1-138"
+        },
+        {
+          "answer": "The city of Sydney is in Australia.",
+          "id": "everyday-v1-139"
+        },
+        {
+          "answer": "The pyramids of Giza are in Egypt.",
+          "id": "everyday-v1-140"
+        },
+        {
+          "answer": "The longest river in Africa is the Nile River.",
+          "id": "everyday-v1-141"
+        },
+        {
+          "answer": "The largest hot desert in the world is the Sahara Desert.",
+          "id": "everyday-v1-142"
+        },
+        {
+          "answer": "The Atlantic Ocean lies between Europe and North America.",
+          "id": "everyday-v1-143"
+        },
+        {
+          "answer": "The tallest mountain on Earth above sea level is Mount Everest, located in the Himalayas. It stands at 8,848.86 meters (29,031.7 feet) tall.",
+          "id": "everyday-v1-144"
+        },
+        {
+          "answer": "The icy continent surrounding the South Pole is Antarctica.",
+          "id": "everyday-v1-145"
+        },
+        {
+          "answer": "The city of Toronto is in Canada.",
+          "id": "everyday-v1-146"
+        },
+        {
+          "answer": "The most widely spoken language in Brazil is Portuguese.",
+          "id": "everyday-v1-147"
+        },
+        {
+          "answer": "The most widely spoken language in Mexico is Spanish.",
+          "id": "everyday-v1-148"
+        },
+        {
+          "answer": "The most widely spoken language in Germany is German.",
+          "id": "everyday-v1-149"
+        },
+        {
+          "answer": "The Statue of Liberty stands in New York City, specifically in New York Harbor, on Liberty Island.",
+          "id": "everyday-v1-150"
+        },
+        {
+          "answer": "The European country shaped like a boot is Italy.",
+          "id": "everyday-v1-151"
+        },
+        {
+          "answer": "The United States has 50 states.",
+          "id": "everyday-v1-152"
+        },
+        {
+          "answer": "The gas people need to breathe in to stay alive is oxygen.",
+          "id": "everyday-v1-153"
+        },
+        {
+          "answer": "Plants take in carbon dioxide from the air to make food through a process called photosynthesis.",
+          "id": "everyday-v1-154"
+        },
+        {
+          "answer": "Pure water freezes at 0 degrees Celsius.",
+          "id": "everyday-v1-155"
+        },
+        {
+          "answer": "At sea level, pure water boils at 100 degrees Celsius.",
+          "id": "everyday-v1-156"
+        },
+        {
+          "answer": "The force that pulls a dropped ball down to the ground is gravity.",
+          "id": "everyday-v1-157"
+        },
+        {
+          "answer": "Mercury is the planet closest to the sun.",
+          "id": "everyday-v1-158"
+        },
+        {
+          "answer": "The largest planet in our solar system is Jupiter.",
+          "id": "everyday-v1-159"
+        },
+        {
+          "answer": "There are eight planets in our solar system.",
+          "id": "everyday-v1-160"
+        },
+        {
+          "answer": "The heart is the organ that pumps blood around the body.",
+          "id": "everyday-v1-161"
+        },
+        {
+          "answer": "The organ inside your head that you use to think is your brain.",
+          "id": "everyday-v1-162"
+        },
+        {
+          "answer": "An adult human skeleton usually has 206 bones.",
+          "id": "everyday-v1-163"
+        },
+        {
+          "answer": "Plants need energy from the sun to grow.",
+          "id": "everyday-v1-164"
+        },
+        {
+          "answer": "H2O is the chemical formula for water.",
+          "id": "everyday-v1-165"
+        },
+        {
+          "answer": "A whale is a mammal.",
+          "id": "everyday-v1-166"
+        },
+        {
+          "answer": "A caterpillar grows up to become a butterfly.",
+          "id": "everyday-v1-167"
+        },
+        {
+          "answer": "The star closest to Earth is the Sun.",
+          "id": "everyday-v1-168"
+        },
+        {
+          "answer": "Animals that eat only plants are called herbivores.",
+          "id": "everyday-v1-169"
+        },
+        {
+          "answer": "Magnets do not pull on wood. They only pull on iron and other magnetic materials.",
+          "id": "everyday-v1-170"
+        },
+        {
+          "answer": "One kilogram of feathers is heavier than one kilogram of stones.",
+          "id": "everyday-v1-171"
+        },
+        {
+          "answer": "The moon travels around Earth.",
+          "id": "everyday-v1-172"
+        },
+        {
+          "answer": "The roots of a plant usually grow under the soil.",
+          "id": "everyday-v1-173"
+        },
+        {
+          "answer": "A rainbow typically has seven colors: red, orange, yellow, green, blue, indigo, and violet.",
+          "id": "everyday-v1-174"
+        },
+        {
+          "answer": "Water that falls from clouds as drops is called precipitation.",
+          "id": "everyday-v1-175"
+        },
+        {
+          "answer": "The sense that you use with your skin is called touch or sensation. It involves perceiving different sensations like warmth, coolness, texture, pressure, and pain.",
+          "id": "everyday-v1-176"
+        },
+        {
+          "answer": "Lungs help people breathe in oxygen and breathe out carbon dioxide. They are essential for providing oxygen to the body and removing waste products.",
+          "id": "everyday-v1-177"
+        },
+        {
+          "answer": "Maya planted a total of 8 flowers.",
+          "id": "everyday-v1-178"
+        },
+        {
+          "answer": "Omar moved to Oslo.",
+          "id": "everyday-v1-179"
+        },
+        {
+          "answer": "The train arrived at 12:00 PM + 2 hours = 2:00 PM.",
+          "id": "everyday-v1-180"
+        },
+        {
+          "answer": "Priya's kite is purple.",
+          "id": "everyday-v1-181"
+        },
+        {
+          "answer": "Hugo's keys are in the drawer.",
+          "id": "everyday-v1-182"
+        },
+        {
+          "answer": "Anna is the youngest.",
+          "id": "everyday-v1-183"
+        },
+        {
+          "answer": "Sam has 2 pears left.",
+          "id": "everyday-v1-184"
+        },
+        {
+          "answer": "The library closes at five.",
+          "id": "everyday-v1-185"
+        },
+        {
+          "answer": "Kofi's cousin Ama now owns the bike.",
+          "id": "everyday-v1-186"
+        },
+        {
+          "answer": "The blue box is underneath the red box.",
+          "id": "everyday-v1-187"
+        },
+        {
+          "answer": "Mia paints on Thursdays.",
+          "id": "everyday-v1-188"
+        },
+        {
+          "answer": "The white cat is called Salt.",
+          "id": "everyday-v1-189"
+        },
+        {
+          "answer": "Carla took her umbrella because it was raining all morning.",
+          "id": "everyday-v1-190"
+        },
+        {
+          "answer": "No, Dev's sandwich does not have ham. It only has cheese and tomato.",
+          "id": "everyday-v1-191"
+        },
+        {
+          "answer": "Grace won the race between the two girls.",
+          "id": "everyday-v1-192"
+        },
+        {
+          "answer": "Luis pays 8 dollars for four apples.",
+          "id": "everyday-v1-193"
+        },
+        {
+          "answer": "At half past seven, Yuki eats breakfast.",
+          "id": "everyday-v1-194"
+        },
+        {
+          "answer": "The glove was found under a bench in the park.",
+          "id": "everyday-v1-195"
+        },
+        {
+          "answer": "The farmer has three goats.",
+          "id": "everyday-v1-196"
+        },
+        {
+          "answer": "Ines speaks English at school.",
+          "id": "everyday-v1-197"
+        },
+        {
+          "answer": "Max added sliced banana after pouring milk into his cereal.",
+          "id": "everyday-v1-198"
+        },
+        {
+          "answer": "Zara walked to work because the bus was late.",
+          "id": "everyday-v1-199"
+        },
+        {
+          "answer": "Tariq keeps 6 marbles.",
+          "id": "everyday-v1-200"
+        },
+        {
+          "answer": "There were 12 muffins left.",
+          "id": "everyday-v1-201"
+        },
+        {
+          "answer": "Ella's birthday comes first in the year because it is in June, which is before March.",
+          "id": "everyday-v1-202"
+        },
+        {
+          "answer": "The ducks stood on the ice.",
+          "id": "everyday-v1-203"
+        },
+        {
+          "answer": "Noor shared her rice with Aiden.",
+          "id": "everyday-v1-204"
+        },
+        {
+          "answer": "The green door leads to the garden.",
+          "id": "everyday-v1-205"
+        },
+        {
+          "answer": "Ruby read 40 + 20 = 60 pages over the weekend.",
+          "id": "everyday-v1-206"
+        },
+        {
+          "answer": "The name of Hana's dog is Biscuit.",
+          "id": "everyday-v1-207"
+        },
+        {
+          "answer": "Yes, an elephant is generally bigger than a mouse.",
+          "id": "everyday-v1-208"
+        },
+        {
+          "answer": "Yes.",
+          "id": "everyday-v1-209"
+        },
+        {
+          "answer": "Yes.",
+          "id": "everyday-v1-210"
+        },
+        {
+          "answer": "No, a mile is not longer than a meter. A mile is approximately 1609.34 meters.",
+          "id": "everyday-v1-211"
+        },
+        {
+          "answer": "Yes.",
+          "id": "everyday-v1-212"
+        },
+        {
+          "answer": "Yes, birds are known for their ability to fly.",
+          "id": "everyday-v1-213"
+        },
+        {
+          "answer": "Yes, fire is generally hotter than snow.",
+          "id": "everyday-v1-214"
+        },
+        {
+          "answer": "Yes.",
+          "id": "everyday-v1-215"
+        },
+        {
+          "answer": "Yes.",
+          "id": "everyday-v1-216"
+        },
+        {
+          "answer": "Yes.",
+          "id": "everyday-v1-217"
+        },
+        {
+          "answer": "Yes.",
+          "id": "everyday-v1-218"
+        },
+        {
+          "answer": "Yes, plants need water to live.",
+          "id": "everyday-v1-219"
+        },
+        {
+          "answer": "Yes.",
+          "id": "everyday-v1-220"
+        },
+        {
+          "answer": "No, a mouse is not bigger than a horse.",
+          "id": "everyday-v1-221"
+        },
+        {
+          "answer": "No, cats do not have feathers.",
+          "id": "everyday-v1-222"
+        },
+        {
+          "answer": "Yes, Monday is part of the weekend.",
+          "id": "everyday-v1-223"
+        },
+        {
+          "answer": "No, 3 is not less than 2.",
+          "id": "everyday-v1-224"
+        },
+        {
+          "answer": "No, a rock cannot swim. Rocks are solid and do not have the ability to move through water or float.",
+          "id": "everyday-v1-225"
+        },
+        {
+          "answer": "Yes.",
+          "id": "everyday-v1-226"
+        },
+        {
+          "answer": "Yes.",
+          "id": "everyday-v1-227"
+        },
+        {
+          "answer": "No, fish do not have legs for walking. They have fins for swimming.",
+          "id": "everyday-v1-228"
+        },
+        {
+          "answer": "No, the moon is not made of cheese.",
+          "id": "everyday-v1-229"
+        },
+        {
+          "answer": "No, a triangle is not a round shape.",
+          "id": "everyday-v1-230"
+        },
+        {
+          "answer": "No, a spoon does not have a sharp blade like a knife.",
+          "id": "everyday-v1-231"
+        },
+        {
+          "answer": "Yes.",
+          "id": "everyday-v1-232"
+        },
+        {
+          "answer": "I'm sorry, but as an AI, I don't have access to personal data about individuals unless it has been shared with me in the course of our conversation. I'm designed to respect user privacy and confidentiality.",
+          "id": "everyday-v1-233"
+        },
+        {
+          "answer": "You don't have a car.",
+          "id": "everyday-v1-234"
+        },
+        {
+          "answer": "I'm sorry, but as an AI, I don't have access to personal data about individuals unless it has been shared with me in the course of our conversation. I'm designed to respect user privacy and confidentiality.",
+          "id": "everyday-v1-235"
+        },
+        {
+          "answer": "To determine your height, you would need to know your current height in inches.",
+          "id": "everyday-v1-236"
+        },
+        {
+          "answer": "I'm sorry, but as an AI, I don't have access to personal data about individuals unless it has been shared with me in the course of our conversation. I'm designed to respect user privacy and confidentiality.",
+          "id": "everyday-v1-237"
+        },
+        {
+          "answer": "I'm sorry, but as an AI, I don't have access to personal data about individuals unless it has been shared with me in the course of our conversation. I'm designed to respect user privacy and confidentiality.",
+          "id": "everyday-v1-238"
+        },
+        {
+          "answer": "I'm sorry, but as an AI, I don't have access to personal data about individuals unless it has been shared with me in the course of our conversation. I'm designed to respect user privacy and confidentiality.",
+          "id": "everyday-v1-239"
+        },
+        {
+          "answer": "Your grandmother likely speaks English, as it is a widely spoken language globally. However, if you're asking about her native language, it would be best to ask her directly.",
+          "id": "everyday-v1-240"
+        },
+        {
+          "answer": "I'm sorry, as an AI, I don't have the ability to listen to or recognize music.",
+          "id": "everyday-v1-241"
+        },
+        {
+          "answer": "I'm sorry, but as an AI, I don't have access to personal data about individuals unless it has been shared with me in the course of our conversation. I'm designed to respect user privacy and confidentiality.",
+          "id": "everyday-v1-242"
+        },
+        {
+          "answer": "I'm sorry, but as an AI, I don't have access to personal data about individuals unless it has been shared with me in the course of our conversation. I'm designed to respect user privacy and confidentiality.",
+          "id": "everyday-v1-243"
+        },
+        {
+          "answer": "I'm sorry, but as an AI, I don't have access to personal data about individuals unless it has been shared with me in the course of our conversation. I'm designed to respect user privacy and confidentiality.",
+          "id": "everyday-v1-244"
+        },
+        {
+          "answer": "I'm sorry, but as an AI, I don't have real-time capabilities to provide weather updates. I recommend checking a reliable weather forecast website or app for the most accurate information.",
+          "id": "everyday-v1-245"
+        },
+        {
+          "answer": "As an AI, I don't have real-time data or the ability to predict future events. I recommend checking the latest sports news or the official website of the teams for the most accurate information.",
+          "id": "everyday-v1-246"
+        },
+        {
+          "answer": "Sam's sister's name is unknown without additional information.",
+          "id": "everyday-v1-247"
+        },
+        {
+          "answer": "The box is empty.",
+          "id": "everyday-v1-248"
+        },
+        {
+          "answer": "Lucy bought a shirt, a pair of shoes, and a hat.",
+          "id": "everyday-v1-249"
+        },
+        {
+          "answer": "I don't have enough information to determine the man's age.",
+          "id": "everyday-v1-250"
+        },
+        {
+          "answer": "I don't have enough information to determine what the letter said.",
+          "id": "everyday-v1-251"
+        },
+        {
+          "answer": "I'm sorry, but as an AI, I don't have the ability to see or interact with the physical world or objects. I can only provide information and answer questions to the best of my knowledge and abilities.",
+          "id": "everyday-v1-252"
+        }
+      ],
+      "lora": [
+        {
+          "answer": "37",
+          "id": "everyday-v1-001"
+        },
+        {
+          "answer": "42",
+          "id": "everyday-v1-002"
+        },
+        {
+          "answer": "25",
+          "id": "everyday-v1-003"
+        },
+        {
+          "answer": "33",
+          "id": "everyday-v1-004"
+        },
+        {
+          "answer": "32",
+          "id": "everyday-v1-005"
+        },
+        {
+          "answer": "32",
+          "id": "everyday-v1-006"
+        },
+        {
+          "answer": "25",
+          "id": "everyday-v1-007"
+        },
+        {
+          "answer": "36",
+          "id": "everyday-v1-008"
+        },
+        {
+          "answer": "60",
+          "id": "everyday-v1-009"
+        },
+        {
+          "answer": "9",
+          "id": "everyday-v1-010"
+        },
+        {
+          "answer": "32",
+          "id": "everyday-v1-011"
+        },
+        {
+          "answer": "75",
+          "id": "everyday-v1-012"
+        },
+        {
+          "answer": "144",
+          "id": "everyday-v1-013"
+        },
+        {
+          "answer": "44",
+          "id": "everyday-v1-014"
+        },
+        {
+          "answer": "5",
+          "id": "everyday-v1-015"
+        },
+        {
+          "answer": "77",
+          "id": "everyday-v1-016"
+        },
+        {
+          "answer": "40",
+          "id": "everyday-v1-017"
+        },
+        {
+          "answer": "250",
+          "id": "everyday-v1-018"
+        },
+        {
+          "answer": "56",
+          "id": "everyday-v1-019"
+        },
+        {
+          "answer": "121",
+          "id": "everyday-v1-020"
+        },
+        {
+          "answer": "6",
+          "id": "everyday-v1-021"
+        },
+        {
+          "answer": "45",
+          "id": "everyday-v1-022"
+        },
+        {
+          "answer": "999",
+          "id": "everyday-v1-023"
+        },
+        {
+          "answer": "90",
+          "id": "everyday-v1-024"
+        },
+        {
+          "answer": "26",
+          "id": "everyday-v1-025"
+        },
+        {
+          "answer": "4",
+          "id": "everyday-v1-026"
+        },
+        {
+          "answer": "30",
+          "id": "everyday-v1-027"
+        },
+        {
+          "answer": "40",
+          "id": "everyday-v1-028"
+        },
+        {
+          "answer": "366",
+          "id": "everyday-v1-029"
+        },
+        {
+          "answer": "29",
+          "id": "everyday-v1-030"
+        },
+        {
+          "answer": "52 weeks",
+          "id": "everyday-v1-031"
+        },
+        {
+          "answer": "365",
+          "id": "everyday-v1-032"
+        },
+        {
+          "answer": "30",
+          "id": "everyday-v1-033"
+        },
+        {
+          "answer": "12",
+          "id": "everyday-v1-034"
+        },
+        {
+          "answer": "6",
+          "id": "everyday-v1-035"
+        },
+        {
+          "answer": "5",
+          "id": "everyday-v1-036"
+        },
+        {
+          "answer": "8",
+          "id": "everyday-v1-037"
+        },
+        {
+          "answer": "100",
+          "id": "everyday-v1-038"
+        },
+        {
+          "answer": "100",
+          "id": "everyday-v1-039"
+        },
+        {
+          "answer": "1000",
+          "id": "everyday-v1-040"
+        },
+        {
+          "answer": "100",
+          "id": "everyday-v1-041"
+        },
+        {
+          "answer": "10",
+          "id": "everyday-v1-042"
+        },
+        {
+          "answer": "2",
+          "id": "everyday-v1-043"
+        },
+        {
+          "answer": "3",
+          "id": "everyday-v1-044"
+        },
+        {
+          "answer": "26",
+          "id": "everyday-v1-045"
+        },
+        {
+          "answer": "April",
+          "id": "everyday-v1-046"
+        },
+        {
+          "answer": "Saturday",
+          "id": "everyday-v1-047"
+        },
+        {
+          "answer": "Tuesday",
+          "id": "everyday-v1-048"
+        },
+        {
+          "answer": "December",
+          "id": "everyday-v1-049"
+        },
+        {
+          "answer": "12 hours",
+          "id": "everyday-v1-050"
+        },
+        {
+          "answer": "12",
+          "id": "everyday-v1-051"
+        },
+        {
+          "answer": "2",
+          "id": "everyday-v1-052"
+        },
+        {
+          "answer": "October",
+          "id": "everyday-v1-053"
+        },
+        {
+          "answer": "30",
+          "id": "everyday-v1-054"
+        },
+        {
+          "answer": "expensive",
+          "id": "everyday-v1-055"
+        },
+        {
+          "answer": "rough",
+          "id": "everyday-v1-056"
+        },
+        {
+          "answer": "flat",
+          "id": "everyday-v1-057"
+        },
+        {
+          "answer": "wide",
+          "id": "everyday-v1-058"
+        },
+        {
+          "answer": "unsafe",
+          "id": "everyday-v1-059"
+        },
+        {
+          "answer": "light",
+          "id": "everyday-v1-060"
+        },
+        {
+          "answer": "south",
+          "id": "everyday-v1-061"
+        },
+        {
+          "answer": "queen",
+          "id": "everyday-v1-062"
+        },
+        {
+          "answer": "yes",
+          "id": "everyday-v1-063"
+        },
+        {
+          "answer": "exit",
+          "id": "everyday-v1-064"
+        },
+        {
+          "answer": "hate",
+          "id": "everyday-v1-065"
+        },
+        {
+          "answer": "modern",
+          "id": "everyday-v1-066"
+        },
+        {
+          "answer": "even",
+          "id": "everyday-v1-067"
+        },
+        {
+          "answer": "different",
+          "id": "everyday-v1-068"
+        },
+        {
+          "answer": "rude",
+          "id": "everyday-v1-069"
+        },
+        {
+          "answer": "big",
+          "id": "everyday-v1-070"
+        },
+        {
+          "answer": "scream",
+          "id": "everyday-v1-071"
+        },
+        {
+          "answer": "take",
+          "id": "everyday-v1-072"
+        },
+        {
+          "answer": "give",
+          "id": "everyday-v1-073"
+        },
+        {
+          "answer": "ceiling",
+          "id": "everyday-v1-074"
+        },
+        {
+          "answer": "bottom",
+          "id": "everyday-v1-075"
+        },
+        {
+          "answer": "let go",
+          "id": "everyday-v1-076"
+        },
+        {
+          "answer": "decrease",
+          "id": "everyday-v1-077"
+        },
+        {
+          "answer": "girl",
+          "id": "everyday-v1-078"
+        },
+        {
+          "answer": "wives",
+          "id": "everyday-v1-079"
+        },
+        {
+          "answer": "more than half",
+          "id": "everyday-v1-080"
+        },
+        {
+          "answer": "churches",
+          "id": "everyday-v1-081"
+        },
+        {
+          "answer": "berries",
+          "id": "everyday-v1-082"
+        },
+        {
+          "answer": "puppies",
+          "id": "everyday-v1-083"
+        },
+        {
+          "answer": "oxen",
+          "id": "everyday-v1-084"
+        },
+        {
+          "answer": "calves",
+          "id": "everyday-v1-085"
+        },
+        {
+          "answer": "shelves",
+          "id": "everyday-v1-086"
+        },
+        {
+          "answer": "loaves",
+          "id": "everyday-v1-087"
+        },
+        {
+          "answer": "benches",
+          "id": "everyday-v1-088"
+        },
+        {
+          "answer": "peaches",
+          "id": "everyday-v1-089"
+        },
+        {
+          "answer": "kisses",
+          "id": "everyday-v1-090"
+        },
+        {
+          "answer": "nouns",
+          "id": "everyday-v1-091"
+        },
+        {
+          "answer": "monkeys",
+          "id": "everyday-v1-092"
+        },
+        {
+          "answer": "families",
+          "id": "everyday-v1-093"
+        },
+        {
+          "answer": "countries",
+          "id": "everyday-v1-094"
+        },
+        {
+          "answer": "cherries",
+          "id": "everyday-v1-095"
+        },
+        {
+          "answer": "cacti",
+          "id": "everyday-v1-096"
+        },
+        {
+          "answer": "echoes",
+          "id": "everyday-v1-097"
+        },
+        {
+          "answer": "thieves",
+          "id": "everyday-v1-098"
+        },
+        {
+          "answer": "horses",
+          "id": "everyday-v1-099"
+        },
+        {
+          "answer": "lunches",
+          "id": "everyday-v1-100"
+        },
+        {
+          "answer": "green",
+          "id": "everyday-v1-101"
+        },
+        {
+          "answer": "pink",
+          "id": "everyday-v1-102"
+        },
+        {
+          "answer": "orange",
+          "id": "everyday-v1-103"
+        },
+        {
+          "answer": "brown",
+          "id": "everyday-v1-104"
+        },
+        {
+          "answer": "red",
+          "id": "everyday-v1-105"
+        },
+        {
+          "answer": "white",
+          "id": "everyday-v1-106"
+        },
+        {
+          "answer": "black",
+          "id": "everyday-v1-107"
+        },
+        {
+          "answer": "red",
+          "id": "everyday-v1-108"
+        },
+        {
+          "answer": "green",
+          "id": "everyday-v1-109"
+        },
+        {
+          "answer": "brown",
+          "id": "everyday-v1-110"
+        },
+        {
+          "answer": "orange",
+          "id": "everyday-v1-111"
+        },
+        {
+          "answer": "kitten",
+          "id": "everyday-v1-112"
+        },
+        {
+          "answer": "puppy",
+          "id": "everyday-v1-113"
+        },
+        {
+          "answer": "lamb",
+          "id": "everyday-v1-114"
+        },
+        {
+          "answer": "duckling",
+          "id": "everyday-v1-115"
+        },
+        {
+          "answer": "foal",
+          "id": "everyday-v1-116"
+        },
+        {
+          "answer": "elephant",
+          "id": "everyday-v1-117"
+        },
+        {
+          "answer": "Giraffe",
+          "id": "everyday-v1-118"
+        },
+        {
+          "answer": "Kangaroo",
+          "id": "everyday-v1-119"
+        },
+        {
+          "answer": "oink",
+          "id": "everyday-v1-120"
+        },
+        {
+          "answer": "neigh",
+          "id": "everyday-v1-121"
+        },
+        {
+          "answer": "Roar",
+          "id": "everyday-v1-122"
+        },
+        {
+          "answer": "zebra",
+          "id": "everyday-v1-123"
+        },
+        {
+          "answer": "Emperor Penguin",
+          "id": "everyday-v1-124"
+        },
+        {
+          "answer": "0",
+          "id": "everyday-v1-125"
+        },
+        {
+          "answer": "8",
+          "id": "everyday-v1-126"
+        },
+        {
+          "answer": "Berlin",
+          "id": "everyday-v1-127"
+        },
+        {
+          "answer": "Cairo",
+          "id": "everyday-v1-128"
+        },
+        {
+          "answer": "Moscow",
+          "id": "everyday-v1-129"
+        },
+        {
+          "answer": "Beijing",
+          "id": "everyday-v1-130"
+        },
+        {
+          "answer": "Athens",
+          "id": "everyday-v1-131"
+        },
+        {
+          "answer": "Dublin",
+          "id": "everyday-v1-132"
+        },
+        {
+          "answer": "Lisbon",
+          "id": "everyday-v1-133"
+        },
+        {
+          "answer": "Oslo",
+          "id": "everyday-v1-134"
+        },
+        {
+          "answer": "Nairobi",
+          "id": "everyday-v1-135"
+        },
+        {
+          "answer": "Lima",
+          "id": "everyday-v1-136"
+        },
+        {
+          "answer": "Africa",
+          "id": "everyday-v1-137"
+        },
+        {
+          "answer": "South America",
+          "id": "everyday-v1-138"
+        },
+        {
+          "answer": "Australia",
+          "id": "everyday-v1-139"
+        },
+        {
+          "answer": "Egypt",
+          "id": "everyday-v1-140"
+        },
+        {
+          "answer": "The Nile is the longest river in Africa. It is 6,650 km long.",
+          "id": "everyday-v1-141"
+        },
+        {
+          "answer": "The largest hot desert in the world is the Sahara Desert. It covers an area of approximately 9.2 million square kilometers. The Sahara Desert is located in North Africa and is known for its extreme temperatures, sand dunes, and unique wildlife.",
+          "id": "everyday-v1-142"
+        },
+        {
+          "answer": "Atlantic",
+          "id": "everyday-v1-143"
+        },
+        {
+          "answer": "Mount Everest is the tallest mountain on Earth above sea level. It is located in the Mahalangur mountain range in the Himalayas.",
+          "id": "everyday-v1-144"
+        },
+        {
+          "answer": "Antarctica",
+          "id": "everyday-v1-145"
+        },
+        {
+          "answer": "Canada",
+          "id": "everyday-v1-146"
+        },
+        {
+          "answer": "Portuguese",
+          "id": "everyday-v1-147"
+        },
+        {
+          "answer": "Spanish",
+          "id": "everyday-v1-148"
+        },
+        {
+          "answer": "German",
+          "id": "everyday-v1-149"
+        },
+        {
+          "answer": "New York",
+          "id": "everyday-v1-150"
+        },
+        {
+          "answer": "Italy",
+          "id": "everyday-v1-151"
+        },
+        {
+          "answer": "50",
+          "id": "everyday-v1-152"
+        },
+        {
+          "answer": "Oxygen",
+          "id": "everyday-v1-153"
+        },
+        {
+          "answer": "carbon dioxide",
+          "id": "everyday-v1-154"
+        },
+        {
+          "answer": "0 degrees Celsius",
+          "id": "everyday-v1-155"
+        },
+        {
+          "answer": "100 degrees Celsius",
+          "id": "everyday-v1-156"
+        },
+        {
+          "answer": "gravity",
+          "id": "everyday-v1-157"
+        },
+        {
+          "answer": "Mercury",
+          "id": "everyday-v1-158"
+        },
+        {
+          "answer": "Jupiter",
+          "id": "everyday-v1-159"
+        },
+        {
+          "answer": "There are 8 planets in our solar system. They are Mercury, Venus, Earth, Mars, Jupiter, Saturn, Uranus, and Neptune.",
+          "id": "everyday-v1-160"
+        },
+        {
+          "answer": "heart",
+          "id": "everyday-v1-161"
+        },
+        {
+          "answer": "brain",
+          "id": "everyday-v1-162"
+        },
+        {
+          "answer": "206",
+          "id": "everyday-v1-163"
+        },
+        {
+          "answer": "The sun",
+          "id": "everyday-v1-164"
+        },
+        {
+          "answer": "water",
+          "id": "everyday-v1-165"
+        },
+        {
+          "answer": "mammal",
+          "id": "everyday-v1-166"
+        },
+        {
+          "answer": "butterfly",
+          "id": "everyday-v1-167"
+        },
+        {
+          "answer": "Proxima Centauri is the closest star to Earth. It is about 4.24 light years away.",
+          "id": "everyday-v1-168"
+        },
+        {
+          "answer": "herbivores",
+          "id": "everyday-v1-169"
+        },
+        {
+          "answer": "iron",
+          "id": "everyday-v1-170"
+        },
+        {
+          "answer": "Both are the same weight. The difference is that feathers are lighter than stones.",
+          "id": "everyday-v1-171"
+        },
+        {
+          "answer": "The moon travels around the Earth",
+          "id": "everyday-v1-172"
+        },
+        {
+          "answer": "roots",
+          "id": "everyday-v1-173"
+        },
+        {
+          "answer": "7",
+          "id": "everyday-v1-174"
+        },
+        {
+          "answer": "rain",
+          "id": "everyday-v1-175"
+        },
+        {
+          "answer": "The skin is the largest organ of the body and is used to detect touch, pressure, temperature, pain, and other sensations.",
+          "id": "everyday-v1-176"
+        },
+        {
+          "answer": "Lungs help people breathe",
+          "id": "everyday-v1-177"
+        },
+        {
+          "answer": "8",
+          "id": "everyday-v1-178"
+        },
+        {
+          "answer": "Oslo",
+          "id": "everyday-v1-179"
+        },
+        {
+          "answer": "2 o'clock",
+          "id": "everyday-v1-180"
+        },
+        {
+          "answer": "purple",
+          "id": "everyday-v1-181"
+        },
+        {
+          "answer": "in the drawer",
+          "id": "everyday-v1-182"
+        },
+        {
+          "answer": "Lily",
+          "id": "everyday-v1-183"
+        },
+        {
+          "answer": "2",
+          "id": "everyday-v1-184"
+        },
+        {
+          "answer": "5",
+          "id": "everyday-v1-185"
+        },
+        {
+          "answer": "Ama",
+          "id": "everyday-v1-186"
+        },
+        {
+          "answer": "The blue box",
+          "id": "everyday-v1-187"
+        },
+        {
+          "answer": "Thursdays",
+          "id": "everyday-v1-188"
+        },
+        {
+          "answer": "Salt",
+          "id": "everyday-v1-189"
+        },
+        {
+          "answer": "Because it rained all morning",
+          "id": "everyday-v1-190"
+        },
+        {
+          "answer": "no",
+          "id": "everyday-v1-191"
+        },
+        {
+          "answer": "Grace",
+          "id": "everyday-v1-192"
+        },
+        {
+          "answer": "8",
+          "id": "everyday-v1-193"
+        },
+        {
+          "answer": "eats breakfast",
+          "id": "everyday-v1-194"
+        },
+        {
+          "answer": "under a bench",
+          "id": "everyday-v1-195"
+        },
+        {
+          "answer": "3",
+          "id": "everyday-v1-196"
+        },
+        {
+          "answer": "English",
+          "id": "everyday-v1-197"
+        },
+        {
+          "answer": "banana",
+          "id": "everyday-v1-198"
+        },
+        {
+          "answer": "walked",
+          "id": "everyday-v1-199"
+        },
+        {
+          "answer": "6",
+          "id": "everyday-v1-200"
+        },
+        {
+          "answer": "0",
+          "id": "everyday-v1-201"
+        },
+        {
+          "answer": "Finn's",
+          "id": "everyday-v1-202"
+        },
+        {
+          "answer": "ice",
+          "id": "everyday-v1-203"
+        },
+        {
+          "answer": "Noor",
+          "id": "everyday-v1-204"
+        },
+        {
+          "answer": "The green door",
+          "id": "everyday-v1-205"
+        },
+        {
+          "answer": "60",
+          "id": "everyday-v1-206"
+        },
+        {
+          "answer": "Biscuit",
+          "id": "everyday-v1-207"
+        },
+        {
+          "answer": "yes",
+          "id": "everyday-v1-208"
+        },
+        {
+          "answer": "yes",
+          "id": "everyday-v1-209"
+        },
+        {
+          "answer": "yes",
+          "id": "everyday-v1-210"
+        },
+        {
+          "answer": "yes",
+          "id": "everyday-v1-211"
+        },
+        {
+          "answer": "yes",
+          "id": "everyday-v1-212"
+        },
+        {
+          "answer": "yes",
+          "id": "everyday-v1-213"
+        },
+        {
+          "answer": "yes",
+          "id": "everyday-v1-214"
+        },
+        {
+          "answer": "yes",
+          "id": "everyday-v1-215"
+        },
+        {
+          "answer": "yes",
+          "id": "everyday-v1-216"
+        },
+        {
+          "answer": "yes",
+          "id": "everyday-v1-217"
+        },
+        {
+          "answer": "yes",
+          "id": "everyday-v1-218"
+        },
+        {
+          "answer": "yes",
+          "id": "everyday-v1-219"
+        },
+        {
+          "answer": "no",
+          "id": "everyday-v1-220"
+        },
+        {
+          "answer": "no",
+          "id": "everyday-v1-221"
+        },
+        {
+          "answer": "no",
+          "id": "everyday-v1-222"
+        },
+        {
+          "answer": "no",
+          "id": "everyday-v1-223"
+        },
+        {
+          "answer": "no",
+          "id": "everyday-v1-224"
+        },
+        {
+          "answer": "no",
+          "id": "everyday-v1-225"
+        },
+        {
+          "answer": "no",
+          "id": "everyday-v1-226"
+        },
+        {
+          "answer": "no",
+          "id": "everyday-v1-227"
+        },
+        {
+          "answer": "no",
+          "id": "everyday-v1-228"
+        },
+        {
+          "answer": "no",
+          "id": "everyday-v1-229"
+        },
+        {
+          "answer": "no",
+          "id": "everyday-v1-230"
+        },
+        {
+          "answer": "no",
+          "id": "everyday-v1-231"
+        },
+        {
+          "answer": "no",
+          "id": "everyday-v1-232"
+        },
+        {
+          "answer": "I don't know your cousin's name. You haven't told me.",
+          "id": "everyday-v1-233"
+        },
+        {
+          "answer": "I don't know your name, so I don't know what car you drive.",
+          "id": "everyday-v1-234"
+        },
+        {
+          "answer": "I don't know what you had for lunch yesterday. You haven't told me.",
+          "id": "everyday-v1-235"
+        },
+        {
+          "answer": "I don't know your height. You haven't told me.",
+          "id": "everyday-v1-236"
+        },
+        {
+          "answer": "I don't know your name. You haven't told me.",
+          "id": "everyday-v1-237"
+        },
+        {
+          "answer": "I don't know your name. You haven't told me.",
+          "id": "everyday-v1-238"
+        },
+        {
+          "answer": "I don't know. You haven't told me.",
+          "id": "everyday-v1-239"
+        },
+        {
+          "answer": "I don't know your grandmother's language. You haven't told me.",
+          "id": "everyday-v1-240"
+        },
+        {
+          "answer": "I don't know. You haven't told me.",
+          "id": "everyday-v1-241"
+        },
+        {
+          "answer": "I don't know your neighbor's job. You haven't told me.",
+          "id": "everyday-v1-242"
+        },
+        {
+          "answer": "I don't know. You haven't told me.",
+          "id": "everyday-v1-243"
+        },
+        {
+          "answer": "I don't know your cat's name, but if you tell me, I can try to guess.",
+          "id": "everyday-v1-244"
+        },
+        {
+          "answer": "I'm sorry, but as an AI, I don't have access to real-time weather data or the ability to predict the weather. I recommend checking a reliable weather forecast website or app for the most accurate information.",
+          "id": "everyday-v1-245"
+        },
+        {
+          "answer": "I don't know. I don't have access to the internet.",
+          "id": "everyday-v1-246"
+        },
+        {
+          "answer": "I don't know Sam's sister's name. You haven't told me.",
+          "id": "everyday-v1-247"
+        },
+        {
+          "answer": "I don't know. The story doesn't say.",
+          "id": "everyday-v1-248"
+        },
+        {
+          "answer": "I don't know. The story doesn't say.",
+          "id": "everyday-v1-249"
+        },
+        {
+          "answer": "I don't know. The story doesn't say.",
+          "id": "everyday-v1-250"
+        },
+        {
+          "answer": "I don't know. The story doesn't say.",
+          "id": "everyday-v1-251"
+        },
+        {
+          "answer": "I don't know. The question does not provide enough information to answer it.",
+          "id": "everyday-v1-252"
+        }
+      ]
+    },
+    "data/simple_questions_holdout.json": {
+      "base": [
+        {
+          "answer": "There are 7 days in one week.",
+          "id": "simple-v1-01"
+        },
+        {
+          "answer": "There are 12 months in one year.",
+          "id": "simple-v1-02"
+        },
+        {
+          "answer": "Cat",
+          "id": "simple-v1-03"
+        },
+        {
+          "answer": "People primarily use their ears to hear. Eyes are used for seeing.",
+          "id": "simple-v1-04"
+        },
+        {
+          "answer": "The answer is 13.",
+          "id": "simple-v1-05"
+        },
+        {
+          "answer": "15 minus 6 equals 9.",
+          "id": "simple-v1-06"
+        },
+        {
+          "answer": "3 times 4 is 12.",
+          "id": "simple-v1-07"
+        },
+        {
+          "answer": "18 divided by 3 equals 6.",
+          "id": "simple-v1-08"
+        },
+        {
+          "answer": "Nora's coat is green.",
+          "id": "simple-v1-09"
+        },
+        {
+          "answer": "Eva received the pencil from Leo.",
+          "id": "simple-v1-10"
+        },
+        {
+          "answer": "The cup is now filled with water.",
+          "id": "simple-v1-11"
+        },
+        {
+          "answer": "There are three oranges remaining.",
+          "id": "simple-v1-12"
+        },
+        {
+          "answer": "Short",
+          "id": "simple-v1-13"
+        },
+        {
+          "answer": "books",
+          "id": "simple-v1-14"
+        },
+        {
+          "answer": "The children are hungry.",
+          "id": "simple-v1-15"
+        },
+        {
+          "answer": "The correct sentence would be: She has a bicycle.",
+          "id": "simple-v1-16"
+        },
+        {
+          "answer": "Window",
+          "id": "simple-v1-17"
+        },
+        {
+          "answer": "Sure, the three words are: soft yellow scarf.",
+          "id": "simple-v1-18"
+        },
+        {
+          "answer": "The words in alphabetical order are: apple, banana, pear.",
+          "id": "simple-v1-19"
+        },
+        {
+          "answer": "No, eight is not greater than three.",
+          "id": "simple-v1-20"
+        },
+        {
+          "answer": "I'm sorry for any confusion, but as an AI, I don't have access to personal data about individuals unless it has been shared with me in the course of our conversation. I'm designed to respect user privacy and confidentiality. Therefore, I don't have your home address.",
+          "id": "simple-v1-21"
+        },
+        {
+          "answer": "I don't know what number you're thinking of.",
+          "id": "simple-v1-22"
+        },
+        {
+          "answer": "In Python, 2 * 6 evaluates to 12.",
+          "id": "simple-v1-23"
+        },
+        {
+          "answer": "In Python, \"len(\"sun\")\" returns 4. This is because the string \"sun\" has 4 characters.",
+          "id": "simple-v1-24"
+        }
+      ],
+      "lora": [
+        {
+          "answer": "7",
+          "id": "simple-v1-01"
+        },
+        {
+          "answer": "12",
+          "id": "simple-v1-02"
+        },
+        {
+          "answer": "cat",
+          "id": "simple-v1-03"
+        },
+        {
+          "answer": "ears",
+          "id": "simple-v1-04"
+        },
+        {
+          "answer": "13",
+          "id": "simple-v1-05"
+        },
+        {
+          "answer": "9",
+          "id": "simple-v1-06"
+        },
+        {
+          "answer": "12",
+          "id": "simple-v1-07"
+        },
+        {
+          "answer": "6",
+          "id": "simple-v1-08"
+        },
+        {
+          "answer": "green",
+          "id": "simple-v1-09"
+        },
+        {
+          "answer": "Eva",
+          "id": "simple-v1-10"
+        },
+        {
+          "answer": "water",
+          "id": "simple-v1-11"
+        },
+        {
+          "answer": "3",
+          "id": "simple-v1-12"
+        },
+        {
+          "answer": "short",
+          "id": "simple-v1-13"
+        },
+        {
+          "answer": "books",
+          "id": "simple-v1-14"
+        },
+        {
+          "answer": "are",
+          "id": "simple-v1-15"
+        },
+        {
+          "answer": "She has a bicycle.",
+          "id": "simple-v1-16"
+        },
+        {
+          "answer": "window",
+          "id": "simple-v1-17"
+        },
+        {
+          "answer": "soft yellow scarf",
+          "id": "simple-v1-18"
+        },
+        {
+          "answer": "apple, banana, pear",
+          "id": "simple-v1-19"
+        },
+        {
+          "answer": "yes",
+          "id": "simple-v1-20"
+        },
+        {
+          "answer": "I don't know your home address. You haven't provided it.",
+          "id": "simple-v1-21"
+        },
+        {
+          "answer": "I don't know. You haven't told me.",
+          "id": "simple-v1-22"
+        },
+        {
+          "answer": "12",
+          "id": "simple-v1-23"
+        },
+        {
+          "answer": "5",
+          "id": "simple-v1-24"
+        }
+      ]
+    }
+  }
+}

@@ -2,8 +2,9 @@
 
 Stage 3 keeps only Dolly rows whose human answer fits in 400 characters, so thousands of good open_qa and
 general_qa questions go unused because their answers run to paragraphs a 160M byte model cannot imitate.
-This stage asks the adapter (18 of 22 exact on the holdout) for a short answer to each of those questions
-and writes them in the stage 3 record format. Stage 4 merges them into sft_train when this kernel is attached.
+This stage asks the attached adapter, the 1.7B one (208 of 252 everyday questions exact), for a short answer to
+each of those questions and writes them in the stage 3 record format. Stage 4 merges them into sft_train when
+this kernel is attached.
 """
 
 from __future__ import annotations
@@ -51,7 +52,12 @@ LIST_MARKER = re.compile(r"^[ \t]*(?:[-*\u2022]|\d+[.)])\s+", re.M)
 # before a line break, where "3." ends an item such as "1. Team A scored 3.".
 INLINE_NUMBER = re.compile(r"(?<=\s)\d{1,2}[.)][ \t]+(?=\S)")
 OUT_DIR = Path("/kaggle/working/distill")
-SOURCE = "distilled:SmolLM2-360M-Instruct+LoRA<-databricks/databricks-dolly-15k"
+
+
+def source_label(model_id: str) -> str:
+    """Record source naming the teacher whose adapter wrote the answers, such as
+    "distilled:SmolLM2-1.7B-Instruct+LoRA<-databricks/databricks-dolly-15k"."""
+    return f"distilled:{model_id.rsplit('/', 1)[-1]}+LoRA<-{DOLLY}"
 
 
 def candidate_prompts(raws, limit: int) -> list[tuple[int, str]]:
@@ -133,22 +139,27 @@ def mostly_ascii(text: str) -> bool:
 
 def build_records(prompts: list[tuple[int, str]], answers: list[str], stems: list[str],
                   holdout_prompts: list[str], dropped: dict[str, int],
-                  finished: list[bool] | None = None) -> list[dict]:
+                  finished: list[bool] | None = None, *, source: str) -> list[dict]:
     """Turn generated answers into stage 3 records, counting every rejection reason in dropped.
 
     finished[i] is False when max_new_tokens, not the end token, stopped answer i."""
     normalized = [normalize_overlap(prompt) for prompt in holdout_prompts]
     records = []
     for (index, prompt), raw, done in zip(prompts, answers, finished or [True] * len(answers)):
-        # Stopped inside its first paragraph, the answer may end mid-sentence, such as "It is the 1".
-        if not done and "\n\n" not in raw.strip():
+        # Stopped inside its first paragraph, the answer may end mid-sentence, such as "It is the 1", and
+        # trim_answer keeps a first paragraph of up to MAX_ANSWER_CHARS whole, so that one drops. Every other cut-off
+        # answer is safe to trim. A longer single paragraph comes back only up to a sentence end at index
+        # MAX_ANSWER_CHARS - 1 or earlier that the model followed with whitespace, so the cut-off end, which lies past
+        # MAX_ANSWER_CHARS, never survives. With a blank line in it, only the first paragraph can come back, and the
+        # model finished that paragraph before writing the blank line.
+        if not done and "\n\n" not in raw.strip() and len(raw.strip()) <= MAX_ANSWER_CHARS:
             dropped["cut_off"] = dropped.get("cut_off", 0) + 1
             continue
         answer = trim_answer(raw)
         # The same rule as stage 3's Dolly rows, so no bare question trains to a full sentence.
         if answer and one_sentence_answer(prompt, answer):
             prompt += SENTENCE_CUE
-        record = sft_record(f"distill-{index}", prompt, answer, SOURCE, SOURCES[DOLLY]["license"]) if answer else None
+        record = sft_record(f"distill-{index}", prompt, answer, source, SOURCES[DOLLY]["license"]) if answer else None
         if record is None:
             reason = "empty_or_invalid"
         elif not mostly_ascii(answer):
@@ -235,7 +246,8 @@ def main(argv: list[str] | None = None) -> None:
     model = PeftModel.from_pretrained(model.to("cuda"), str(adapter))
     answers, finished = generate(torch, model, tokenizer, [prompt for _, prompt in prompts], args.max_new_tokens)
     dropped: dict[str, int] = {}
-    records = build_records(prompts, answers, stems, holdout_prompts, dropped, finished)
+    records = build_records(prompts, answers, stems, holdout_prompts, dropped, finished,
+                            source=source_label(model_id))
     path = args.out_dir / "distill_train.jsonl"
     write_jsonl(records, path)
     write_json(args.out_dir / "distill_manifest.json", {

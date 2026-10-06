@@ -13,6 +13,9 @@ from compute import distill_data, short_facts, stage4_sft  # noqa: E402
 from compute.stages import DISTILL_FILTERS_VERSION  # noqa: E402
 
 LONG = "x" * 500
+SOURCE = distill_data.source_label("HuggingFaceTB/SmolLM2-1.7B-Instruct")
+# Twelve different sentences of 52 or 53 characters, so none repeats and 7 of them fill 370 characters.
+SENTENCES = [f"Sentence {number} talks about the ocean and its many waves." for number in range(1, 13)]
 
 
 class DistillTests(unittest.TestCase):
@@ -110,9 +113,9 @@ class DistillTests(unittest.TestCase):
                    (3, "Name a color."), (4, "Say hi."), (5, "What is the key?")]
         answers = ["Cats purr when they are content.", "13", "", "Привет мир", "AKIA" + "A" * 16]
         dropped = {}
-        records = distill_data.build_records(prompts, answers, stems, holdout, dropped)
+        records = distill_data.build_records(prompts, answers, stems, holdout, dropped, source=SOURCE)
         self.assertEqual([record["id"] for record in records], ["distill-1"])
-        self.assertEqual(records[0]["license"], "CC-BY-SA-3.0")
+        self.assertEqual((records[0]["source"], records[0]["license"]), (SOURCE, "CC-BY-SA-3.0"))
         self.assertEqual(dropped, {"holdout_overlap": 1, "empty_or_invalid": 1, "not_english": 1,
                                    "secret_pattern": 1})
 
@@ -124,7 +127,7 @@ class DistillTests(unittest.TestCase):
                    "- Visit the Space Needle\n- Go to the Space Needle\n- Go to the Space Needle",
                    "I am doing well. I am doing well.", "1. Sleep eight hours\n2. Keep a regular bedtime"]
         dropped = {}
-        records = distill_data.build_records(prompts, answers, [], [], dropped)
+        records = distill_data.build_records(prompts, answers, [], [], dropped, source=SOURCE)
         self.assertEqual([record["id"] for record in records], ["distill-4"])
         self.assertEqual(dropped, {"repetitive": 3})
 
@@ -148,9 +151,37 @@ class DistillTests(unittest.TestCase):
         answers = ["Russia is the biggest country. It is the 1", "Snow scatters all light.\n\nIt also",
                    "Grass has chlorophyll."]
         dropped = {}
-        records = distill_data.build_records(prompts, answers, [], [], dropped, [False, False, True])
+        records = distill_data.build_records(prompts, answers, [], [], dropped, [False, False, True],
+                                             source=SOURCE)
         self.assertEqual([record["answer"] for record in records], ["Snow scatters all light.", "Grass has chlorophyll."])
         self.assertEqual(dropped, {"cut_off": 1})
+
+    def test_long_cut_off_answers_keep_their_finished_sentences(self):
+        # The filters_version 5 build dropped all 222 cut-off answers, though trim_answer cuts one longer than
+        # MAX_ANSWER_CHARS back to a sentence end the model wrote whitespace after, well before the cut.
+        long = " ".join(SENTENCES[:11]) + " Sentence 12 talks ab"
+        short = " ".join(SENTENCES[:5]) + " Sentence 6 talks ab"
+        self.assertEqual((len(long), len(short)), (605, 284))
+        prompts = [(1, "What do oceans do?"), (2, "What do seas do?"), (3, "Why is grass green?"),
+                   (4, "Why is the sky blue?")]
+        answers = [long, short, "Grass has chlorophyll.\n\nIt also", "Sure!\n\nBlue light scat"]
+        dropped = {}
+        records = distill_data.build_records(prompts, answers, [], [], dropped, [False] * 4, source=SOURCE)
+        self.assertEqual([record["id"] for record in records], ["distill-1", "distill-3"])
+        self.assertEqual(records[0]["answer"], " ".join(SENTENCES[:7]))
+        self.assertEqual(len(records[0]["answer"]), 370)
+        self.assertEqual(records[1]["answer"], "Grass has chlorophyll.")
+        # A short cut-off paragraph would come back whole from trim_answer, so it still drops; so does a reply whose
+        # finished first paragraph is only an opener.
+        self.assertEqual(dropped, {"cut_off": 1, "empty_or_invalid": 1})
+        # The same long answer finished by the end token is trimmed the same way.
+        finished = distill_data.build_records(prompts[:1], answers[:1], [], [], {}, [True], source=SOURCE)
+        self.assertEqual(finished[0]["answer"], records[0]["answer"])
+
+    def test_source_names_the_teacher_model(self):
+        self.assertEqual(SOURCE, "distilled:SmolLM2-1.7B-Instruct+LoRA<-databricks/databricks-dolly-15k")
+        self.assertEqual(distill_data.source_label("HuggingFaceTB/SmolLM2-360M-Instruct"),
+                         "distilled:SmolLM2-360M-Instruct+LoRA<-databricks/databricks-dolly-15k")
 
     def test_generate_flags_answers_that_ran_into_max_new_tokens(self):
         import torch
@@ -182,7 +213,8 @@ class DistillTests(unittest.TestCase):
 
     def test_one_sentence_answers_carry_the_sentence_cue(self):
         prompts = [(1, "Which country has the most people?"), (2, "Which planet is red?")]
-        records = distill_data.build_records(prompts, ["India has the most people.", "Mars"], [], [], {})
+        records = distill_data.build_records(prompts, ["India has the most people.", "Mars"], [], [], {},
+                                             source=SOURCE)
         self.assertEqual([record["prompt"] for record in records],
                          ["Which country has the most people? Answer in a full sentence.", "Which planet is red?"])
 

@@ -8,10 +8,10 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from compute import run_pipeline  # noqa: E402
-from compute.stages import DISTILL_FILTERS_VERSION  # noqa: E402
+from compute.stages import DISTILL_FILTERS_VERSION, PRETRAIN_TOTAL_STEPS, stage_attaches  # noqa: E402
 
 RESUME = {"status": "session_complete_resume_next", "step_reached": 4570}
-DONE = {"status": "complete", "step_reached": 22889}
+DONE = {"status": "complete", "step_reached": PRETRAIN_TOTAL_STEPS}
 
 
 ADAPTER = "ab" * 32
@@ -82,10 +82,10 @@ class DecisionTests(unittest.TestCase):
     def test_last_pretrain_session_needs_only_the_quota_its_steps_take(self):
         statuses = {"slm-160m-corpus": "complete", "slm-sft-data": "complete",
                     **{f"slm-160m-pretrain-{session}": "complete" for session in range(1, 6)}}
-        last = {**RESUME, "step_reached": 22850, "total_steps": 22889, "seconds_per_step": 8.72}
+        last = {**RESUME, "step_reached": 21_400, "total_steps": 21_562, "seconds_per_step": 9.54}
         reports = {("slm-160m-pretrain-5", "pretrain_session_5.json"): last}
         result = decide(statuses, reports, quota=2.0)
-        self.assertEqual((result["kind"], result["session"], result["hours"]), ("push", 6, 1.12))
+        self.assertEqual((result["kind"], result["session"], result["hours"]), ("push", 6, 1.54))
         # The round charges those hours, not the 12 hour cap, so the LoRA chain can still push.
         main, side, _ = run_pipeline.decide_round(lambda slug: statuses.get(slug, "missing"),
                                                   lambda slug, filename: reports.get((slug, filename)), 6.0)
@@ -131,6 +131,28 @@ class DecisionTests(unittest.TestCase):
         statuses["slm-160m-eval"] = "complete"
         reports[("slm-160m-eval", "eval_report.json")] = {"sha256": "sft3"}
         self.assertEqual(decide(statuses, reports)["kind"], "done")
+
+    def test_a_complete_fifth_session_goes_to_sft_without_a_sixth(self):
+        # The step total is set so session 5 ends the cosine; the estimated session count must not pick the kernel.
+        statuses = {"slm-160m-corpus": "complete", "slm-sft-data": "complete", "slm-lora-baseline": "complete",
+                    "slm-lora-eval": "complete", "slm-distill-data": "complete",
+                    **{f"slm-160m-pretrain-{session}": "complete" for session in range(1, 6)}}
+        finished = {"status": "complete", "step_reached": PRETRAIN_TOTAL_STEPS, "total_steps": PRETRAIN_TOTAL_STEPS,
+                    "seconds_per_step": 9.6, "next_session": None}
+        reports = {("slm-160m-pretrain-5", "pretrain_session_5.json"): finished,
+                   ("slm-lora-baseline", "lora_report.json"): LORA_DONE, **FRESH_FOLLOW_UPS, **SFT_DATA}
+        main, side, _ = run_pipeline.decide_round(lambda slug: statuses.get(slug, "missing"),
+                                                  lambda slug, filename: reports.get((slug, filename)), 30.0)
+        self.assertEqual((main["kind"], main["stage"], main["pretrain_session"]), ("push", "sft", 5))
+        self.assertNotIn("session", main)
+        self.assertEqual(side["kind"], "done")
+        self.assertEqual(stage_attaches("sft", pretrain_session=main["pretrain_session"])[0], "slm-160m-pretrain-5")
+        kaggle = run_pipeline.Kaggle("someone")
+        kaggle.run = lambda *args, check=True: "Kernel version 1 successfully pushed."
+        with mock.patch("compute.package.prepare") as prepare:
+            kaggle.push(main)
+        stage, _, owner, session, pretrain_session = prepare.call_args.args
+        self.assertEqual((stage, owner, session, pretrain_session), ("sft", "someone", None, 5))
 
     def test_sft_reruns_when_distill_data_came_from_a_newer_adapter(self):
         statuses = {"slm-160m-corpus": "complete", "slm-160m-pretrain-1": "complete", "slm-lora-baseline": "complete",

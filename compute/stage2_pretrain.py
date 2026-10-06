@@ -1,13 +1,15 @@
 """Pretrain slm-160m from scratch on the stage 1 corpus, one Kaggle session at a time.
 
 Session 1 starts fresh with --preset slm-160m. Session k > 1 attaches session k-1's output and resumes
-its optimizer, scheduler and step, so the cosine schedule spans all sessions (--steps is always
-PRETRAIN_TOTAL_STEPS). Each session trains on its own byte range of pretrain_train.jsonl because
-cognition_slm.train packs the whole file into Python lists, and the full 1.5 GB corpus would need
-roughly 25 GB of host RAM against Kaggle's ~29 GB. Session k's shard starts at start_step *
-TOKENS_PER_STEP byte tokens. The trainer samples each shard in shuffled order and a session usually
-stops before finishing its oversized shard, so consecutive shards overlap: some documents near a shard
-boundary are read twice and some are never read. The token count trained on still matches the steps.
+its optimizer, scheduler and step, so the cosine schedule spans all sessions (--steps is
+PRETRAIN_TOTAL_STEPS). The trainer rebuilds the cosine from --steps on every resume, so lowering the
+total before a session shortens the decay that is left; sessions 1 to 4 ran with 22,889. Each session
+trains on its own byte range of pretrain_train.jsonl because cognition_slm.train packs the whole file
+into Python lists, and the full 1.5 GB corpus would need roughly 25 GB of host RAM against Kaggle's
+~29 GB. Session k's shard starts at start_step * TOKENS_PER_STEP byte tokens. The trainer samples
+each shard in shuffled order and a session usually stops before finishing its oversized shard, so
+consecutive shards overlap: some documents near a shard boundary are read twice and some are never
+read. The token count trained on still matches the steps.
 
 GPU memory on a 16 GB T4 (an estimate, checked only when session 1 runs): 160.7M fp32 weights,
 gradients and two AdamW moments take 16 bytes per parameter, about 2.6 GB. With gradient

@@ -42,12 +42,12 @@ The model has N = 160,721,679 parameters and the corpus target is D = 1.5 billio
 
 Gradient checkpointing repeats the forward pass, so the real cost is closer to 8 × N × D ≈ 1.93e18 FLOPs. The earlier 500M runs reached about 16 TFLOP/s on a Kaggle T4 at fp16, which gives 1.93e18 / 16e12 ≈ 120,000 seconds, or about 33 GPU-hours.
 
-The step-based view agrees. One optimizer step is batch 8 × accumulation 4 × 2,048 bytes = 65,536 tokens, so one pass over the corpus is 22,889 steps (`PRETRAIN_TOTAL_STEPS` in `stages.py`). Session 1 measured 8.72 seconds per step (`SECONDS_PER_STEP_ESTIMATE`), well above the 5.5 the FLOP count suggested, because attention over 2,048 positions adds FLOPs that 6 × N × D leaves out and costs relatively more on a 160M model. At 8.72 seconds a full pass is about 55 GPU-hours. `pretrain_sessions()` plans 6 sessions of about 4,470 steps, and sessions 1 and 2 each ran 4,570 (`compute/RESULTS.md`), so at that pace five sessions reach 22,850 steps and a short sixth session runs the last 39.
+The step-based view agrees. One optimizer step is batch 8 × accumulation 4 × 2,048 bytes = 65,536 tokens, so one pass over the corpus would be 22,889 steps. Session 1 measured 8.72 seconds per step, well above the 5.5 the FLOP count suggested, because attention over 2,048 positions adds FLOPs that 6 × N × D leaves out and costs relatively more on a 160M model. Sessions 3 and 4 ran slower, at 9.54 and 9.18 (`compute/RESULTS.md`; `SECONDS_PER_STEP_ESTIMATE` is the slowest), so a full pass would have needed a sixth session that trained its last 1,000 or so steps at under 0.6% of the peak learning rate. The cosine schedule therefore ends at 21,562 steps (`PRETRAIN_TOTAL_STEPS` in `stages.py`), which session 5 reaches from step 17,662 even at 10 seconds a step within its 39,600 second budget. That trains 1.41 billion tokens, about 94% of the corpus, in about 55 GPU-hours over 5 sessions.
 
 | Stage | Estimated T4 hours |
 |---|---|
 | corpus, sft_data | 0 (CPU) |
-| pretrain | about 55, in 6 sessions (measured speed) |
+| pretrain | about 55, in 5 sessions (measured speed) |
 | sft | 1 to 2 |
 | eval | under 1 |
 | lora | about 1.3 of training (measured), plus setup and scoring |
@@ -88,7 +88,7 @@ python3 compute/package.py --stage pretrain --session 2 --out /tmp/slm-pretrain-
 kaggle kernels push -p /tmp/slm-pretrain-2 --accelerator NvidiaTeslaT4 --timeout 43200
 ```
 
-After each session, read `seconds_per_step` from its `pretrain_session_k.json`. If it drifts from 8.72, update `SECONDS_PER_STEP_ESTIMATE` in `stages.py` so `pretrain_sessions()` gives the right session count. Stop when the session report shows the step reached equals `PRETRAIN_TOTAL_STEPS`.
+After each session, read `seconds_per_step` from its `pretrain_session_k.json`, raise `SECONDS_PER_STEP_ESTIMATE` in `stages.py` if the session ran slower, and set `PRETRAIN_SESSIONS_RUN` and `PRETRAIN_STEP_REACHED` to the progress so far, so `last_pretrain_session()`, the session `package.py --stage sft` attaches by default, counts on from it. Pretraining is done when a session report shows status `complete`, meaning the step reached equals `PRETRAIN_TOTAL_STEPS`. That should be session 5, and the watcher attaches whichever session reported it to sft.
 
 ### Fine-tune and evaluate
 

@@ -43,21 +43,30 @@ STAGES = {
                       "internet": True, "gpu": True, "attaches": ["slm-lora-1b7"]},
 }
 
-# Byte tokenizer: one token per byte, so the corpus byte target is also the token count.
+# Byte tokenizer: one token per byte, so the corpus byte target is also the token count. This is the train text
+# stage 1 builds (its DEFAULT_TARGET_BYTES); the step total below no longer follows from it.
 PRETRAIN_TARGET_BYTES = 1_500_000_000
 BLOCK_SIZE = 2048
 PRETRAIN_BATCH_SIZE = 8
 PRETRAIN_GRADIENT_ACCUMULATION = 4
 TOKENS_PER_STEP = PRETRAIN_BATCH_SIZE * PRETRAIN_GRADIENT_ACCUMULATION * BLOCK_SIZE
-# One pass over the train split: ceil(1.5e9 / 65,536) = 22,889 optimizer steps.
-PRETRAIN_TOTAL_STEPS = math.ceil(PRETRAIN_TARGET_BYTES / TOKENS_PER_STEP)
+# Sessions 1 to 4 ran and reached this step (compute/RESULTS.md).
+PRETRAIN_SESSIONS_RUN = 4
+PRETRAIN_STEP_REACHED = 17_662
+# The cosine schedule ends where session 5 stops instead of after one full pass of 22,889 steps: at the slower
+# pace of sessions 3 and 4, session 5 would stop near step 21,900 and a sixth session would train the last 1,000
+# or so steps at under 0.6% of the peak rate. Session 5 gets train.py --max-seconds 39,600 (stage2_pretrain caps
+# it at PRETRAIN_SESSION_SECONDS, and setup has stayed inside SETUP_AND_SAVE_RESERVE_SECONDS in every session so
+# far), so even at 10.0 s a step planned_steps(39,600, 10.0, SESSION_RESERVE_SECONDS) = 3,900 steps fit:
+# 17,662 + 3,900 = 21,562. That trains 1.41e9 byte tokens, about 94% of the 1.5 GB corpus, and session 5 rejoins
+# the shorter cosine at about 8% of the peak rate where the old one had it at 13%.
+PRETRAIN_TOTAL_STEPS = 21_562
 # Kaggle stops a session at 12 h; 11 h leaves an hour for setup, the final save and the report.
 PRETRAIN_SESSION_SECONDS = 11 * 3600
-# Measured, not estimated: pretrain session 1 (Kaggle T4, fp16, 2026-09-26) reported
-# seconds_per_step 8.72 over 4,570 steps. The FLOP-based guess of 5.5 left out attention over 2,048
-# positions. At 8.72 s a pass is about 55 GPU-hours in 6 planned sessions of about 4,470 steps; sessions 1
-# and 2 each ran 4,570, so at that pace the sixth session runs only the last 39 steps.
-SECONDS_PER_STEP_ESTIMATE = 8.72
+# Measured, not estimated: sessions 1 and 2 (Kaggle T4, fp16) reported 8.72 s a step and sessions 3 and 4 reported
+# 9.54 and 9.18, all including periodic eval and saves. The slowest keeps a session count from coming up short.
+# The FLOP-based guess of 5.5 left out attention over 2,048 positions.
+SECONDS_PER_STEP_ESTIMATE = 9.54
 SESSION_RESERVE_SECONDS = 600
 # Raise this whenever distill_data changes which answers it keeps or how it trims them: an older build on the same
 # adapter otherwise looks fresh, so run_pipeline would never rebuild it and sft would learn the rows it now rejects.
@@ -84,6 +93,12 @@ def pretrain_sessions(total_steps: int = PRETRAIN_TOTAL_STEPS,
     return math.ceil(total_steps / per_session)
 
 
+def last_pretrain_session() -> int:
+    """The session expected to finish pretraining, counted on from the sessions already run."""
+    # Counting from step 0 at the slowest measured pace would round up to a sixth session that never runs.
+    return PRETRAIN_SESSIONS_RUN + pretrain_sessions(PRETRAIN_TOTAL_STEPS - PRETRAIN_STEP_REACHED)
+
+
 def stage_slug(stage: str, session: int | None = None) -> str:
     """Kernel slug; pretrain needs a session number because each session is its own kernel."""
     base = _stage(stage)["slug"]
@@ -107,7 +122,7 @@ def stage_attaches(stage: str, session: int | None = None, pretrain_session: int
         # stage_slug would reject it too, but its message names --session, which sft doesn't take.
         if pretrain_session is not None and pretrain_session < 1:
             raise ValueError(f"--pretrain-session needs k >= 1, got {pretrain_session}")
-        last = pretrain_sessions() if pretrain_session is None else pretrain_session
+        last = last_pretrain_session() if pretrain_session is None else pretrain_session
         attaches.insert(0, stage_slug("pretrain", last))
     return attaches
 

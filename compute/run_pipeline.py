@@ -77,7 +77,8 @@ def push_if_quota(stage: str, quota_hours: float, reason: str, **fields) -> dict
 
 def pretrain_hours(session_report: dict) -> float:
     """GPU hours the session after session_report needs: the full cap, or less when few steps remain,
-    so a last session of about 39 steps does not wait for 12 hours of quota."""
+    so a short last session, such as the few steps a slower GPU could leave after session 5, does not wait for
+    12 hours of quota."""
     values = [session_report.get(key) for key in ("total_steps", "step_reached", "seconds_per_step")]
     if not all(type(value) in (int, float) and value > 0 for value in values):
         return STAGE_HOURS["pretrain"]

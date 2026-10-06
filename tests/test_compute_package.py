@@ -67,12 +67,33 @@ class StageTableTests(unittest.TestCase):
     def test_pretrain_budget_constants(self):
         stages = module("stages")
         self.assertEqual(stages.TOKENS_PER_STEP, 65_536)
-        self.assertEqual(stages.PRETRAIN_TOTAL_STEPS, 22_889)
+        self.assertEqual(stages.PRETRAIN_TOTAL_STEPS, 21_562)
+        # The schedule stops short of one pass, so no session's shard runs past the end of the corpus.
+        self.assertLess(stages.PRETRAIN_TOTAL_STEPS * stages.TOKENS_PER_STEP, stages.PRETRAIN_TARGET_BYTES)
         self.assertLess(stages.PRETRAIN_SESSION_SECONDS, 12 * 3600)
         per_session = stages.planned_steps(stages.PRETRAIN_SESSION_SECONDS,
                                            stages.SECONDS_PER_STEP_ESTIMATE, stages.SESSION_RESERVE_SECONDS)
         self.assertEqual(stages.pretrain_sessions(), -(-stages.PRETRAIN_TOTAL_STEPS // per_session))
         self.assertEqual(stages.pretrain_sessions(100, 1, 60, 10), 2)
+
+    def test_session_five_finishes_the_schedule_at_ten_seconds_a_step(self):
+        # A sixth session would train its steps at under 0.6% of the peak rate, so session 5 must end the cosine
+        # even on a GPU slower than any measured so far.
+        stages, pretrain = module("stages"), module("stage2_pretrain")
+        start, slow = 17_662, 10.0
+        self.assertEqual((stages.PRETRAIN_SESSIONS_RUN, stages.PRETRAIN_STEP_REACHED), (4, start))
+        # stage2_pretrain.main's budget with no setup time; sessions 1 to 4 all trained the full 39,600 s.
+        budget = min(stages.PRETRAIN_SESSION_SECONDS,
+                     pretrain.KAGGLE_SESSION_LIMIT_SECONDS - pretrain.SETUP_AND_SAVE_RESERVE_SECONDS)
+        self.assertEqual(budget, 39_600)
+        plan = pretrain.plan_session(start, stages.PRETRAIN_TOTAL_STEPS, stages.TOKENS_PER_STEP, budget, slow, True)
+        self.assertEqual(plan["shard_steps"], plan["remaining_steps"])
+        expected = min(plan["remaining_steps"], stages.planned_steps(budget, slow, stages.SESSION_RESERVE_SECONDS))
+        self.assertEqual(start + expected, stages.PRETRAIN_TOTAL_STEPS)
+        # train.py stops at the first step whose duration reaches --max-seconds; the schedule's last step comes first.
+        self.assertLess(plan["remaining_steps"] * slow, budget)
+        self.assertEqual(stages.last_pretrain_session(), 5)
+        self.assertEqual(stages.stage_attaches("sft")[0], "slm-160m-pretrain-5")
 
     def test_slugs_and_attachments_chain_sessions(self):
         stages = module("stages")
@@ -80,7 +101,7 @@ class StageTableTests(unittest.TestCase):
         self.assertEqual(stages.stage_attaches("pretrain", 1), ["slm-160m-corpus"])
         self.assertEqual(stages.stage_attaches("pretrain", 3), ["slm-160m-corpus", "slm-160m-pretrain-2"])
         self.assertEqual(stages.stage_attaches("sft", pretrain_session=2), ["slm-160m-pretrain-2", "slm-sft-data", "slm-distill-data"])
-        last = stages.pretrain_sessions()
+        last = stages.last_pretrain_session()
         self.assertEqual(stages.stage_attaches("sft")[0], f"slm-160m-pretrain-{last}")
         for bad in ((lambda: stages.stage_slug("pretrain")), (lambda: stages.stage_slug("pretrain", 0)),
                     (lambda: stages.stage_slug("sft", 2)), (lambda: stages.stage_slug("nope"))):
@@ -147,7 +168,7 @@ class PackageTests(unittest.TestCase):
     def test_sft_kernel_attaches_the_chosen_pretrain_session(self):
         # The watcher passes the session it saw finish; dropped on the way, the kernel attached the estimated last one.
         package = module("package")
-        chosen = module("stages").pretrain_sessions() + 1
+        chosen = module("stages").last_pretrain_session() + 1
         out, _ = self.build("sft", pretrain_session=chosen)
         metadata = json.loads((out / "kernel-metadata.json").read_text())
         self.assertEqual(metadata["kernel_sources"][0], f"someone/slm-160m-pretrain-{chosen}")

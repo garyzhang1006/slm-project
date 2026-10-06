@@ -11,7 +11,8 @@ const labels = Object.fromEntries([...$("task-type").options].map((option) => [o
 // Same limits as grounding.py.
 const LIMITS = { source: 12000, question: 2000 };
 const DEFAULTS = { "max-tokens": "64", temperature: "0.3", "task-type": "language_generation", "top-k": "40", "top-p": "0.9", "repetition-penalty": "1" };
-// Temperature 0 decodes greedily, so Steady repeats itself; Balanced is the default sampling.
+// Temperature 0 decodes greedily, so Steady repeats itself; Balanced is the default sampling, and LoRA models
+// start on Steady (see pollStatus).
 const PRESETS = {
   steady: { temperature: 0, "top-p": 0.9, "top-k": 40, "repetition-penalty": 1 },
   balanced: { temperature: 0.3, "top-p": 0.9, "top-k": 40, "repetition-penalty": 1 },
@@ -744,6 +745,11 @@ async function pollStatus() {
     // A poll the server answered while this page's own request held the model would undo the busy = false
     // set when that answer arrived.
     if (state.answered !== answered && status?.busy) status.busy = false;
+    // The published LoRA scores used greedy decoding, so a viewer with no saved settings starts on Steady.
+    // Only the first answered poll decides, and a saved choice, even Balanced, is never replaced.
+    if (!state.status && status?.model?.lora === true && !readStore("localStorage", "studio-settings")) {
+      for (const [id, value] of Object.entries(PRESETS.steady)) $(id).value = String(value);
+    }
     state.status = status;
     state.offline = false;
   } catch {

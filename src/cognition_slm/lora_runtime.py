@@ -42,7 +42,8 @@ class LoraRuntime(ModelRuntime):
 
     def __init__(self, adapter: Path, device: str = "cpu") -> None:
         super().__init__(adapter, device)
-        self.metadata = {"name": "SmolLM2-360M + LoRA", "checkpoint": adapter.name}
+        # lora tells the page to start on the greedy Steady preset before the model has finished loading.
+        self.metadata = {"name": "SmolLM2-360M + LoRA", "checkpoint": adapter.name, "lora": True}
 
     def load(self) -> None:
         try:
@@ -99,6 +100,10 @@ class LoraRuntime(ModelRuntime):
         import torch
 
         options, record = validate_request(request, allow_template_tags=self.allows_template_tags)
+        # The published adapter scores decoded greedily (compute/lora_baseline.py generate_answers), so a request
+        # without a temperature gets greedy here rather than validate_request's 0.3 for the in-house model.
+        if "temperature" not in request:
+            options["temperature"] = 0
         # The tokenizer reads a literal <|im_end|> in the question as the real marker, which ends the user turn early.
         marker = next((token for token in self.tokenizer.all_special_tokens if token in record.prompt), None)
         if marker:

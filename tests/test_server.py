@@ -451,6 +451,17 @@ class StudioAssetTests(unittest.TestCase):
         ask = script[script.index("async function ask("):script.index('$("prompt-form").addEventListener')]
         self.assertIn("state.answered += 1;", ask)
 
+    def test_lora_model_starts_on_steady_unless_settings_were_saved(self):
+        # The published LoRA scores decoded greedily, but Balanced stays the page and API default for everyone else.
+        script = (self.web / "app.js").read_text()
+        poll = script[script.index("async function pollStatus()"):script.index("function renderStatus()")]
+        self.assertIn('if (!state.status && status?.model?.lora === true && !readStore("localStorage", "studio-settings")) {\n'
+                      '      for (const [id, value] of Object.entries(PRESETS.steady)) $(id).value = String(value);', poll)
+        self.assertLess(poll.index("PRESETS.steady"), poll.index("state.status = status;"))
+        self.assertIn("  steady: { temperature: 0,", script)
+        self.assertIs(LoraRuntime(Path("adapter")).status()["model"]["lora"], True)
+        self.assertNotIn("lora", ModelRuntime(Path("unused")).status()["model"])
+
     def test_failed_thread_save_drops_the_stale_copy_and_says_so(self):
         script = (self.web / "app.js").read_text()
         # A full sessionStorage keeps the last copy that fit, which a refresh would restore without a word.

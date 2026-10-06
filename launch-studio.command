@@ -27,19 +27,41 @@ if [ ! -x "$VENV_DIR/bin/python" ]; then
   uv venv --python 3.13 "$VENV_DIR"
 fi
 SOURCES_ONLY=false
+LORA=false
 for arg in "$@"; do
   if [ "$arg" = "--sources-only" ]; then
     SOURCES_ONLY=true
   fi
+  case "$arg" in --lora-adapter|--lora-adapter=*) LORA=true ;; esac
 done
 # Reference retrieval uses the standard library and must not depend on PyTorch.
 if [ "$SOURCES_ONLY" = false ]; then
-if ! "$VENV_DIR/bin/python" -c 'import importlib.util; raise SystemExit(any(importlib.util.find_spec(name) is None for name in ("torch", "numpy")))'; then
+NEEDED="torch numpy"
+PACKAGE="."
+if [ "$LORA" = true ]; then
+  # A LoRA adapter also needs the pyproject lora extra, at the exact versions that trained and scored it, so an
+  # older unpinned install is replaced too.
+  NEEDED="$NEEDED $(sed -n 's/^lora = \[\(.*\)]$/\1/p' pyproject.toml | tr -d '" ' | tr ',' ' ')"
+  PACKAGE=".[lora]"
+fi
+# $NEEDED is left unquoted so each module or name==version pin arrives as its own argument.
+if ! "$VENV_DIR/bin/python" -c '
+import importlib.metadata, importlib.util, sys
+def missing(spec):
+    name, _, pin = spec.partition("==")
+    if importlib.util.find_spec(name) is None:
+        return True
+    try:
+        return bool(pin) and importlib.metadata.version(name) != pin
+    except importlib.metadata.PackageNotFoundError:
+        return True
+raise SystemExit(any(missing(spec) for spec in sys.argv[1:]))
+' $NEEDED; then
   if ! command -v uv >/dev/null 2>&1; then
     echo "Studio dependencies missing. Install uv and rerun this launcher."
     exit 1
   fi
-  uv pip install --python "$VENV_DIR/bin/python" -e .
+  uv pip install --python "$VENV_DIR/bin/python" -e "$PACKAGE"
 fi
 # A stuck native import must fail with a deadline instead of hanging the launcher.
 "$VENV_DIR/bin/python" -c '

@@ -1,3 +1,4 @@
+import json
 import re
 import tempfile
 import unittest
@@ -72,6 +73,13 @@ class LoraRuntimeTests(unittest.TestCase):
         self.assertIn(BASE_MODEL_REVISION, source)
         self.assertIn(SYSTEM_PROMPT, source)
 
+    def test_studio_lora_extra_pins_the_training_versions(self):
+        root = Path(__file__).resolve().parents[1]
+        pins = re.search(r"^PINNED_VERSIONS = (\{[^}]*\})", (root / "compute/lora_baseline.py").read_text(), re.M)
+        extra = re.search(r"^lora = \[([^\]]*)\]", (root / "pyproject.toml").read_text(), re.M)
+        self.assertEqual(sorted(re.findall(r'"([^"]+)"', extra.group(1))),
+                         sorted(f"{name}=={version}" for name, version in json.loads(pins.group(1)).items()))
+
     def test_question_may_name_the_byte_model_template_tags(self):
         result = runtime([ord("o"), ord("k"), EOS]).generate({"prompt": "What is <answer> in a prompt?"})
         self.assertEqual(result["text"], "ok")
@@ -93,6 +101,17 @@ class LoraRuntimeTests(unittest.TestCase):
         self.assertNotIn("temperature", loaded.model.settings)
         self.assertEqual(loaded.tokenizer.messages[0], {"role": "system", "content": SYSTEM_PROMPT})
         self.assertEqual(loaded.tokenizer.messages[1], {"role": "user", "content": "Say hi"})
+
+    def test_omitted_temperature_decodes_greedily_like_the_published_scores(self):
+        # validate_request fills in 0.3 for the in-house model; the LoRA scores came from do_sample=False.
+        loaded = runtime([ord("o"), ord("k"), EOS])
+        self.assertEqual(loaded.generate({"prompt": "Go"})["text"], "ok")
+        self.assertFalse(loaded.model.settings["do_sample"])
+        self.assertNotIn("temperature", loaded.model.settings)
+        # An explicit temperature, including the shared 0.3 default sent by the Balanced preset, still samples.
+        loaded.generate({"prompt": "Go", "temperature": 0.3})
+        self.assertTrue(loaded.model.settings["do_sample"])
+        self.assertEqual(loaded.model.settings["temperature"], 0.3)
 
     def test_sampling_options_are_forwarded(self):
         loaded = runtime([ord("x")])

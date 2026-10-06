@@ -14,6 +14,8 @@ dependencies = ["numpy>=1.24", "torch>=2.3,<2.9"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
+# The versions compute/lora_baseline.py pins, which trained and scored the published adapters.
+lora = ["transformers==5.0.0", "peft==0.19.1", "accelerate==1.13.0"]
 
 [project.scripts]
 cognition-slm-train = "cognition_slm.train:main"

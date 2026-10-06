@@ -100,6 +100,22 @@ class DataAndAuditTests(unittest.TestCase):
                 hashlib.sha256(file_path.read_bytes()).hexdigest(),
             )
 
+    def test_manifest_hashes_every_dataset_and_answer_key(self):
+        # RESULTS.md and the saved LoRA answers are only as trustworthy as the answer keys they were scored with.
+        entries = json.loads((ROOT / "data" / "MANIFEST.json").read_text())["datasets"]
+        paths = {entry["path"] for entry in entries}
+        self.assertLessEqual({"data/everyday_eval.json", "data/simple_questions_holdout.json"}, paths)
+        for entry in entries:
+            with self.subTest(path=entry["path"]):
+                data = (ROOT / entry["path"]).read_bytes()
+                if entry["path"].endswith(".jsonl"):
+                    records = len(load_jsonl(ROOT / entry["path"]))
+                else:
+                    records = len(json.loads(data)["rows"])
+                self.assertEqual(entry["records"], records)
+                self.assertEqual(entry["sha256"], hashlib.sha256(data).hexdigest(),
+                                 f"{entry['path']} changed; put its new shasum -a 256 in data/MANIFEST.json")
+
     def test_committed_demo_files_match_demo_data(self):
         # scripts/make_demo_data.py writes both files from demo_data.py, so a fix made in one place must reach the other.
         from cognition_slm.demo_data import EVAL_ROWS, TRAIN_ROWS, write_jsonl

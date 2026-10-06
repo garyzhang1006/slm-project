@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-18",
+  "generated_at": "2026-10-05",
   "datasets": [
     {
       "path": "data/demo.jsonl",
@@ -20,6 +20,26 @@
       "license": "CC0-1.0",
       "purpose": "held-out smoke evaluation",
       "sha256": "34ce51fab9d30ff551b91c10548fedeb843fb2b779e55ce08e4f896460b93d6b"
+    },
+    {
+      "path": "data/everyday_eval.json",
+      "split": "eval",
+      "records": 252,
+      "source": "project-authored",
+      "retrieval": "authored locally",
+      "license": "CC0-1.0",
+      "purpose": "everyday question answer key for LoRA and SFT evaluation",
+      "sha256": "fb5ed7a7e43c55a0eb3dfeda3894e69fb140ea332d9d6eb877a35cadb482bf02"
+    },
+    {
+      "path": "data/simple_questions_holdout.json",
+      "split": "eval",
+      "records": 24,
+      "source": "project-authored",
+      "retrieval": "authored locally",
+      "license": "CC0-1.0",
+      "purpose": "held-out simple question answer key for LoRA and SFT evaluation",
+      "sha256": "c6d9afdd50c3b3cbe7f8e74b1ec640de31d68b23c850d3cb312380a49897cfe2"
     }
   ]
 }

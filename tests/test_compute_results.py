@@ -1,3 +1,4 @@
+import hashlib
 import json
 from pathlib import Path
 import re
@@ -143,6 +144,41 @@ class RenderTests(unittest.TestCase):
             with mock.patch.object(collect_results, "Kaggle", return_value=fake), mock.patch("builtins.print"):
                 self.assertEqual(collect_results.main(["--owner", "someone", "--out", str(out)]), 0)
             self.assertTrue(out.read_text().startswith("# Results"))
+
+    def test_main_keeps_answers_only_from_reports_that_came_back(self):
+        def report(slug, filename):
+            return adapter_report() if (slug, filename) == ("slm-lora-eval", "lora_eval_report.json") else None
+
+        with tempfile.TemporaryDirectory() as directory:
+            reports = Path(directory) / "reports"
+            reports.mkdir()
+            # The 1.7B report fails to download this time, so its answers from an earlier collection must survive.
+            kept = reports / "lora_eval_1b7.json"
+            kept.write_text('{"kernel": "slm-lora-1b7-eval"}\n')
+            fake = mock.Mock()
+            fake.report.side_effect = report
+            with mock.patch.object(collect_results, "Kaggle", return_value=fake), mock.patch("builtins.print"):
+                self.assertEqual(collect_results.main(["--owner", "someone", "--out", str(Path(directory) / "R.md"),
+                                                       "--reports-dir", str(reports)]), 0)
+            self.assertEqual(kept.read_text(), '{"kernel": "slm-lora-1b7-eval"}\n')
+            text = (reports / "lora_eval_360m.json").read_text()
+            saved = json.loads(text)
+            self.assertEqual(text, json.dumps(saved, indent=2, sort_keys=True) + "\n")
+            self.assertEqual(saved["kernel"], "slm-lora-eval")
+            self.assertEqual(saved["adapter_sha256"], "ab" * 32)
+            self.assertEqual(set(saved["predictions"]), set(collect_results.EVAL_FILES))
+            everyday = saved["predictions"]["data/everyday_eval.json"]
+            self.assertEqual(everyday["lora"], predictions(EVERYDAY, True))
+            self.assertEqual([row["id"] for row in everyday["base"]], [row["id"] for row in EVERYDAY])
+            self.assertEqual(saved["predictions"]["data/simple_questions_holdout.json"]["base"],
+                             predictions(HOLDOUT, False))
+
+    def test_header_names_the_answer_keys(self):
+        empty = {"pretrain": [], "lora": None, "lora_eval": None, "distill": None, "sft": None, "eval": None}
+        header = collect_results.render(empty, {}, "now").split("## slm-160m pretraining", 1)[0]
+        for name in collect_results.EVAL_FILES:
+            digest = hashlib.sha256((ROOT / name).read_bytes()).hexdigest()
+            self.assertIn(f"`{name}` {digest[:12]}", header)
 
 
 if __name__ == "__main__":

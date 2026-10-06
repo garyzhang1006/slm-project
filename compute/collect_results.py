@@ -9,6 +9,7 @@ show up without another GPU run. Run from the repo root, logged in with the Kagg
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 from pathlib import Path
 import sys
@@ -24,6 +25,9 @@ from scripts.score_holdout import REPORT_KEYS, score_predictions  # noqa: E402
 
 EVAL_FILES = ("data/everyday_eval.json", "data/simple_questions_holdout.json")
 OUTPUT = ROOT / "compute" / "RESULTS.md"
+REPORTS = ROOT / "reports"
+# Per-question answers stay in the repo, so an answer-key audit can read them without a Kaggle download.
+PREDICTION_FILES = {"lora_eval": "lora_eval_360m.json", "lora_1b7_eval": "lora_eval_1b7.json"}
 
 
 def collect(fetch) -> dict:
@@ -54,6 +58,37 @@ def rescore(lora_eval: dict, root: Path = ROOT) -> dict:
         if all(sides.values()):
             scored[key] = {side: score_predictions(rows, predictions) for side, predictions in sides.items()}
     return scored
+
+
+def predictions_record(stage: str, lora_eval: dict) -> dict:
+    """The kernel, adapter and every {id, answer} per eval file and side, in the report's order."""
+    answers = {}
+    for name in EVAL_FILES:
+        key = REPORT_KEYS[Path(name).name]
+        found = {side: lora_eval.get(side, {}).get(key, {}).get("predictions") for side in ("base", "lora")}
+        sides = {side: [{"id": row["id"], "answer": row["answer"]} for row in rows]
+                 for side, rows in found.items() if rows}
+        if sides:
+            answers[name] = sides
+    return {"kernel": stage_slug(stage), "adapter_sha256": lora_eval.get("adapter_sha256"), "predictions": answers}
+
+
+def write_predictions(results: dict, directory: Path) -> list[Path]:
+    """Writes a file only for a kernel whose report came back, so a failed download keeps the last answers."""
+    written = []
+    for stage, filename in PREDICTION_FILES.items():
+        if not results.get(stage):
+            continue
+        directory.mkdir(parents=True, exist_ok=True)
+        path = directory / filename
+        # Sorted keys and one field per line keep a re-collection's git diff down to the answers that changed.
+        path.write_text(json.dumps(predictions_record(stage, results[stage]), indent=2, sort_keys=True) + "\n")
+        written.append(path)
+    return written
+
+
+def key_hashes(root: Path = ROOT) -> dict:
+    return {name: hashlib.sha256((root / name).read_bytes()).hexdigest() for name in EVAL_FILES}
 
 
 def number(value, digits: int = 3) -> str:
@@ -126,9 +161,12 @@ def lora_sections(name: str, lora: dict | None, lora_eval: dict | None, rescored
     return lines
 
 
-def render(results: dict, rescored: dict, stamp: str, large_rescored: dict | None = None) -> str:
+def render(results: dict, rescored: dict, stamp: str, large_rescored: dict | None = None,
+           root: Path = ROOT) -> str:
+    keys = ", ".join(f"`{name}` {digest[:12]}" for name, digest in key_hashes(root).items())
     lines = ["# Results", "", f"Collected from Kaggle kernel reports on {stamp} by `compute/collect_results.py`. "
-             "Regenerate it rather than editing by hand.", ""]
+             "Regenerate it rather than editing by hand.", "",
+             f"Re-scored with these answer keys (first 12 hex characters of each file's sha256): {keys}.", ""]
 
     lines += ["## slm-160m pretraining", ""]
     if results["pretrain"]:
@@ -183,8 +221,12 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--owner", required=True, help="Kaggle username that owns the kernels")
     parser.add_argument("--out", type=Path, default=OUTPUT)
+    parser.add_argument("--reports-dir", type=Path, default=REPORTS,
+                        help="where the per-question LoRA eval answers are written")
     args = parser.parse_args(argv)
     results = collect(Kaggle(args.owner).report)
+    for path in write_predictions(results, args.reports_dir):
+        print(f"wrote {path}")
     rescored = rescore(results["lora_eval"]) if results["lora_eval"] else {}
     large = rescore(results["lora_1b7_eval"]) if results["lora_1b7_eval"] else {}
     args.out.write_text(render(results, rescored, time.strftime("%Y-%m-%d %H:%M"), large))

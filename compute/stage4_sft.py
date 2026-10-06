@@ -24,6 +24,8 @@ from compute.stage2_pretrain import (INPUT, digest, final_training_report, find_
 
 PRETRAIN_NAME = "slm-160m-pretrain.pt"
 OUTPUT_NAME = "slm-160m-sft.pt"
+# The trainer's full last-step checkpoint; the lowest-eval-loss weights ship as OUTPUT_NAME instead.
+LAST_STEP_NAME = "sft_last_step.pt"
 BATCH_SIZE = 8
 GRADIENT_ACCUMULATION = 4
 EPOCHS = 3
@@ -41,9 +43,10 @@ def sft_steps(records: int, effective_batch: int = BATCH_SIZE * GRADIENT_ACCUMUL
     return max(minimum, min(maximum, math.ceil(records * epochs / effective_batch)))
 
 
-def sft_arguments(initialization: Path, train_path: Path, eval_path: Path, output: Path, steps: int) -> list[str]:
+def sft_arguments(initialization: Path, train_path: Path, eval_path: Path, last: Path, best: Path,
+                  steps: int) -> list[str]:
     return ["--resume", str(initialization), "--data", str(train_path), "--eval-data", str(eval_path),
-            "--out", str(output), "--steps", str(steps), "--max-seconds", str(MAX_SECONDS),
+            "--out", str(last), "--best-out", str(best), "--steps", str(steps), "--max-seconds", str(MAX_SECONDS),
             "--learning-rate", "0.0001", "--override-learning-rate", "--aux-loss-weight", "0",
             "--batch-size", str(BATCH_SIZE), "--gradient-accumulation-steps", str(GRADIENT_ACCUMULATION),
             "--warmup-steps", str(min(100, steps // 10)), "--precision", "fp16", "--device", "cuda",
@@ -134,6 +137,32 @@ def merge_distill(train_path: Path, eval_path: Path, distill_paths: list[Path], 
             "filters_version": manifest["filters_version"]}
 
 
+def ship_best(torch, best: Path, last: Path) -> dict:
+    """Compact the lowest-eval-loss checkpoint in place and delete the last-step one; returns its metadata."""
+    from cognition_slm.checkpoint import load_checkpoint_payload
+
+    if not best.exists():
+        raise RuntimeError(f"Training wrote no {best.name}, so no validation finished; see sft_training.log")
+    # Studio only needs weights; dropping optimizer state cuts the download from about 1.9 GB to 0.6 GB.
+    compact, _ = load_checkpoint_payload(torch, best, inference_only=True)
+    metadata = compact.get("metadata", {})
+    temporary = best.with_suffix(".compact.pt")
+    torch.save(compact, temporary)
+    del compact
+    temporary.replace(best)
+    # The kernel's whole output ships, and no stage reads the last step's 1.9 GB of weights and optimizer state.
+    last.unlink(missing_ok=True)
+    return metadata
+
+
+def loss_summary(training: dict) -> dict:
+    """sft_report.json losses: eval_lm_loss is the shipped (best) checkpoint's, beside the last step's."""
+    final = training.get("validation") or {}
+    return {"eval_lm_loss": training.get("best_eval_lm_loss"), "best_step": training.get("best_step"),
+            "best_eval_lm_loss": training.get("best_eval_lm_loss"), "final_step": training.get("steps"),
+            "final_eval_lm_loss": final.get("lm_loss")}
+
+
 def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--epochs", type=float, default=EPOCHS)
@@ -185,22 +214,17 @@ def main(argv: list[str] | None = None) -> None:
 
     output = artifacts / OUTPUT_NAME
     command = [sys.executable, "-m", "cognition_slm.train",
-               *sft_arguments(initialization, train_path, eval_path, output, steps)]
+               *sft_arguments(initialization, train_path, eval_path, artifacts / LAST_STEP_NAME, output, steps)]
     training = final_training_report(run_logged(command, ROOT / "sft_training.log"))
     initialization.unlink()
-    # Studio only needs weights; dropping optimizer state cuts the download from about 1.9 GB to 0.6 GB.
-    compact, _ = load_checkpoint_payload(torch, output, inference_only=True)
-    temporary = output.with_suffix(".compact.pt")
-    torch.save(compact, temporary)
-    del compact
-    temporary.replace(output)
-    validation = training.get("validation") or {}
+    ship_best(torch, output, artifacts / LAST_STEP_NAME)
     report.update(status="complete", training=training, checkpoint=str(output), sha256=digest(output),
-                  checkpoint_format="model_only", eval_lm_loss=validation.get("lm_loss"),
+                  checkpoint_format="model_only", **loss_summary(training),
                   elapsed_seconds=round(time.monotonic() - started, 1))
     write_json(report_path, report)
-    print("SFT_COMPLETE", json.dumps({"steps": training["steps"], "eval_lm_loss": report["eval_lm_loss"],
-                                      "sha256": report["sha256"]}), flush=True)
+    print("SFT_COMPLETE", json.dumps({"steps": training["steps"], "best_step": report["best_step"],
+                                      "eval_lm_loss": report["eval_lm_loss"], "sha256": report["sha256"]}),
+          flush=True)
 
 
 if __name__ == "__main__":

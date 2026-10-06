@@ -132,9 +132,16 @@ class CommandTests(unittest.TestCase):
         self.assertFalse(fresh.allow_data_change)
 
     def test_sft_restarts_schedule_at_new_rate(self):
-        args = self.parse(sft.sft_arguments(Path("i.pt"), Path("t.jsonl"), Path("v.jsonl"), Path("o.pt"), 200))
+        args = self.parse(sft.sft_arguments(Path("i.pt"), Path("t.jsonl"), Path("v.jsonl"), Path("l.pt"),
+                                            Path("b.pt"), 200))
         self.assertTrue(args.override_learning_rate)
         self.assertEqual((args.learning_rate, args.resume, args.warmup_steps), (1e-4, "i.pt", 20))
+
+    def test_sft_keeps_the_lowest_eval_loss_weights_apart_from_the_last_step(self):
+        args = self.parse(sft.sft_arguments(Path("i.pt"), Path("t.jsonl"), Path("v.jsonl"), Path("l.pt"),
+                                            Path("b.pt"), 200))
+        self.assertEqual((args.out, args.best_out, args.eval_data), ("l.pt", "b.pt", "v.jsonl"))
+        self.assertEqual(sft.EPOCHS, 3)
 
 
 class ReportTests(unittest.TestCase):
@@ -212,6 +219,40 @@ class SftTests(unittest.TestCase):
             self.assertEqual(sft.holdout_prompts_in_training(path), [])
             path.write_text(path.read_text() + json.dumps({"prompt": rows[4]["prompt"].lower() + " "}) + "\n")
             self.assertEqual(sft.holdout_prompts_in_training(path), [rows[4]["id"]])
+
+    def test_ship_best_compacts_the_best_checkpoint_and_drops_the_last_step(self):
+        from cognition_slm.config import ModelConfig
+
+        class JsonTorch:
+            """Stands in for torch.save and torch.load, which load_checkpoint_payload and ship_best call."""
+
+            def save(self, payload, path):
+                Path(path).write_text(json.dumps(payload))
+
+            def load(self, path, **_):
+                return json.loads(Path(path).read_text())
+
+        fake = JsonTorch()
+        with tempfile.TemporaryDirectory() as directory:
+            best, last = Path(directory) / sft.OUTPUT_NAME, Path(directory) / sft.LAST_STEP_NAME
+            with self.assertRaisesRegex(RuntimeError, "no validation finished"):
+                sft.ship_best(fake, best, last)
+            fake.save({"model_config": ModelConfig().to_dict(), "model_state_dict": {"w": 2},
+                       "optimizer_state_dict": {"state": {}}, "metadata": {"best_step": 250}}, best)
+            fake.save({"model_config": ModelConfig().to_dict(), "model_state_dict": {"w": 3}}, last)
+            self.assertEqual(sft.ship_best(fake, best, last), {"best_step": 250})
+            self.assertFalse(last.exists())
+            self.assertEqual(sorted(path.name for path in Path(directory).iterdir()), [sft.OUTPUT_NAME])
+            shipped = fake.load(best)
+            self.assertEqual(sorted(shipped), ["metadata", "model_config", "model_state_dict"])
+            self.assertEqual(shipped["model_state_dict"], {"w": 2})
+
+    def test_report_records_the_shipped_best_loss_beside_the_last_steps(self):
+        training = {"steps": 3000, "best_step": 1500, "best_eval_lm_loss": 1.25,
+                    "validation": {"step": 3000, "lm_loss": 1.5}}
+        self.assertEqual(sft.loss_summary(training), {"eval_lm_loss": 1.25, "best_step": 1500,
+                                                      "best_eval_lm_loss": 1.25, "final_step": 3000,
+                                                      "final_eval_lm_loss": 1.5})
 
 
 class EvaluateTests(unittest.TestCase):

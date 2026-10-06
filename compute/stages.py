@@ -41,6 +41,14 @@ STAGES = {
                  "internet": True, "gpu": True, "attaches": ["slm-sft-data"]},
     "lora_1b7_eval": {"runner": "compute/lora_eval.py", "slug": "slm-lora-1b7-eval",
                       "internet": True, "gpu": True, "attaches": ["slm-lora-1b7"]},
+    # Rewrites compute/RESULTS.md and reports/ from the attached outputs, so the owner's machine never has to.
+    # stage_attaches adds the pretrain sessions; sft and eval come only from package.py --also, so the push never
+    # lists a kernel that may not exist yet.
+    "results": {"runner": "compute/collect_results.py", "slug": "slm-results",
+                "args": ["--input-dir", "/kaggle/input"],
+                "internet": False, "gpu": False,
+                "attaches": ["slm-lora-baseline", "slm-lora-eval", "slm-lora-1b7", "slm-lora-1b7-eval",
+                             "slm-distill-data"]},
 }
 
 # Byte tokenizer: one token per byte, so the corpus byte target is also the token count. This is the train text
@@ -124,6 +132,12 @@ def stage_attaches(stage: str, session: int | None = None, pretrain_session: int
             raise ValueError(f"--pretrain-session needs k >= 1, got {pretrain_session}")
         last = last_pretrain_session() if pretrain_session is None else pretrain_session
         attaches.insert(0, stage_slug("pretrain", last))
+    elif stage == "results":
+        if pretrain_session is not None and pretrain_session < 1:
+            raise ValueError(f"--pretrain-session needs k >= 1, got {pretrain_session}")
+        # Only sessions known to have run, unless the caller names a later one that has.
+        last = PRETRAIN_SESSIONS_RUN if pretrain_session is None else pretrain_session
+        attaches += [stage_slug("pretrain", number) for number in range(1, last + 1)]
     return attaches
 
 

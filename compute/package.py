@@ -17,6 +17,9 @@ if str(ROOT) not in sys.path:
 
 from compute.stages import OWNER, STAGES, stage_attaches, stage_slug  # noqa: E402
 
+# Kernels the results stage reads only when asked, since they have not run yet on every account.
+RESULTS_EXTRAS = ("sft", "eval")
+
 
 def source_files(root: Path, runner: str) -> list[Path]:
     """Explicit project files for the payload; local weights, credentials and caches never match."""
@@ -52,16 +55,23 @@ def run_script(payload: str, runner: str, argv: list[str]) -> str:
     )
 
 
-def kernel_metadata(stage: str, owner: str, session: int | None, pretrain_session: int | None) -> dict:
+def kernel_metadata(stage: str, owner: str, session: int | None, pretrain_session: int | None,
+                    also: tuple[str, ...] = ()) -> dict:
     spec = STAGES[stage]
     slug = stage_slug(stage, session)
+    if also and stage != "results":
+        raise ValueError(f"--also only applies to results, not {stage}")
+    unknown = [name for name in also if name not in RESULTS_EXTRAS]
+    if unknown:
+        raise ValueError(f"--also takes {' or '.join(RESULTS_EXTRAS)}, got {', '.join(unknown)}")
+    sources = stage_attaches(stage, session, pretrain_session) + [stage_slug(name) for name in also]
     metadata = {
         "id": f"{owner}/{slug}", "title": slug,
         "code_file": "run.py", "language": "python", "kernel_type": "script",
         "is_private": True, "enable_gpu": spec["gpu"],
         "enable_internet": spec["internet"],
         "dataset_sources": [], "competition_sources": [],
-        "kernel_sources": [f"{owner}/{name}" for name in stage_attaches(stage, session, pretrain_session)],
+        "kernel_sources": [f"{owner}/{name}" for name in dict.fromkeys(sources)],
     }
     if spec["gpu"]:
         metadata["machine_shape"] = "NvidiaTeslaT4"
@@ -69,11 +79,11 @@ def kernel_metadata(stage: str, owner: str, session: int | None, pretrain_sessio
 
 
 def prepare(stage: str, output: Path, owner: str = OWNER, session: int | None = None,
-            pretrain_session: int | None = None, root: Path = ROOT) -> dict:
+            pretrain_session: int | None = None, root: Path = ROOT, also: tuple[str, ...] = ()) -> dict:
     if stage not in STAGES:
         raise ValueError(f"unknown stage {stage!r}; choose one of {', '.join(STAGES)}")
     # Validates the session before any file work, so a bad flag writes nothing.
-    metadata = kernel_metadata(stage, owner, session, pretrain_session)
+    metadata = kernel_metadata(stage, owner, session, pretrain_session, also)
     runner = STAGES[stage]["runner"]
     # source_files globs these folders, so a run.py or JSON written into one would ship in the next payload.
     for folder in ("compute", "data", "src/cognition_slm"):
@@ -105,14 +115,19 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("--stage", choices=tuple(STAGES), required=True)
     parser.add_argument("--session", type=int, help="Pretrain session number k (pretrain only)")
     parser.add_argument("--pretrain-session", type=int,
-                        help="sft only: which pretrain session kernel to attach (default: estimated last session)")
+                        help="sft: which pretrain session kernel to attach (default: estimated last session); "
+                             "results: attach sessions 1 to K (default: the sessions known to have run)")
+    parser.add_argument("--also", action="append", choices=RESULTS_EXTRAS,
+                        help="results only: also attach this kernel once it has run; repeat for both")
     parser.add_argument("--owner", default=OWNER)
     parser.add_argument("--out", type=Path, required=True)
     args = parser.parse_args(argv)
-    if args.pretrain_session is not None and args.stage != "sft":
-        parser.error("--pretrain-session only applies to --stage sft")
+    if args.pretrain_session is not None and args.stage not in ("sft", "results"):
+        parser.error("--pretrain-session only applies to --stage sft or results")
+    if args.also and args.stage != "results":
+        parser.error("--also only applies to --stage results")
     try:
-        prepare(args.stage, args.out, args.owner, args.session, args.pretrain_session)
+        prepare(args.stage, args.out, args.owner, args.session, args.pretrain_session, also=tuple(args.also or ()))
     except (ValueError, FileNotFoundError) as error:
         parser.error(str(error))
 

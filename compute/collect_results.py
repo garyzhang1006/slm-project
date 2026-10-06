@@ -4,6 +4,8 @@ Only the small report files are downloaded (never checkpoints), and nothing runs
 predictions are re-scored here against the current answer keys in data/, so fixes to accepted_answers
 show up without another GPU run. Run from the repo root, logged in with the Kaggle CLI, e.g.
     python3 compute/collect_results.py --owner YOUR_KAGGLE_USERNAME
+or read the reports from kernel outputs already on disk, as the results kernel does with
+    python3 compute/collect_results.py --input-dir /kaggle/input
 """
 
 from __future__ import annotations
@@ -46,6 +48,21 @@ def collect(fetch) -> dict:
             "distill": fetch(stage_slug("distill_data"), "distill_manifest.json"),
             "sft": fetch(stage_slug("sft"), "sft_report.json"),
             "eval": fetch(stage_slug("eval"), "eval_report.json")}
+
+
+def local_report(input_dir: Path, slug: str, filename: str) -> dict | None:
+    """The one filename under a folder named slug in input_dir, read like Kaggle.report reads a download."""
+    # Kaggle mounts each attached output at /kaggle/input/notebooks/<owner>/<slug>/, and slm-lora-baseline and
+    # slm-lora-1b7 both hold lora_report.json, so the file name alone would find two.
+    matches = [path for path in input_dir.rglob(filename)
+               if slug in path.relative_to(input_dir).parts[:-1]] if input_dir.is_dir() else []
+    if len(matches) != 1:
+        return None
+    try:
+        value = json.loads(matches[0].read_text())
+    except (OSError, ValueError):
+        return None
+    return value if isinstance(value, dict) else None
 
 
 def rescore(lora_eval: dict, root: Path = ROOT) -> dict:
@@ -223,12 +240,21 @@ def render(results: dict, rescored: dict, stamp: str, large_rescored: dict | Non
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("--owner", required=True, help="Kaggle username that owns the kernels")
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--owner", help="Kaggle username that owns the kernels")
+    source.add_argument("--input-dir", type=Path,
+                        help="read the reports from kernel outputs under this folder instead of the Kaggle CLI")
     parser.add_argument("--out", type=Path, default=OUTPUT)
     parser.add_argument("--reports-dir", type=Path, default=REPORTS,
                         help="where the per-question LoRA eval answers are written")
     args = parser.parse_args(argv)
-    results = collect(Kaggle(args.owner).report)
+    if args.input_dir is None:
+        results = collect(Kaggle(args.owner).report)
+    elif args.input_dir.is_dir():
+        results = collect(lambda slug, filename: local_report(args.input_dir, slug, filename))
+    else:
+        # Every report would read as missing, and RESULTS.md would lose every number it has.
+        parser.error(f"--input-dir {args.input_dir} is not a folder")
     for path in write_predictions(results, args.reports_dir):
         print(f"wrote {path}")
     rescored = rescore(results["lora_eval"]) if results["lora_eval"] else {}

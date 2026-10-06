@@ -40,7 +40,7 @@ class StageTableTests(unittest.TestCase):
     def test_stage_entries_follow_the_interface(self):
         stages = module("stages")
         self.assertEqual(set(stages.STAGES), {"corpus", "pretrain", "sft_data", "sft", "eval", "lora", "lora_eval",
-                                              "distill_data", "lora_1b7", "lora_1b7_eval"})
+                                              "distill_data", "lora_1b7", "lora_1b7_eval", "results"})
         for name, spec in stages.STAGES.items():
             self.assertEqual(set(spec) - {"args"}, {"runner", "slug", "internet", "gpu", "attaches"}, name)
             self.assertRegex(spec["runner"], r"^compute/\w+\.py$")
@@ -110,9 +110,21 @@ class StageTableTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "--pretrain-session needs k >= 1, got 0"):
             stages.stage_attaches("sft", pretrain_session=0)
 
+    def test_results_attaches_only_kernels_that_have_run(self):
+        stages = module("stages")
+        lora = ["slm-lora-baseline", "slm-lora-eval", "slm-lora-1b7", "slm-lora-1b7-eval", "slm-distill-data"]
+        run = [f"slm-160m-pretrain-{number}" for number in range(1, stages.PRETRAIN_SESSIONS_RUN + 1)]
+        self.assertEqual(stages.stage_attaches("results"), lora + run)
+        later = stages.PRETRAIN_SESSIONS_RUN + 1
+        self.assertEqual(stages.stage_attaches("results", pretrain_session=later),
+                         lora + run + [f"slm-160m-pretrain-{later}"])
+        self.assertEqual(stages.stage_attaches("results", pretrain_session=1), lora + ["slm-160m-pretrain-1"])
+        with self.assertRaisesRegex(ValueError, "--pretrain-session needs k >= 1, got 0"):
+            stages.stage_attaches("results", pretrain_session=0)
+
 
 class PackageTests(unittest.TestCase):
-    def build(self, stage, session=None, pretrain_session=None):
+    def build(self, stage, session=None, pretrain_session=None, also=()):
         package = module("package")
         runner = package.STAGES[stage]["runner"]
         directory = tempfile.TemporaryDirectory()
@@ -120,7 +132,7 @@ class PackageTests(unittest.TestCase):
         root = fake_root(Path(directory.name) / "project", runner)
         out = Path(directory.name) / "out"
         with contextlib.redirect_stdout(io.StringIO()):
-            package.prepare(stage, out, "someone", session, pretrain_session, root=root)
+            package.prepare(stage, out, "someone", session, pretrain_session, root=root, also=also)
         return out, runner
 
     def payload(self, out):
@@ -176,11 +188,52 @@ class PackageTests(unittest.TestCase):
             package.main(["--stage", "sft", "--pretrain-session", str(chosen), "--out", directory])
         self.assertEqual(prepare.call_args.args[4], chosen)
 
+    def test_results_kernel_reads_the_attached_reports_on_cpu(self):
+        out, runner = self.build("results", pretrain_session=2, also=("eval", "sft"))
+        self.assertEqual(runner, "compute/collect_results.py")
+        metadata = json.loads((out / "kernel-metadata.json").read_text())
+        self.assertEqual(metadata["id"], "someone/slm-results")
+        self.assertFalse(metadata["enable_gpu"])
+        self.assertFalse(metadata["enable_internet"])
+        self.assertNotIn("machine_shape", metadata)
+        self.assertEqual(metadata["kernel_sources"], [f"someone/{name}" for name in (
+            "slm-lora-baseline", "slm-lora-eval", "slm-lora-1b7", "slm-lora-1b7-eval", "slm-distill-data",
+            "slm-160m-pretrain-1", "slm-160m-pretrain-2", "slm-160m-eval", "slm-160m-sft")])
+        script, archive = self.payload(out)
+        # run.py runs from /kaggle/working/slm-project, so the default --out and --reports-dir land in the output.
+        self.assertIn("] + ['--input-dir', '/kaggle/input']", script)
+        self.assertIn(runner, archive.namelist())
+        out, _ = self.build("results")
+        sources = json.loads((out / "kernel-metadata.json").read_text())["kernel_sources"]
+        self.assertNotIn("someone/slm-160m-sft", sources)
+        self.assertNotIn("someone/slm-160m-eval", sources)
+
+    def test_also_applies_only_to_results_and_only_to_sft_or_eval(self):
+        package = module("package")
+        with tempfile.TemporaryDirectory() as directory:
+            root = fake_root(Path(directory) / "project", "compute/collect_results.py")
+            out = Path(directory) / "out"
+            for stage, also in (("lora", ("sft",)), ("results", ("corpus",))):
+                with self.subTest(stage=stage), self.assertRaisesRegex(ValueError, "--also"):
+                    package.prepare(stage, out, "someone", root=root, also=also)
+            self.assertFalse(out.exists())
+
+    def test_cli_passes_the_results_flags(self):
+        package = module("package")
+        with tempfile.TemporaryDirectory() as directory, mock.patch.object(package, "prepare") as prepare:
+            package.main(["--stage", "results", "--pretrain-session", "3", "--also", "eval", "--also", "sft",
+                          "--out", directory])
+        self.assertEqual(prepare.call_args.args[4], 3)
+        self.assertEqual(prepare.call_args.kwargs["also"], ("eval", "sft"))
+
     def test_cli_rejects_flags_for_the_wrong_stage(self):
         package = module("package")
         with tempfile.TemporaryDirectory() as directory:
             out = Path(directory) / "out"
             for argv in (["--stage", "corpus", "--pretrain-session", "2", "--out", str(out)],
+                         ["--stage", "eval", "--pretrain-session", "2", "--out", str(out)],
+                         ["--stage", "lora", "--also", "sft", "--out", str(out)],
+                         ["--stage", "results", "--also", "corpus", "--out", str(out)],
                          ["--stage", "corpus", "--session", "1", "--out", str(out)],
                          ["--stage", "pretrain", "--out", str(out)]):
                 with contextlib.redirect_stderr(io.StringIO()), self.assertRaises(SystemExit):
@@ -207,6 +260,26 @@ class PackageTests(unittest.TestCase):
             with self.assertRaisesRegex(FileNotFoundError, "stage4_sft.py"):
                 package.prepare("sft", Path(directory) / "out", root=root)
             self.assertFalse((Path(directory) / "out").exists())
+
+
+class PackageWorkflowTests(unittest.TestCase):
+    def test_workflow_offers_every_stage_and_keeps_inputs_out_of_the_script(self):
+        workflow = ROOT / ".github/workflows/package-kernel.yml"
+        if not workflow.exists():
+            self.skipTest("the package-kernel workflow is not packaged here")
+        stages = module("stages")
+        text = workflow.read_text()
+        options = re.search(r"\n {8}options:\n((?: {10}- \S+\n)+)", text).group(1)
+        self.assertEqual(sorted(re.findall(r"- (\S+)", options)), sorted(stages.STAGES))
+        # An input pasted into run: is script injection, so each one reaches the shell as an env variable.
+        lines = [line for line in text.splitlines() if "${{ inputs." in line]
+        self.assertEqual(len(lines), 5)
+        for line in lines:
+            self.assertRegex(line, r"^ +[A-Z_]+: \$\{\{ inputs\.\w+ \}\}$")
+        actions = re.findall(r"uses: (\S+)", text)
+        self.assertEqual(len(actions), 3)
+        for action in actions:
+            self.assertRegex(action, r"@[0-9a-f]{40}$")
 
 
 if __name__ == "__main__":

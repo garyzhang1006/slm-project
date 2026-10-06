@@ -31,6 +31,42 @@ def adapter_report(sha="ab" * 32):
                      "simple_questions": {"predictions": predictions(HOLDOUT, True)}}}
 
 
+def write_report(directory: Path, slug: str, name: str, value) -> None:
+    # Where Kaggle mounts an attached kernel's output, as a 2026-10 distill_manifest.json recorded it.
+    path = directory / "notebooks" / "someone" / slug / "slm-project" / name
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(value if isinstance(value, str) else json.dumps(value))
+
+
+class LocalReportTests(unittest.TestCase):
+    def test_the_slug_picks_the_kernel_when_two_hold_the_same_file(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_report(root, "slm-lora-baseline", "lora_report.json", {"status": "small"})
+            write_report(root, "slm-lora-1b7", "lora_report.json", {"status": "large"})
+            # A slug that only starts with another kernel's slug names a different kernel.
+            write_report(root, "slm-lora-1b7-eval", "lora_report.json", {"status": "other"})
+            self.assertEqual(collect_results.local_report(root, "slm-lora-baseline", "lora_report.json"),
+                             {"status": "small"})
+            self.assertEqual(collect_results.local_report(root, "slm-lora-1b7", "lora_report.json"),
+                             {"status": "large"})
+
+    def test_missing_ambiguous_or_unreadable_reports_read_as_none(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            write_report(root, "slm-160m-eval", "eval_report.json", "{not json")
+            write_report(root, "slm-160m-sft", "sft_report.json", "[1, 2]")
+            write_report(root, "slm-distill-data", "a/distill_manifest.json", {"rows": 1})
+            write_report(root, "slm-distill-data", "b/distill_manifest.json", {"rows": 2})
+            for slug, filename in (("slm-160m-eval", "eval_report.json"), ("slm-160m-sft", "sft_report.json"),
+                                   ("slm-distill-data", "distill_manifest.json"),
+                                   ("slm-lora-eval", "lora_eval_report.json"),
+                                   ("slm-160m-eval", "sft_report.json")):
+                with self.subTest(slug=slug, filename=filename):
+                    self.assertIsNone(collect_results.local_report(root, slug, filename))
+            self.assertIsNone(collect_results.local_report(root / "absent", "slm-160m-eval", "eval_report.json"))
+
+
 class CollectTests(unittest.TestCase):
     def test_collect_reads_sessions_until_the_first_gap(self):
         calls = []
@@ -175,6 +211,40 @@ class RenderTests(unittest.TestCase):
             self.assertEqual([row["id"] for row in everyday["base"]], [row["id"] for row in EVERYDAY])
             self.assertEqual(saved["predictions"]["data/simple_questions_holdout.json"]["base"],
                              predictions(HOLDOUT, False))
+
+    def test_main_reads_attached_outputs_without_the_kaggle_cli(self):
+        with tempfile.TemporaryDirectory() as directory:
+            inputs, reports, out = (Path(directory) / name for name in ("input", "reports", "RESULTS.md"))
+            write_report(inputs, "slm-160m-pretrain-1", "pretrain_session_1.json",
+                         {"session": 1, "step_reached": 4570, "seconds_per_step": 8.72,
+                          "eval_bits_per_byte": 1.289, "status": "session_complete_resume_next"})
+            write_report(inputs, "slm-lora-baseline", "lora_report.json",
+                         {"status": "small adapter", "adapter_sha256": "ab" * 32})
+            write_report(inputs, "slm-lora-1b7", "lora_report.json", {"status": "large adapter"})
+            write_report(inputs, "slm-lora-eval", "lora_eval_report.json", adapter_report())
+            with mock.patch.object(collect_results, "Kaggle") as kaggle, mock.patch("builtins.print"):
+                self.assertEqual(collect_results.main(["--input-dir", str(inputs), "--out", str(out),
+                                                       "--reports-dir", str(reports)]), 0)
+            kaggle.assert_not_called()
+            small, large = out.read_text().split("## LoRA adapter (SmolLM2-1.7B-Instruct)", 1)
+            self.assertIn("| 1 | 4570 | 8.72 | 1.289 | session_complete_resume_next |", small)
+            self.assertIn("- Status: small adapter", small)
+            self.assertIn("- Status: large adapter", large)
+            rows = len(EVERYDAY) - sum(row["category"] == "unknown" for row in EVERYDAY)
+            self.assertIn(f"LoRA {rows}/{rows} exact", small)
+            self.assertNotIn("different adapter", small)
+            self.assertEqual(json.loads((reports / "lora_eval_360m.json").read_text())["kernel"], "slm-lora-eval")
+            self.assertFalse((reports / "lora_eval_1b7.json").exists())
+
+    def test_main_takes_owner_or_input_dir_but_not_both(self):
+        with tempfile.TemporaryDirectory() as directory:
+            out = Path(directory) / "RESULTS.md"
+            # A folder that is not there would turn every report into "not yet" and wipe the real numbers.
+            for argv in ([], ["--owner", "someone", "--input-dir", directory],
+                         ["--input-dir", str(Path(directory) / "absent")]):
+                with self.subTest(argv=argv), mock.patch("sys.stderr"), self.assertRaises(SystemExit):
+                    collect_results.main(argv + ["--out", str(out)])
+            self.assertFalse(out.exists())
 
     def test_header_names_the_answer_keys(self):
         empty = {"pretrain": [], "lora": None, "lora_eval": None, "distill": None, "sft": None, "eval": None}

@@ -1,7 +1,7 @@
 "use strict";
 
 const $ = (id) => document.getElementById(id);
-const state = { status: null, offline: false, busy: false, slow: false, notice: null, stopEdited: false, stopTask: "language_generation", started: false, answered: 0 };
+const state = { status: null, offline: false, busy: false, slow: false, notice: null, stopEdited: false, chosen: false, stopTask: "language_generation", started: false, answered: 0 };
 // Every question asked in this tab with each answer it got, so a turn can be drawn again from data.
 const runs = [];
 const encoder = new TextEncoder();
@@ -70,15 +70,23 @@ function applyKeys(value) {
   for (const row of document.querySelectorAll(".single-key")) row.hidden = value === "off";
 }
 
-function saveSettings() {
+// The theme, shortcut and task switches and the starter questions save too, so chosen records whether the
+// viewer ever picked the sampling values themselves; only then do they outrank a LoRA model's Steady start.
+function saveSettings(chosen = false) {
+  state.chosen ||= chosen;
   const values = Object.fromEntries([...Object.keys(DEFAULTS), "stop-sequences"].map((id) => [id, $(id).value]));
-  writeStore("localStorage", "studio-settings", { ...values, stopEdited: state.stopEdited });
+  writeStore("localStorage", "studio-settings", { ...values, stopEdited: state.stopEdited, chosen: state.chosen });
 }
 
 function restoreSettings() {
   const saved = readStore("localStorage", "studio-settings");
   if (!saved || typeof saved !== "object") return;
+  // Settings saved before chosen existed count as a choice when their sampling values differ from Balanced.
+  state.chosen = saved.chosen === true || (saved.chosen === undefined
+    && Object.entries(PRESETS.balanced).some(([id, value]) => typeof saved[id] === "string" && saved[id] !== String(value)));
   for (const id of [...Object.keys(DEFAULTS), "stop-sequences"]) {
+    // Unchosen sampling values may be a LoRA model's Steady start, which an in-house model must not inherit.
+    if (!state.chosen && id in PRESETS.balanced) continue;
     // A task type from an older page may no longer exist, and a select would then show nothing.
     if (typeof saved[id] === "string" && (id !== "task-type" || saved[id] in labels)) $(id).value = saved[id];
   }
@@ -745,9 +753,9 @@ async function pollStatus() {
     // A poll the server answered while this page's own request held the model would undo the busy = false
     // set when that answer arrived.
     if (state.answered !== answered && status?.busy) status.busy = false;
-    // The published LoRA scores used greedy decoding, so a viewer with no saved settings starts on Steady.
-    // Only the first answered poll decides, and a saved choice, even Balanced, is never replaced.
-    if (!state.status && status?.model?.lora === true && !readStore("localStorage", "studio-settings")) {
+    // The published LoRA scores used greedy decoding, so a viewer who never picked sampling values starts on Steady.
+    // Only the first answered poll decides, and a chosen preset or slider value, even Balanced, is never replaced.
+    if (!state.status && status?.model?.lora === true && !state.chosen) {
       for (const [id, value] of Object.entries(PRESETS.steady)) $(id).value = String(value);
     }
     state.status = status;
@@ -920,10 +928,12 @@ $("reset-settings").addEventListener("click", () => {
   $("stop-sequences").value = defaultStops($("task-type").value);
   state.stopTask = $("task-type").value;
   state.notice = null;
-  syncComposer(); saveSettings();
+  syncComposer(); saveSettings(true);
 });
 // Change events arrive after a preset has filled in its values, and after a slider is let go.
-for (const type of ["input", "change"]) $("settings").addEventListener(type, saveSettings);
+for (const type of ["input", "change"]) {
+  $("settings").addEventListener(type, (event) => saveSettings(event.target.name === "preset" || event.target.id in PRESETS.balanced));
+}
 for (const name of ["settings", "about"]) {
   const dialog = $(name);
   let pressed = false;

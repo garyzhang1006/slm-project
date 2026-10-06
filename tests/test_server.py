@@ -306,7 +306,7 @@ class StudioAssetTests(unittest.TestCase):
         # The theme and shortcut switches sit in Settings too but never redraw, so they leave the notice alone.
         self.assertIn('$("settings").addEventListener("input", (event) => { if (!["theme", "keys"].includes('
                       'event.target.name)) state.notice = null; }, true);', script)
-        self.assertIn('state.stopTask = $("task-type").value;\n  state.notice = null;\n  syncComposer(); saveSettings();',
+        self.assertIn('state.stopTask = $("task-type").value;\n  state.notice = null;\n  syncComposer(); saveSettings(true);',
                       script)
 
     def test_unreadable_answer_is_an_error(self):
@@ -455,12 +455,56 @@ class StudioAssetTests(unittest.TestCase):
         # The published LoRA scores decoded greedily, but Balanced stays the page and API default for everyone else.
         script = (self.web / "app.js").read_text()
         poll = script[script.index("async function pollStatus()"):script.index("function renderStatus()")]
-        self.assertIn('if (!state.status && status?.model?.lora === true && !readStore("localStorage", "studio-settings")) {\n'
+        self.assertIn('if (!state.status && status?.model?.lora === true && !state.chosen) {\n'
                       '      for (const [id, value] of Object.entries(PRESETS.steady)) $(id).value = String(value);', poll)
         self.assertLess(poll.index("PRESETS.steady"), poll.index("state.status = status;"))
         self.assertIn("  steady: { temperature: 0,", script)
         self.assertIs(LoraRuntime(Path("adapter")).status()["model"]["lora"], True)
         self.assertNotIn("lora", ModelRuntime(Path("unused")).status()["model"])
+        # The theme and shortcut radios and the starter questions save settings too, so only a preset, a sampling
+        # field or Reset answer settings counts as a choice; an unchosen save keeps the earlier flag as it was.
+        save = script[script.index("function saveSettings("):script.index("// A newline stop keeps")]
+        self.assertIn("function saveSettings(chosen = false) {\n  state.chosen ||= chosen;", save)
+        self.assertIn("stopEdited: state.stopEdited, chosen: state.chosen });", save)
+        self.assertIn('for (const type of ["input", "change"]) {\n  $("settings").addEventListener(type, (event) => '
+                      'saveSettings(event.target.name === "preset" || event.target.id in PRESETS.balanced));\n}', script)
+        self.assertNotIn('addEventListener(type, saveSettings)', script)
+        chip = script[script.index('document.querySelectorAll("[data-prompt]")'):script.index('$("source-example")')]
+        self.assertIn("saveSettings();", chip)
+        self.assertNotIn("saveSettings(true)", chip)
+        node = shutil.which("node")
+        if node is None:
+            self.skipTest("node is not installed")
+        store = script[script.index("function readStore("):script.index("function savedTheme(")]
+        constants = script[script.index("const DEFAULTS = "):script.index("const FIELDS = ")]
+        probe = (constants + store + save + """
+const state = { chosen: false, stopEdited: false };
+const labels = { language_generation: "Language generation" };
+const elements = {};
+const $ = (id) => elements[id];
+const window = { localStorage: { items: {}, getItem(key) { return key in this.items ? this.items[key] : null; },
+                                 setItem(key, value) { this.items[key] = String(value); } } };
+const saved = () => JSON.parse(window.localStorage.getItem("studio-settings"));
+const fresh = () => {
+  for (const [id, value] of Object.entries(DEFAULTS)) elements[id] = { value };
+  elements["stop-sequences"] = { value: "\\\\n" };
+  state.chosen = false;
+};
+const out = [];
+fresh(); window.localStorage.setItem("studio-settings", JSON.stringify({ ...DEFAULTS }));
+restoreSettings(); out.push(state.chosen);
+elements.temperature.value = "0"; saveSettings();
+fresh(); restoreSettings(); out.push(state.chosen, elements.temperature.value, saved().chosen);
+saveSettings(true); saveSettings(); out.push(saved().chosen);
+fresh(); restoreSettings(); out.push(state.chosen);
+fresh(); window.localStorage.setItem("studio-settings", JSON.stringify({ ...DEFAULTS, temperature: "0.9" }));
+restoreSettings(); out.push(state.chosen, elements.temperature.value);
+console.log(JSON.stringify(out));
+""")
+        result = subprocess.run([node, "-e", probe], capture_output=True, text=True, timeout=30, check=True)
+        # Balanced saved before chosen existed is no choice, and the Steady start a starter question saved is not
+        # restored; Reset or a preset sticks through later unchosen saves; an older entry off Balanced is a choice.
+        self.assertEqual(json.loads(result.stdout), [False, False, "0.3", False, True, True, True, "0.9"])
 
     def test_failed_thread_save_drops_the_stale_copy_and_says_so(self):
         script = (self.web / "app.js").read_text()

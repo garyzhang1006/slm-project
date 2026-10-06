@@ -189,7 +189,7 @@ def run_logged(command: list[str], log_path: Path) -> str:
     return log_path.read_text()
 
 
-def setup_kaggle(label: str):
+def setup_kaggle(label: str, require_gpu: bool = True):
     if not Path("/kaggle/working").is_dir():
         raise RuntimeError(f"{label} must run on Kaggle; local model execution is prohibited")
     os.chdir(ROOT)
@@ -197,9 +197,11 @@ def setup_kaggle(label: str):
     os.environ.update(PYTHONPATH=str(ROOT / "src"), OMP_NUM_THREADS="2", PYTHONUNBUFFERED="1")
     import torch
 
-    if not torch.cuda.is_available() or (torch.ones(1, device="cuda") + 1).item() != 2:
+    gpu = torch.cuda.is_available() and (torch.ones(1, device="cuda") + 1).item() == 2
+    if require_gpu and not gpu:
         raise RuntimeError("Enable a working NvidiaTeslaT4 GPU (kaggle kernels push --accelerator NvidiaTeslaT4)")
-    torch.set_num_threads(2)
+    # On a CPU session the matmuls run on the host, so they get every core instead of the two left for data.
+    torch.set_num_threads(2 if gpu else os.cpu_count() or 2)
     manifest_path = ROOT / "source-manifest.json"
     manifest = json.loads(manifest_path.read_text()) if manifest_path.exists() else {}
     for name, expected in manifest.items():

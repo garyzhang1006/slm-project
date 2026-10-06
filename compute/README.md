@@ -106,6 +106,8 @@ python3 compute/package.py --stage eval --out /tmp/slm-eval
 kaggle kernels push -p /tmp/slm-eval --accelerator NvidiaTeslaT4
 ```
 
+Eval only runs forward passes, so it also runs on a CPU session when the weekly GPU quota is spent: set `"enable_gpu": false` in `/tmp/slm-eval/kernel-metadata.json`, delete its `machine_shape` line, and push without `--accelerator`. Its report then has `"gpu": null`.
+
 ### LoRA fast path
 
 The LoRA baseline needs only the sft_data kernel, so it can run on day one while pretraining is still going. It tells you what an existing 360M instruct model reaches on the same 24 questions with the same data, which sets the bar the 160M model has to clear.

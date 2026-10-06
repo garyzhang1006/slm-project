@@ -93,18 +93,20 @@ def main(argv: list[str] | None = None) -> None:
                         help="File name to find under /kaggle/input, e.g. slm-160m-pretrain.pt")
     args = parser.parse_args(argv)
     started = time.monotonic()
-    torch, manifest = setup_kaggle("Evaluation")
+    # Evaluation is forward passes only, so it also fits a CPU session when the weekly GPU quota is spent.
+    torch, manifest = setup_kaggle("Evaluation", require_gpu=False)
     from cognition_slm.generate import generate_text, load_checkpoint
     from score_holdout import score_predictions
 
     checkpoint = find_one(args.checkpoint_name)
-    device = torch.device("cuda")
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model, tokenizer = load_checkpoint(checkpoint, device)
     model.train(False)
     report_path = ROOT / "eval_report.json"
     report = {"status": "generating", "checkpoint": str(checkpoint), "sha256": digest(checkpoint),
               "parameters": sum(parameter.numel() for parameter in model.parameters()),
-              "source_manifest": manifest, "gpu": torch.cuda.get_device_name(0),
+              "source_manifest": manifest,
+              "gpu": torch.cuda.get_device_name(0) if device.type == "cuda" else None,
               "decoding": {"temperature": 0, "max_new_tokens": MAX_NEW_TOKENS, "stop": list(STOP),
                            "task_type": TASK_TYPE}}
     holdout = json.loads((ROOT / "data/simple_questions_holdout.json").read_text())["rows"]

@@ -333,6 +333,91 @@ class TrainingIntegrationTests(unittest.TestCase):
                 with self.assertRaisesRegex(ValueError, message):
                     train(args)
 
+    @staticmethod
+    def validations(*losses):
+        return [{"records": 2, "loss": loss, "lm_loss": loss, "supervised_tokens": 20, "task_accuracy": None,
+                 "error_accuracy": None, "confidence_bucket_accuracy": None} for loss in losses]
+
+    def test_best_out_keeps_the_step_with_the_lowest_eval_loss(self):
+        # Both LoRA runs got worse after epoch 1 or 2, so a falling then rising curve must ship its low point.
+        import torch
+        from unittest.mock import patch
+        from cognition_slm.generate import load_checkpoint
+        from cognition_slm.train import _atomic_save, train
+
+        best = self.root / "best.pt"
+        step_two = self.root / "step-two.pt"
+
+        def capture(torch_module, payload, path):
+            _atomic_save(torch_module, payload, path)
+            if "optimizer_state_dict" in payload and payload["metadata"]["step"] == 2:
+                step_two.write_bytes(path.read_bytes())
+
+        with patch("cognition_slm.train._atomic_save", side_effect=capture), \
+                patch("cognition_slm.train._validation_summary", side_effect=self.validations(2.0, 1.5, 1.8)):
+            result = train(self.args(eval_data=str(self.data), eval_every=1, best_out=str(best)))
+        self.assertEqual((result["best_step"], result["best_eval_lm_loss"], result["best_out"]), (2, 1.5, str(best)))
+        self.assertEqual(result["validation"]["lm_loss"], 1.8)
+        saved = torch.load(best, weights_only=True)
+        self.assertEqual(sorted(saved), ["metadata", "model_config", "model_state_dict"])
+        self.assertEqual((saved["metadata"]["step"], saved["metadata"]["best_eval_lm_loss"]), (2, 1.5))
+        expected = torch.load(step_two, weights_only=True)["model_state_dict"]
+        for name, weight in expected.items():
+            torch.testing.assert_close(weight, saved["model_state_dict"][name], rtol=0, atol=0)
+        final = torch.load(result["checkpoint"], weights_only=True)["metadata"]
+        self.assertEqual((final["step"], final["best_step"], final["best_eval_lm_loss"]), (3, 2, 1.5))
+        model, _ = load_checkpoint(best, torch.device("cpu"))
+        self.assertEqual(sum(parameter.numel() for parameter in model.parameters()), result["parameter_count"])
+
+    def test_resume_keeps_a_better_earlier_best_file(self):
+        import torch
+        from unittest.mock import patch
+        from cognition_slm.train import train
+
+        best = self.root / "best.pt"
+        options = dict(eval_data=str(self.data), eval_every=1, best_out=str(best))
+        with patch("cognition_slm.train._validation_summary", side_effect=self.validations(1.0, 1.2)):
+            parent = train(self.args("parent.pt", steps=2, **options))
+        written = best.read_bytes()
+        with patch("cognition_slm.train._validation_summary", side_effect=self.validations(1.1)):
+            worse = train(self.args("worse.pt", resume=parent["checkpoint"], **options))
+        self.assertEqual(best.read_bytes(), written)
+        self.assertEqual((worse["best_step"], worse["best_eval_lm_loss"]), (1, 1.0))
+        with patch("cognition_slm.train._validation_summary", side_effect=self.validations(0.5)):
+            better = train(self.args("better.pt", resume=parent["checkpoint"], **options))
+        self.assertEqual((better["best_step"], better["best_eval_lm_loss"]), (3, 0.5))
+        self.assertEqual(torch.load(best, weights_only=True)["metadata"]["best_step"], 3)
+
+    def test_best_out_needs_held_out_data_and_its_own_file(self):
+        import contextlib
+        import io
+        import sys
+        from unittest.mock import patch
+        from cognition_slm.train import main, train
+
+        held_out = self.root / "eval.jsonl"
+        held_out.write_text(self.data.read_text())
+        out = str(self.root / "model.pt")
+        base = ["train", "--data", str(self.data), "--out", out]
+        for extra, message in ((["--best-out", str(self.root / "best.pt")], "--best-out requires --eval-data"),
+                               (["--eval-data", str(held_out), "--best-out", out], "--best-out must not be the --out"),
+                               (["--eval-data", str(held_out), "--best-out", str(self.data)],
+                                "--best-out must not be the --data"),
+                               (["--eval-data", str(held_out), "--best-out", str(held_out)],
+                                "--best-out must not be the --eval-data")):
+            with self.subTest(extra=extra), contextlib.redirect_stderr(io.StringIO()) as stderr, \
+                    patch.object(sys, "argv", base + extra), patch("cognition_slm.train.train") as run:
+                with self.assertRaises(SystemExit) as raised:
+                    main()
+                self.assertEqual(raised.exception.code, 2)
+                self.assertIn(message, stderr.getvalue())
+                run.assert_not_called()
+        with self.assertRaisesRegex(ValueError, "--best-out requires --eval-data"):
+            train(self.args(best_out=str(self.root / "best.pt")))
+        with patch("cognition_slm.train._batch", side_effect=AssertionError("trained")), \
+                self.assertRaisesRegex(ValueError, "--best-out .* is a directory"):
+            train(self.args(eval_data=str(held_out), best_out=str(self.root)))
+
     def test_a_record_that_cannot_be_encoded_names_its_file(self):
         # encode_examples names only the record, so a bad --eval-data row read as if --data held it.
         import json

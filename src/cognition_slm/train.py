@@ -260,6 +260,9 @@ def train(args: argparse.Namespace) -> dict:
         raise ValueError("--eval-data cannot be combined with --pretrain-eval-text")
     if args.dry_run and args.resume:
         raise ValueError("--dry-run cannot be combined with --resume")
+    best_out = getattr(args, "best_out", None)
+    if best_out and not (args.eval_data or pretrain_eval_text):
+        raise ValueError("--best-out requires --eval-data or --pretrain-eval-text")
     torch = None
     fused_adamw = getattr(args, "fused_adamw", False)
     # Checked before the data and any resume checkpoint load, which can take a while on a full corpus.
@@ -344,16 +347,20 @@ def train(args: argparse.Namespace) -> dict:
         }
 
     output_path = Path(args.out)
+    best_path = Path(best_out) if best_out else None
     # A bad --out would otherwise fail at the first save, after the steps that save was meant to keep.
-    if output_path.is_dir():
-        raise ValueError(f"--out {output_path} is a directory; name a checkpoint file such as {output_path / 'model.pt'}")
-    try:
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        descriptor, probe = tempfile.mkstemp(prefix=f".{output_path.name}.", dir=output_path.parent)
-        os.close(descriptor)
-        Path(probe).unlink()
-    except OSError as exc:
-        raise ValueError(f"cannot write --out {output_path}: {exc}") from exc
+    for flag, path in (("--out", output_path), ("--best-out", best_path)):
+        if path is None:
+            continue
+        if path.is_dir():
+            raise ValueError(f"{flag} {path} is a directory; name a checkpoint file such as {path / 'model.pt'}")
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            descriptor, probe = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+            os.close(descriptor)
+            Path(probe).unlink()
+        except OSError as exc:
+            raise ValueError(f"cannot write {flag} {path}: {exc}") from exc
     source_path = Path(pretrain_text or args.data).resolve()
     source_sha256 = file_sha256(source_path)
     data_changed = False
@@ -442,6 +449,15 @@ def train(args: argparse.Namespace) -> dict:
     if data_changed:
         # The old sample position indexes a permutation of different rows.
         sample_offset = 0
+    best_step = None
+    best_loss = None
+    if checkpoint is not None and best_path is not None and not data_changed:
+        # Carrying the resumed run's best keeps a worse later validation from replacing its better file,
+        # but only for the same file that run wrote; any other path starts its own best.
+        recorded_loss, recorded_out = metadata.get("best_eval_lm_loss"), metadata.get("best_out")
+        if isinstance(recorded_loss, (int, float)) and isinstance(recorded_out, str) \
+                and Path(recorded_out) == best_path.resolve() and best_path.exists():
+            best_loss, best_step = float(recorded_loss), metadata.get("best_step")
     if checkpoint is not None and sample_offset:
         # samples_seen indexes the seed's epoch permutations; another seed would repeat and skip records.
         saved_seed = metadata.get("seed")
@@ -528,8 +544,25 @@ def train(args: argparse.Namespace) -> dict:
                 "optimizer_steps": scheduler.last_epoch,
                 "skipped_optimizer_steps": skipped_optimizer_steps,
                 "samples_seen": sample_offset,
+                "best_step": best_step, "best_eval_lm_loss": best_loss,
+                "best_out": str(best_path.resolve()) if best_path else None,
             },
         }, output_path)
+
+    def save_best(step: int, validation: dict) -> None:
+        # Weights only, the layout stage 4 ships, which every checkpoint loader reads.
+        _atomic_save(torch, {
+            "model_config": config.to_dict(),
+            "model_state_dict": model.state_dict(),
+            "metadata": {
+                "records": len(examples), "steps": step, "step": step, "objective": objective,
+                "training_source": str(source_path), "training_source_sha256": source_sha256,
+                "block_size": config.block_size, "seed": args.seed, "device": str(device),
+                "learning_rate": base_learning_rate, "precision": precision,
+                "parameter_count": parameter_count, "checkpoint_format": "model_only",
+                "best_step": step, "best_eval_lm_loss": validation["lm_loss"], "validation": validation,
+            },
+        }, best_path)
 
     started_at = monotonic()
     for step in range(start_step + 1, args.steps + 1):
@@ -608,6 +641,11 @@ def train(args: argparse.Namespace) -> dict:
                     f"eval_step={step} val_loss={validation['loss']:.4f} "
                     f"task_accuracy={'n/a' if accuracy is None else format(accuracy, '.3f')}"
                 )
+                lm_loss = validation["lm_loss"]
+                if best_path is not None and math.isfinite(lm_loss) and (best_loss is None or lm_loss < best_loss):
+                    save_best(step, validation)
+                    # Set only after the write, so the full checkpoint never records a best file that failed.
+                    best_loss, best_step = lm_loss, step
                 model.train()
         finally:
             # Preserve completed updates even if final validation fails.
@@ -645,6 +683,9 @@ def train(args: argparse.Namespace) -> dict:
         "device": str(device),
         "resumed_from_step": start_step,
         "validation": validation_history[-1] if validation_history else None,
+        "best_step": best_step,
+        "best_eval_lm_loss": best_loss,
+        "best_out": str(best_path) if best_path else None,
         "parameter_count": parameter_count,
         "effective_batch_size": args.batch_size * accumulation,
         "optimizer_steps": scheduler.last_epoch,
@@ -670,6 +711,12 @@ def build_parser() -> argparse.ArgumentParser:
              "next-token loss on every position, and skip the task/error/confidence losses",
     )
     parser.add_argument("--out", default="artifacts/demo.pt")
+    parser.add_argument(
+        "--best-out",
+        help="With --eval-data or --pretrain-eval-text, also save the weights from the validation with the "
+             "lowest held-out lm_loss so far to this model-only checkpoint; a resume to the same file keeps "
+             "a better earlier best",
+    )
     parser.add_argument("--steps", type=int, default=100)
     parser.add_argument(
         "--max-seconds", type=float,
@@ -774,6 +821,15 @@ def main() -> None:
         path = getattr(args, flag[2:].replace("-", "_"))
         if path and Path(path).resolve() == out_path:
             parser.error(f"--out must not be the {flag} file, or the first checkpoint save would replace that data")
+    if args.best_out:
+        if not (args.eval_data or args.pretrain_eval_text):
+            parser.error("--best-out requires --eval-data or --pretrain-eval-text")
+        best_path = Path(args.best_out).resolve()
+        # The weights-only best file would also leave a --resume file unable to restore its optimizer.
+        for flag in ("--out", "--resume", "--data", "--pretrain-text", "--eval-data", "--pretrain-eval-text"):
+            path = getattr(args, flag[2:].replace("-", "_"))
+            if path and Path(path).resolve() == best_path:
+                parser.error(f"--best-out must not be the {flag} file, or saving the best weights would replace it")
     try:
         result = train(args)
     except (OSError, ValueError) as exc:

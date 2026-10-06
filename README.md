@@ -105,6 +105,7 @@ some training options that matter:
 - `--pretrain-text file.jsonl` takes one `{"text": ...}` object per line, packs the text into full 2048-byte rows and puts the loss on every token. use it for web text, since wrapping paragraphs as fake instructions teaches the wrong thing.
 - `--aux-loss-weight 0` turns off the three extra outputs. use it when their labels are the same constant for every record.
 - `--max-seconds` stops after the current step once the time is up and saves everything, so kaggle never kills a session halfway through writing a checkpoint.
+- `--best-out best.pt` with `--eval-data` also saves the weights from the validation with the lowest held-out loss so far, without optimizer state. a resume to the same file never replaces a better earlier best with a worse one.
 - when fp16 overflows, that step is skipped and training continues.
 
 this is a plain instruction training run for a kaggle notebook:

@@ -1,7 +1,8 @@
 """Drive the slm-160m chain on Kaggle: pretrain sessions until PRETRAIN_TOTAL_STEPS, then distill_data, sft, eval.
 
-Beside it run two LoRA chains: sft_data, the 360M adapter, then lora_eval and distill_data on that adapter;
-and the 1.7B adapter (lora_1b7) with its own eval, which gets whatever GPU quota the other chains leave.
+Beside it run two LoRA chains: sft_data, the 360M adapter, then lora_eval on that adapter; and the 1.7B adapter
+(lora_1b7), then lora_1b7_eval and distill_data, the answers sft trains on, on that adapter. The 1.7B chain gets
+whatever GPU quota the other chains leave.
 Each round reads kernel statuses and reports, decides one action per chain, and (unless --dry-run) pushes the
 next kernels. It never runs a model locally; every push goes to a Kaggle GPU. It checks the weekly GPU quota before
 each push, so a session that would be killed half way for lack of quota waits for the reset instead.
@@ -26,7 +27,9 @@ if str(ROOT) not in sys.path:
 
 from compute.stages import DISTILL_FILTERS_VERSION, PRETRAIN_SESSION_SECONDS, stage_slug  # noqa: E402
 
-# GPU hours a push must have left in the weekly quota: the stage's own time cap plus setup and save.
+# GPU hours a push must have left in the weekly quota: the stage's own time cap plus setup and save. distill_data
+# took 1,055 s on the 360M teacher, and the 1.7B adapter answered the everyday questions in 36.8 s against 17.5 s,
+# so about 2,200 s, or 0.6 hours, on the 1.7B teacher leaves room for its larger download inside 1.5.
 STAGE_HOURS = {"pretrain": PRETRAIN_SESSION_SECONDS / 3600 + 1.0, "distill_data": 1.5, "sft": 9.5,
                "eval": 1.0, "lora": 4.0, "lora_eval": 1.0, "sft_data": 0.0,
                "lora_1b7": 5.5, "lora_1b7_eval": 1.5}
@@ -34,7 +37,8 @@ STAGE_HOURS = {"pretrain": PRETRAIN_SESSION_SECONDS / 3600 + 1.0, "distill_data"
 ADAPTER_USERS = {"lora_eval": ("lora_eval_report.json", ("adapter_sha256",)),
                  "distill_data": ("distill_manifest.json", ("teacher", "adapter_sha256")),
                  "lora_1b7_eval": ("lora_eval_report.json", ("adapter_sha256",))}
-LORA_FOLLOW_UPS = ("lora_eval", "distill_data")
+LORA_FOLLOW_UPS = ("lora_eval",)
+LARGE_LORA_FOLLOW_UPS = ("lora_1b7_eval", "distill_data")
 TERMINAL = {"done", "stop"}
 # Kaggle numbers pretrain sessions from 1; a chain this long means something is looping.
 MAX_PRETRAIN_SESSIONS = 20
@@ -115,11 +119,11 @@ def next_action(status, report, quota_hours: float) -> dict:
     if session_report.get("status") != "complete":
         return action("stop", f"pretrain session {last} report status is {session_report.get('status')!r}")
 
-    # sft attaches the distilled answers; lora_action builds them from the current adapter.
-    adapter = current_adapter(status, report)
+    # sft attaches the distilled answers; large_lora_action builds them from the current 1.7B adapter.
+    adapter = current_adapter(status, report, "lora_1b7")
     if not follow_up_fresh(status, report, "distill_data", adapter):
-        return action("wait", "sft waits for distill_data built from the current LoRA adapter and answer filters",
-                      needs="lora")
+        return action("wait", "sft waits for distill_data built from the current 1.7B LoRA adapter and answer "
+                              "filters", needs="lora_1b7")
 
     sft = status(stage_slug("sft"))
     if sft in WAITING:
@@ -135,7 +139,7 @@ def next_action(status, report, quota_hours: float) -> dict:
         return push_if_quota("sft", quota_hours, f"sft was built on pretrain session "
                              f"{sft_report.get('pretrain_session')}, not {last}", pretrain_session=last)
     if dig(sft_report, ("distill", "teacher_adapter_sha256")) != adapter:
-        return push_if_quota("sft", quota_hours, "sft trained on answers distilled from an older LoRA adapter",
+        return push_if_quota("sft", quota_hours, "sft trained on answers distilled from another LoRA adapter",
                              pretrain_session=last)
     if dig(sft_report, ("distill", "filters_version")) != DISTILL_FILTERS_VERSION:
         return push_if_quota("sft", quota_hours, "sft trained on distilled answers kept by older answer filters",
@@ -169,12 +173,12 @@ def dig(value, keys: tuple[str, ...]):
     return value
 
 
-def current_adapter(status, report) -> str | None:
-    """adapter_sha256 of the finished LoRA kernel, or None while it is missing, running, from an older runner,
-    or trained on an older sft_data build that lora_action is about to replace."""
-    if status(stage_slug("lora")) != "complete":
+def current_adapter(status, report, stage: str) -> str | None:
+    """adapter_sha256 of the finished LoRA kernel for stage, or None while it is missing, running, from an older
+    runner, or trained on an older sft_data build that its chain is about to replace."""
+    if status(stage_slug(stage)) != "complete":
         return None
-    lora_report = report(stage_slug("lora"), "lora_report.json")
+    lora_report = report(stage_slug(stage), "lora_report.json")
     adapter = dig(lora_report, ("adapter_sha256",))
     if not adapter:
         return None
@@ -208,7 +212,7 @@ def stale_training_data(report, lora_report: dict) -> tuple[bool, dict | None]:
 
 
 def lora_action(status, report, quota_hours: float) -> dict:
-    """One decision for the LoRA chain: sft_data, lora, then lora_eval and distill_data on the same adapter."""
+    """One decision for the 360M LoRA chain: sft_data, lora, then lora_eval on the same adapter."""
     data = status(stage_slug("sft_data"))
     if data in WAITING:
         return action("wait", f"sft_data is {data}")
@@ -237,36 +241,18 @@ def lora_action(status, report, quota_hours: float) -> dict:
         if blocked:
             return blocked
     if stale:
-        # A new lora version replaces the output that queued follow-ups would mount, so let them finish first.
-        busy = [stage for stage, state in followers.items() if state in WAITING]
+        busy = waiting_follow_ups(followers)
         if busy:
-            return action("wait", f"the adapter needs retraining once {', '.join(busy)} finishes")
+            return busy
         return push_if_quota("lora", quota_hours, "the adapter trained on an older sft_data build" if adapter else
                              "the adapter predates best-step selection and the merged export, so it has no "
                              "adapter_sha256")
-
-    waiting, stopped = [], []
-    for stage, state in followers.items():
-        fresh = state == "complete" and follow_up_fresh(status, report, stage, adapter)
-        if state in WAITING:
-            waiting.append(f"{stage} is {state}")
-        elif fresh is None:
-            waiting.append(unreadable(ADAPTER_USERS[stage][0], stage)["reason"])
-        elif state == "missing" or (state == "complete" and not fresh):
-            filters = " with the current answer filters" if stage == "distill_data" else ""
-            return push_if_quota(stage, quota_hours, f"{stage} has not run on adapter {adapter[:12]}{filters}")
-        elif state != "complete":
-            stopped.append(f"{stage} ended as {state}; read its log before retrying")
-    # A follow-up still running may be the one the main chain needs, so a failed one waits for it before stopping.
-    if waiting:
-        return action("wait", "; ".join(waiting + stopped))
-    if stopped:
-        return action("stop", "; ".join(stopped))
-    return action("done", f"lora_eval and distill_data both used adapter {adapter[:12]}")
+    return follow_up_action(status, report, quota_hours, followers, adapter)
 
 
 def large_lora_action(status, report, quota_hours: float) -> dict:
-    """One decision for the 1.7B chain: lora_1b7 on the shared sft_data, then lora_1b7_eval on its adapter."""
+    """One decision for the 1.7B chain: lora_1b7 on the shared sft_data, then lora_1b7_eval and distill_data on its
+    adapter."""
     data = status(stage_slug("sft_data"))
     if data in WAITING or data == "missing":
         # lora_action pushes sft_data; pushing it here too would start two versions in one round.
@@ -289,19 +275,41 @@ def large_lora_action(status, report, quota_hours: float) -> dict:
     stale, blocked = stale_training_data(report, lora_report)
     if blocked:
         return blocked
-    evaluation = status(stage_slug("lora_1b7_eval"))
-    if evaluation in WAITING:
-        return action("wait", f"lora_1b7_eval is {evaluation}")
+    followers = {stage: status(stage_slug(stage)) for stage in LARGE_LORA_FOLLOW_UPS}
     if stale:
+        busy = waiting_follow_ups(followers)
+        if busy:
+            return busy
         return push_if_quota("lora_1b7", quota_hours, "lora_1b7 trained on an older sft_data build")
-    fresh = evaluation == "complete" and follow_up_fresh(status, report, "lora_1b7_eval", adapter)
-    if fresh is None:
-        return unreadable("lora_eval_report.json", "lora_1b7_eval")
-    if evaluation == "missing" or (evaluation == "complete" and not fresh):
-        return push_if_quota("lora_1b7_eval", quota_hours, f"lora_1b7_eval has not run on adapter {adapter[:12]}")
-    if evaluation != "complete":
-        return action("stop", f"lora_1b7_eval ended as {evaluation}; read its log before retrying")
-    return action("done", f"lora_1b7_eval used adapter {adapter[:12]}")
+    return follow_up_action(status, report, quota_hours, followers, adapter)
+
+
+def waiting_follow_ups(followers: dict[str, str]) -> dict | None:
+    """A wait while any follow-up is queued or running, since a new adapter version replaces the output it mounts."""
+    busy = [stage for stage, state in followers.items() if state in WAITING]
+    return action("wait", f"the adapter needs retraining once {', '.join(busy)} finishes") if busy else None
+
+
+def follow_up_action(status, report, quota_hours: float, followers: dict[str, str], adapter: str) -> dict:
+    """Push the first follow-up that has not run on adapter, else wait, stop or finish on their states."""
+    waiting, stopped = [], []
+    for stage, state in followers.items():
+        fresh = state == "complete" and follow_up_fresh(status, report, stage, adapter)
+        if state in WAITING:
+            waiting.append(f"{stage} is {state}")
+        elif fresh is None:
+            waiting.append(unreadable(ADAPTER_USERS[stage][0], stage)["reason"])
+        elif state == "missing" or (state == "complete" and not fresh):
+            filters = " with the current answer filters" if stage == "distill_data" else ""
+            return push_if_quota(stage, quota_hours, f"{stage} has not run on adapter {adapter[:12]}{filters}")
+        elif state != "complete":
+            stopped.append(f"{stage} ended as {state}; read its log before retrying")
+    # A follow-up still running may be the one the main chain needs, so a failed one waits for it before stopping.
+    if waiting:
+        return action("wait", "; ".join(waiting + stopped))
+    if stopped:
+        return action("stop", "; ".join(stopped))
+    return action("done", f"{' and '.join(followers)} used adapter {adapter[:12]}")
 
 
 def decide_round(status, report, quota_hours: float) -> list[dict]:
@@ -313,9 +321,9 @@ def decide_round(status, report, quota_hours: float) -> list[dict]:
         if decision["kind"] == "push":
             quota_hours -= decision.get("hours", STAGE_HOURS[decision["stage"]])
         decisions.append(decision)
-    main, side = decisions[0], decisions[1]
-    if main.get("needs") == "lora" and side["kind"] == "stop":
-        decisions[0] = action("stop", f"{main['reason']}, but the LoRA chain stopped")
+    main, large = decisions[0], decisions[2]
+    if main.get("needs") == "lora_1b7" and large["kind"] == "stop":
+        decisions[0] = action("stop", f"{main['reason']}, but the 1.7B LoRA chain stopped")
     return decisions
 
 

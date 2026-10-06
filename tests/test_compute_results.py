@@ -92,7 +92,10 @@ class RenderTests(unittest.TestCase):
         for identifier in manual:
             self.assertIn(f"| {identifier} |", text)
         self.assertIn("5000 rows kept from 6000 prompts (dropped: empty_or_invalid 1000).", text)
-        self.assertIn("eval LM loss 1.200", text)
+        self.assertIn("3000 steps, eval LM loss 1.200.", text)
+        results["sft"]["best_step"] = 1500
+        text = collect_results.render(results, collect_results.rescore(results["lora_eval"]), "now")
+        self.assertIn("3000 steps, eval LM loss 1.200 from step 1500.", text)
         self.assertIn("Held-out text bits/byte: 1.100", text)
         self.assertNotIn("—", text)
 

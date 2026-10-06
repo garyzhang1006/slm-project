@@ -1,4 +1,4 @@
-"""Drive the slm-160m chain on Kaggle: pretrain sessions until one pass is done, then distill_data, sft, eval.
+"""Drive the slm-160m chain on Kaggle: pretrain sessions until PRETRAIN_TOTAL_STEPS, then distill_data, sft, eval.
 
 Beside it run two LoRA chains: sft_data, the 360M adapter, then lora_eval and distill_data on that adapter;
 and the 1.7B adapter (lora_1b7) with its own eval, which gets whatever GPU quota the other chains leave.

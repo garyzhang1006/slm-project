@@ -132,7 +132,9 @@ def lora_sections(name: str, lora: dict | None, lora_eval: dict | None, rescored
         for key, scores in rescored.items():
             lines.append(f"- {key}: base {exact(scores['base'])} exact and {contains(scores['base'])} contains, "
                          f"LoRA {exact(scores['lora'])} exact and {contains(scores['lora'])} contains")
-        lines += ["", "Exact means the whole reply is an accepted answer, or sentences that each are one. Contains means an accepted answer appears "
+        lines += ["", "Exact means the whole reply is an accepted answer, or sentences that each are one. An abstain "
+                  "reply is also exact when each clause only refuses, naming at most what it does not know, as in "
+                  "\"I don't know your name. You haven't told me.\" Contains means an accepted answer appears "
                   "as whole words in the reply, which credits full-sentence answers such as \"Water freezes at 0 "
                   "degrees Celsius.\" but can also credit a reply that names the answer and then contradicts it.",
                   "", "| category | base exact | LoRA exact | base contains | LoRA contains | scored |",
@@ -194,8 +196,10 @@ def render(results: dict, rescored: dict, stamp: str, large_rescored: dict | Non
     sft = results["sft"]
     if sft:
         steps = sft.get("training", {}).get("steps")
+        # eval_lm_loss belongs to the shipped best checkpoint, which can sit well before the last step trained.
+        best = f" from step {sft['best_step']}" if sft.get("best_step") is not None else ""
         lines.append(f"Status {sft.get('status')}, built on pretrain session {sft.get('pretrain_session')}, "
-                     f"{steps} steps, eval LM loss {number(sft.get('eval_lm_loss'))}.")
+                     f"{steps} steps, eval LM loss {number(sft.get('eval_lm_loss'))}{best}.")
     else:
         lines.append("No SFT report yet.")
 

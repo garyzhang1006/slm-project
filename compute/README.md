@@ -114,6 +114,25 @@ python3 compute/package.py --stage lora --out /tmp/slm-lora
 kaggle kernels push -p /tmp/slm-lora --accelerator NvidiaTeslaT4
 ```
 
+### Building kernels and RESULTS.md without running Python locally
+
+The `package kernel` workflow (`.github/workflows/package-kernel.yml`) runs `package.py` in GitHub Actions and uploads the kernel directory as an artifact named `kernel`. Start it from the Actions tab or with `gh workflow run`, giving `stage` and `owner`; `session`, `pretrain_session` and `also` (a comma list) become the `package.py` flags of the same names.
+
+The `results` stage builds RESULTS.md on Kaggle. Its CPU kernel, `slm-results`, has no internet and runs `collect_results.py --input-dir /kaggle/input`, which reads each report from the folder Kaggle mounts for the kernel that wrote it instead of downloading it. It attaches lora, lora_eval, lora_1b7, lora_1b7_eval, distill_data and pretrain sessions 1 to `PRETRAIN_SESSIONS_RUN`, or 1 to K with `--pretrain-session K`. sft and eval are attached only when you add `--also sft` or `--also eval` (`also=sft,eval` in the workflow), so the push never names a kernel that has not run yet.
+
+```bash
+gh workflow run package-kernel.yml -f stage=results -f owner=YOUR_KAGGLE_USERNAME
+gh run list --workflow package-kernel.yml   # note the run's ID once it has finished
+gh run download RUN_ID -n kernel -D /tmp/slm-results
+kaggle kernels push -p /tmp/slm-results
+kaggle kernels status YOUR_KAGGLE_USERNAME/slm-results
+kaggle kernels output YOUR_KAGGLE_USERNAME/slm-results -p ./kaggle-output/results --file-pattern '(RESULTS\.md|lora_eval_.*\.json)$'
+cp ./kaggle-output/results/slm-project/compute/RESULTS.md compute/RESULTS.md
+cp ./kaggle-output/results/slm-project/reports/lora_eval_*.json reports/
+```
+
+The kernel writes under `/kaggle/working/slm-project`, so check the paths after downloading. A report missing from the attached outputs shows as "not yet" in RESULTS.md, and the kernel writes no `reports/` file for it, so the `cp` leaves the one already in the repo alone.
+
 ## Where outputs land
 
 Each kernel writes under `/kaggle/working`, which Kaggle keeps as the kernel output. Later stages read those outputs from `/kaggle/input` when the packager lists the kernel in `kernel_sources`. To copy an output to your machine:

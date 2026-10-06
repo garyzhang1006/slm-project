@@ -1,0 +1,104 @@
+name: package kernel
+
+on:
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: Stage in compute/stages.py
+        type: choice
+        required: true
+        options:
+          - corpus
+          - pretrain
+          - sft_data
+          - sft
+          - eval
+          - lora
+          - distill_data
+          - lora_eval
+          - lora_1b7
+          - lora_1b7_eval
+          - results
+      owner:
+        description: Kaggle username that owns the kernels
+        type: string
+        required: true
+      session:
+        description: Pretrain session number (pretrain only)
+        type: string
+        required: false
+      pretrain_session:
+        description: Pretrain session to attach (sft), or the last of sessions 1 to K (results)
+        type: string
+        required: false
+      also:
+        description: Comma list of sft and eval kernels to attach as well (results only)
+        type: string
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        with:
+          python-version: "3.13"
+      # Inputs reach the shell only as environment variables, so a crafted value cannot become a command.
+      - name: Package
+        shell: bash
+        env:
+          STAGE: ${{ inputs.stage }}
+          OWNER: ${{ inputs.owner }}
+          SESSION: ${{ inputs.session }}
+          PRETRAIN_SESSION: ${{ inputs.pretrain_session }}
+          ALSO: ${{ inputs.also }}
+        run: |
+          set -euo pipefail
+          name_pattern='^[A-Za-z0-9_-]+$'
+          number_pattern='^[0-9]+$'
+          if [[ ! "$STAGE" =~ $name_pattern ]]; then
+            echo "stage must be one of the choices in compute/stages.py" >&2
+            exit 1
+          fi
+          if [[ ! "$OWNER" =~ $name_pattern ]]; then
+            echo "owner must be a Kaggle username of letters, digits, _ and -" >&2
+            exit 1
+          fi
+          args=(--stage "$STAGE" --owner "$OWNER" --out kernel)
+          if [[ -n "$SESSION" ]]; then
+            if [[ ! "$SESSION" =~ $number_pattern ]]; then
+              echo "session must be a whole number" >&2
+              exit 1
+            fi
+            args+=(--session "$SESSION")
+          fi
+          if [[ -n "$PRETRAIN_SESSION" ]]; then
+            if [[ ! "$PRETRAIN_SESSION" =~ $number_pattern ]]; then
+              echo "pretrain_session must be a whole number" >&2
+              exit 1
+            fi
+            args+=(--pretrain-session "$PRETRAIN_SESSION")
+          fi
+          if [[ -n "$ALSO" ]]; then
+            IFS=',' read -r -a extras <<< "$ALSO"
+            for extra in "${extras[@]}"; do
+              extra="${extra// /}"
+              case "$extra" in
+                sft|eval) args+=(--also "$extra") ;;
+                *)
+                  echo "also takes only sft and eval, separated by commas" >&2
+                  exit 1
+                  ;;
+              esac
+            done
+          fi
+          python compute/package.py "${args[@]}"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: kernel
+          path: kernel/
+          if-no-files-found: error

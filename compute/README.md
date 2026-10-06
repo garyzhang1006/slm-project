@@ -18,6 +18,7 @@ Nothing in this folder trains or downloads on your own machine. Every stage runs
 | lora_eval | `lora_eval.py` | `slm-lora-eval` | T4 | yes | lora |
 | lora_1b7 | `lora_baseline.py --model 1.7b` | `slm-lora-1b7` | T4 | yes | sft_data |
 | lora_1b7_eval | `lora_eval.py` | `slm-lora-1b7-eval` | T4 | yes | lora_1b7 |
+| results | `collect_results.py --input-dir /kaggle/input` | `slm-results` | CPU | no | lora, lora_eval, lora_1b7, lora_1b7_eval, distill_data, pretrain sessions; sft and eval on request |
 
 - **corpus** streams FineWeb-Edu (`sample-10BT`, ODC-By) and TinyStories (CDLA-Sharing-1.0) at pinned revisions, keeps English text only, drops duplicates, anything matching the secret patterns in `cognition_slm.audit` and any document containing a question sentence from `data/simple_questions_holdout.json` or `data/everyday_eval.json`, and holds out about 0.5% for evaluation. It writes `corpus/pretrain_train.jsonl`, `corpus/pretrain_eval.jsonl` and `corpus/corpus_manifest.json` with counts, byte totals, hashes and licenses.
 - **pretrain** trains the `slm-160m` preset (160,721,679 parameters, 2,048-byte context) with next-byte loss on the corpus. Each session stops after 11 hours, saves `artifacts/slm-160m-pretrain.pt`, and records its measured seconds per step, the step it reached and held-out bits per byte in `pretrain_session_<k>.json`. Session k resumes from session k-1.
@@ -130,6 +131,8 @@ kaggle kernels output YOUR_KAGGLE_USERNAME/slm-results -p ./kaggle-output/result
 cp ./kaggle-output/results/slm-project/compute/RESULTS.md compute/RESULTS.md
 cp ./kaggle-output/results/slm-project/reports/lora_eval_*.json reports/
 ```
+
+Read the downloaded RESULTS.md before copying it. A report the kernel could not find shows up as "No ... yet", and copying that file would replace numbers already committed.
 
 The kernel writes under `/kaggle/working/slm-project`, so check the paths after downloading. A report missing from the attached outputs shows as "not yet" in RESULTS.md, and the kernel writes no `reports/` file for it, so the `cp` leaves the one already in the repo alone.
 

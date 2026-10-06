@@ -47,6 +47,8 @@ class StageTableTests(unittest.TestCase):
         self.assertFalse(stages.STAGES["sft_data"]["gpu"])
         self.assertTrue(stages.STAGES["lora"]["internet"])
         self.assertEqual(stages.stage_attaches("lora_eval"), ["slm-lora-baseline"])
+        # run_pipeline checks distill freshness against the 1.7B adapter, so a 360M teacher would rebuild every round.
+        self.assertEqual(stages.stage_attaches("distill_data"), ["slm-lora-1b7"])
 
     def test_stages_that_download_at_run_time_have_internet(self):
         stages = module("stages")

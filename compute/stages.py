@@ -29,7 +29,7 @@ STAGES = {
     "lora": {"runner": "compute/lora_baseline.py", "slug": "slm-lora-baseline",
              "internet": True, "gpu": True, "attaches": ["slm-sft-data"]},
     # The LoRA teacher answers Dolly questions whose human answers were too long for stage 3. It is the 1.7B
-    # adapter, which scores 215 of 252 everyday questions exact against 188 for the 360M one.
+    # adapter, which scores 219 of 252 everyday questions exact against 188 for the 360M one.
     "distill_data": {"runner": "compute/distill_data.py", "slug": "slm-distill-data",
                      "internet": True, "gpu": True, "attaches": ["slm-lora-1b7"]},
     # Scores base SmolLM2 and the trained adapter on the 252 everyday questions; internet for the base model.

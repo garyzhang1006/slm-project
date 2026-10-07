@@ -1,8 +1,8 @@
 # Results
 
-Collected from Kaggle kernel reports on 2026-10-06 03:40 by `compute/collect_results.py`. Regenerate it rather than editing by hand.
+Collected from Kaggle kernel reports on 2026-10-07 23:46 by `compute/collect_results.py`. Regenerate it rather than editing by hand.
 
-Re-scored with these answer keys (first 12 hex characters of each file's sha256): `data/everyday_eval.json` 35f569ae76c6, `data/simple_questions_holdout.json` c6d9afdd50c3.
+Re-scored with these answer keys (first 12 hex characters of each file's sha256): `data/everyday_eval.json` 95ebd7d927b2, `data/simple_questions_holdout.json` c6d9afdd50c3.
 
 ## slm-160m pretraining
 
@@ -56,14 +56,14 @@ These rows ask the model to admit it doesn't know, so a person judges them and t
 
 ## SmolLM2-1.7B-Instruct: LoRA vs base, re-scored with the current answer keys
 
-- everyday_eval: base 8/252 exact and 213/252 contains, LoRA 215/252 exact and 237/252 contains
+- everyday_eval: base 8/252 exact and 213/252 contains, LoRA 219/252 exact and 237/252 contains
 - simple_questions: base 4/22 exact and 20/22 contains, LoRA 21/22 exact and 21/22 contains
 
 Exact means the whole reply is an accepted answer, or sentences that each are one. An abstain reply is also exact when each clause only refuses, naming at most what it does not know, as in "I don't know your name. You haven't told me." Contains means an accepted answer appears as whole words in the reply, which credits full-sentence answers such as "Water freezes at 0 degrees Celsius." but can also credit a reply that names the answer and then contradicts it.
 
 | category | base exact | LoRA exact | base contains | LoRA contains | scored |
 |---|---|---|---|---|---|
-| abstain | 0 | 10 | 1 | 19 | 20 |
+| abstain | 0 | 14 | 1 | 19 | 20 |
 | arithmetic | 0 | 28 | 27 | 28 | 28 |
 | colors_animals | 0 | 24 | 26 | 25 | 26 |
 | counting_time | 0 | 23 | 24 | 24 | 26 |

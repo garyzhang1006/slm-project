@@ -24,7 +24,7 @@ def predictions(rows, right):
 
 
 def adapter_report(sha="ab" * 32):
-    return {"adapter_sha256": sha,
+    return {"status": "complete_pending_manual_review", "adapter_sha256": sha,
             "base": {"everyday_eval": {"predictions": predictions(EVERYDAY, False)},
                      "simple_questions": {"predictions": predictions(HOLDOUT, False)}},
             "lora": {"everyday_eval": {"predictions": predictions(EVERYDAY, True)},
@@ -211,6 +211,16 @@ class RenderTests(unittest.TestCase):
             self.assertEqual([row["id"] for row in everyday["base"]], [row["id"] for row in EVERYDAY])
             self.assertEqual(saved["predictions"]["data/simple_questions_holdout.json"]["base"],
                              predictions(HOLDOUT, False))
+
+    def test_a_report_from_a_run_that_died_partway_keeps_the_saved_answers(self):
+        # lora_eval.py rewrites its report after every set, so a run that dies keeps base answers and no LoRA ones.
+        with tempfile.TemporaryDirectory() as directory:
+            reports = Path(directory)
+            partial = {**adapter_report(), "status": "evaluating", "lora": {}}
+            self.assertEqual(collect_results.write_predictions({"lora_1b7_eval": partial}, reports), [])
+            self.assertEqual(list(reports.iterdir()), [])
+            self.assertEqual(collect_results.write_predictions({"lora_1b7_eval": adapter_report()}, reports),
+                             [reports / "lora_eval_1b7.json"])
 
     def test_main_reads_attached_outputs_without_the_kaggle_cli(self):
         with tempfile.TemporaryDirectory() as directory:

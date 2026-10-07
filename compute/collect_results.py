@@ -90,11 +90,17 @@ def predictions_record(stage: str, lora_eval: dict) -> dict:
     return {"kernel": stage_slug(stage), "adapter_sha256": lora_eval.get("adapter_sha256"), "predictions": answers}
 
 
+def finished(lora_eval: dict | None) -> bool:
+    """lora_eval.py rewrites its report after every set, so a run that died partway leaves some sets unanswered."""
+    return (lora_eval or {}).get("status") == "complete_pending_manual_review"
+
+
 def write_predictions(results: dict, directory: Path) -> list[Path]:
-    """Writes a file only for a kernel whose report came back, so a failed download keeps the last answers."""
+    """Writes a file only for a kernel whose finished report came back, so a failed download or a run that
+    died partway keeps the last answers."""
     written = []
     for stage, filename in PREDICTION_FILES.items():
-        if not results.get(stage):
+        if not finished(results.get(stage)):
             continue
         directory.mkdir(parents=True, exist_ok=True)
         path = directory / filename
@@ -257,8 +263,9 @@ def main(argv: list[str] | None = None) -> int:
         parser.error(f"--input-dir {args.input_dir} is not a folder")
     for path in write_predictions(results, args.reports_dir):
         print(f"wrote {path}")
-    rescored = rescore(results["lora_eval"]) if results["lora_eval"] else {}
-    large = rescore(results["lora_1b7_eval"]) if results["lora_1b7_eval"] else {}
+    # The same test as write_predictions, so RESULTS.md never scores answers that reports/ did not save.
+    rescored = rescore(results["lora_eval"]) if finished(results["lora_eval"]) else {}
+    large = rescore(results["lora_1b7_eval"]) if finished(results["lora_1b7_eval"]) else {}
     args.out.write_text(render(results, rescored, time.strftime("%Y-%m-%d %H:%M"), large))
     print(f"wrote {args.out}")
     return 0

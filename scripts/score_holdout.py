@@ -36,14 +36,17 @@ _CLOCK = re.compile(r"\b(\d{1,2}):00(?!\d)")
 _JOINER = re.compile(r"[\s-]*")
 # An abstain reply is exact when every clause between punctuation, a spaced dash or a spaced "but", after
 # one leading and, so or but, is an accepted refusal or an opener below followed by an object of at most
-# five words that starts with your, about or a question word and has no answer word before its last word.
-# So "I don't know who your best friend is" is exact, and "I don't know your name, it's Sam." and
-# "I don't know your name is Sam." are not.
+# five words that starts with your, about or a question word, has no answer word before its last word and
+# no number but one. Is, it, its or was right after the question word belongs to the question being declined.
+# So "I don't know who your best friend is" and "I don't know what is inside the box" are exact, and
+# "I don't know your name, it's Sam.", "I don't know your name is Sam." and "I don't know about 50." are not.
 _CLAUSES = re.compile("[.,;:!?()\u2013\u2014]+|\\s-+\\s|\\sbut\\s", re.IGNORECASE)
 _REFUSAL_OPENERS = ("i dont know", "i do not know", "you havent told me", "you have not told me")
-_REFUSAL_OBJECTS = frozenset({"your", "about", "what", "where", "who", "when", "which", "how"})
+_QUESTION_WORDS = frozenset({"what", "where", "who", "when", "which", "how"})
+_REFUSAL_OBJECTS = _QUESTION_WORDS | {"your", "about"}
 _REFUSAL_OBJECT_WORDS = 5
 _ANSWER_WORDS = frozenset({"i", "is", "was", "it", "its", "maybe", "probably"})
+_QUESTION_FOLLOWERS = frozenset({"is", "it", "its", "was"})
 _CLAUSE_JOINERS = frozenset({"and", "so", "but"})
 
 
@@ -143,8 +146,14 @@ def _is_refusal(clause: str, accepted: list[str]) -> bool:
         return True
     for opener in map(str.split, _REFUSAL_OPENERS):
         tail = words[len(opener):]
-        if (words[:len(opener)] == opener and 0 < len(tail) <= _REFUSAL_OBJECT_WORDS and tail[0] in _REFUSAL_OBJECTS
-                and not _ANSWER_WORDS.intersection(tail[:-1])):
+        if (words[:len(opener)] != opener or not 0 < len(tail) <= _REFUSAL_OBJECT_WORDS
+                or tail[0] not in _REFUSAL_OBJECTS):
+            continue
+        declined = len(tail) > 1 and tail[0] in _QUESTION_WORDS and tail[1] in _QUESTION_FOLLOWERS
+        checked = tail[2:] if declined else tail
+        # A number is a guess, as in "about 50"; normalize_answer writes the pronoun in "which one" as 1.
+        guess = any(word.lstrip("-")[:1].isdigit() and word != "1" for word in tail)
+        if not guess and not _ANSWER_WORDS.intersection(checked[:-1]):
             return True
     return False
 

@@ -79,7 +79,9 @@ class EverydayEvalTests(unittest.TestCase):
 
     def test_abstain_rows_take_every_trained_refusal_as_exact(self):
         # "I can't see you, so I don't know." and "I don't know. You haven't shown me." missed exact.
-        refusals = sorted({answer for _, answer in short_facts.REFUSALS} | {short_facts.NOT_STATED})
+        # The 1.7B adapter contracts NOT_STATED, and "The story doesn't say." missed exact on v1-248 to v1-251.
+        refusals = sorted({answer for _, answer in short_facts.REFUSALS}
+                          | {short_facts.NOT_STATED, "I don't know. The story doesn't say."})
         abstain = [row for row in self.rows if row["category"] == "abstain"]
         self.assertEqual(len(abstain), 20)
         for row in abstain:

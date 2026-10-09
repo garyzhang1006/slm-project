@@ -309,6 +309,12 @@ class StudioAssetTests(unittest.TestCase):
         self.assertIn('state.stopTask = $("task-type").value;\n  state.notice = null;\n  syncComposer(); saveSettings(true);',
                       script)
 
+    def test_clearing_source_text_retires_its_notice(self):
+        script = (self.web / "app.js").read_text()
+        # Setting the value from script fires no input event, so the Clear handler must drop a file notice itself.
+        self.assertIn('$("source-clear").addEventListener("click", () => {\n  $("source-text").value = "";\n'
+                      '  state.notice = null;\n  syncComposer();', script)
+
     def test_unreadable_answer_is_an_error(self):
         script = (self.web / "app.js").read_text()
         # A 200 whose body can't be parsed must not be drawn and saved as an empty answer.

@@ -861,6 +861,7 @@ $("download").addEventListener("click", download);
 $("source-open").addEventListener("click", () => $("source-file").click());
 $("source-clear").addEventListener("click", () => {
   $("source-text").value = "";
+  state.notice = null;
   syncComposer();
   // The button hides once the text is gone, so focus moves to the empty box.
   $("source-text").focus();

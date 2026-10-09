@@ -105,7 +105,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--model", action="append", required=True, help="LABEL=CHECKPOINT")
     parser.add_argument("--data", required=True)
-    parser.add_argument("--max-new-tokens", type=int, default=96)
+    parser.add_argument(
+        "--max-new-tokens", type=int, default=96,
+        help="minimum new tokens; each record also gets room for its reference answer",
+    )
     parser.add_argument("--device", default="auto")
     args = parser.parse_args()
     # benchmark() rejects it too, but its message names the argument rather than the flag.

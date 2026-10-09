@@ -120,12 +120,15 @@ def evaluate(model, tokenizer, examples, *, max_new_tokens: int) -> dict:
         task_prediction = int(output.task_logits.argmax(dim=-1).item())
         error_prediction = int(output.error_logits.argmax(dim=-1).item())
         confidence_prediction = int(output.confidence_logits.argmax(dim=-1).item())
+        # A budget shorter than the reference makes exact match impossible even for a model that
+        # reproduces it, so max_new_tokens is a floor. Training targets end in answer.strip().
+        reference_budget = len(tokenizer.encode(example.answer.strip(), add_bos=False, add_eos=False))
         generated = generate_text(
             model,
             tokenizer,
             example.prompt,
             task_type=example.task_type,
-            max_new_tokens=max_new_tokens,
+            max_new_tokens=max(max_new_tokens, reference_budget),
             temperature=0,
             top_k=0,
         )
@@ -199,7 +202,10 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--checkpoint", required=True)
     parser.add_argument("--data", required=True)
-    parser.add_argument("--max-new-tokens", type=int, default=96)
+    parser.add_argument(
+        "--max-new-tokens", type=int, default=96,
+        help="minimum new tokens; each record also gets room for its reference answer",
+    )
     parser.add_argument("--device", default="auto")
     args = parser.parse_args()
     if args.max_new_tokens < 1:

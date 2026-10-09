@@ -106,6 +106,30 @@ class EvaluationTests(unittest.TestCase):
                 evaluate(model, tokenizer, [self._example(id="short"), exact], max_new_tokens=1)
         generate.assert_not_called()
 
+    def test_budget_leaves_room_for_reference_longer_than_max_new_tokens(self):
+        from unittest.mock import patch
+        from cognition_slm.evaluate import evaluate
+
+        model, tokenizer = self._tiny_model()
+        answer = "x" * 120  # longer than the 96-token CLI default
+        budgets = []
+
+        # A perfect model: it emits the reference, cut at whatever budget it is given.
+        def perfect(model, tokenizer, prompt, *, max_new_tokens, **kwargs):
+            budgets.append(max_new_tokens)
+            return answer[:max_new_tokens]
+
+        with patch("cognition_slm.evaluate.generate_text", side_effect=perfect):
+            result = evaluate(model, tokenizer, [self._example(answer=answer)], max_new_tokens=96)
+        self.assertEqual(budgets, [120])
+        self.assertEqual(result["exact_match_accuracy"], 1.0)
+        self.assertEqual(result["rows"][0]["generated"], answer)
+
+        # A larger requested budget still wins over a short reference.
+        with patch("cognition_slm.evaluate.generate_text", side_effect=perfect):
+            evaluate(model, tokenizer, [self._example()], max_new_tokens=96)
+        self.assertEqual(budgets[-1], 96)
+
     def test_cli_rejects_bad_arguments_before_loading_the_checkpoint(self):
         from io import StringIO
         from unittest.mock import patch

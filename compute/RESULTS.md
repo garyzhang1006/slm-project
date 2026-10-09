@@ -1,8 +1,8 @@
 # Results
 
-Collected from Kaggle kernel reports on 2026-10-07 23:46 by `compute/collect_results.py`. Regenerate it rather than editing by hand.
+Collected from Kaggle kernel reports on 2026-10-09 23:46 by `compute/collect_results.py`. Regenerate it rather than editing by hand.
 
-Re-scored with these answer keys (first 12 hex characters of each file's sha256): `data/everyday_eval.json` 95ebd7d927b2, `data/simple_questions_holdout.json` c6d9afdd50c3.
+Re-scored with these answer keys (first 12 hex characters of each file's sha256): `data/everyday_eval.json` 1d224b7c2f2b, `data/simple_questions_holdout.json` c6d9afdd50c3.
 
 ## slm-160m pretraining
 
@@ -22,7 +22,7 @@ Re-scored with these answer keys (first 12 hex characters of each file's sha256)
 
 ## SmolLM2-360M-Instruct: LoRA vs base, re-scored with the current answer keys
 
-- everyday_eval: base 7/252 exact and 181/252 contains, LoRA 188/252 exact and 198/252 contains
+- everyday_eval: base 7/252 exact and 181/252 contains, LoRA 189/252 exact and 199/252 contains
 - simple_questions: base 5/22 exact and 19/22 contains, LoRA 19/22 exact and 19/22 contains
 
 Exact means the whole reply is an accepted answer, or sentences that each are one. An abstain reply is also exact when each clause only refuses, naming at most what it does not know, as in "I don't know your name. You haven't told me." Contains means an accepted answer appears as whole words in the reply, which credits full-sentence answers such as "Water freezes at 0 degrees Celsius." but can also credit a reply that names the answer and then contradicts it.
@@ -31,7 +31,7 @@ Exact means the whole reply is an accepted answer, or sentences that each are on
 |---|---|---|---|---|---|
 | abstain | 0 | 17 | 1 | 19 | 20 |
 | arithmetic | 0 | 23 | 20 | 23 | 28 |
-| colors_animals | 0 | 13 | 17 | 14 | 26 |
+| colors_animals | 0 | 14 | 17 | 15 | 26 |
 | counting_time | 0 | 21 | 22 | 23 | 26 |
 | geography | 1 | 22 | 25 | 24 | 26 |
 | opposites | 3 | 19 | 20 | 19 | 24 |

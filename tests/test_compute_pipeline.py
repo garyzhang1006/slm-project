@@ -446,6 +446,17 @@ class MainTests(unittest.TestCase):
         self.assertEqual([(decision["stage"], decision.get("session")) for decision in pushed],
                          [("pretrain", 1), ("sft_data", None)])
 
+    def test_the_1b7_chain_pushes_before_the_360m_chain(self):
+        # Kaggle caps concurrent batch GPU sessions, so the chain sft waits on must take a free slot first.
+        fake = mock.Mock()
+        fake.quota_hours.return_value = 30.0
+        statuses = {"slm-160m-corpus": "complete", "slm-160m-pretrain-1": "running", "slm-sft-data": "complete"}
+        fake.status.side_effect = lambda slug: statuses.get(slug, "missing")
+        fake.push.return_value = "pushed"
+        with mock.patch.object(run_pipeline, "Kaggle", return_value=fake), mock.patch("builtins.print"):
+            run_pipeline.main(["--owner", "someone"])
+        self.assertEqual([call[0][0]["stage"] for call in fake.push.call_args_list], ["lora_1b7", "lora"])
+
 
     def test_watch_survives_transient_errors(self):
         fake = mock.Mock()

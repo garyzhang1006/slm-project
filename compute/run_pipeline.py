@@ -388,7 +388,9 @@ def main(argv: list[str] | None = None) -> int:
     while True:
         try:
             decisions = decide_round(kaggle.status, kaggle.report, kaggle.quota_hours())
-            for decision in decisions:
+            # Push in the order decide_round charges quota: Kaggle caps concurrent GPU sessions, and sft waits on
+            # the 1.7B chain, so it takes a free slot before the 360M chain.
+            for decision in (decisions[0], decisions[2], decisions[1]):
                 print(time.strftime("%Y-%m-%d %H:%M"), json.dumps(decision), flush=True)
                 if decision["kind"] == "push" and not args.dry_run:
                     print(kaggle.push(decision), flush=True)

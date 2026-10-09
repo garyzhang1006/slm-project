@@ -142,6 +142,39 @@ class RenderTests(unittest.TestCase):
         results["eval"]["sha256"] = "new"
         self.assertNotIn("older SFT checkpoint", collect_results.render(results, {}, "now"))
 
+    def test_slm_eval_is_rescored_with_the_current_keys(self):
+        # The stored counts stand for keys that changed after the kernel ran; the saved answers decide.
+        stale = {"total": {"exact": 999, "contains": 999, "scored": 999}}
+        evaluation = {"simple_questions": [{**row, "answer": "zzz"} for row in HOLDOUT],
+                      "everyday_eval": [{**row, "answer": row["expected_rubric"]} for row in EVERYDAY],
+                      "simple_questions_scores": stale, "everyday_eval_scores": stale}
+        results = {"pretrain": [], "lora": None, "lora_eval": None, "distill": None, "sft": None, "eval": evaluation}
+        text = collect_results.render(results, {}, "now")
+        holdout = len(HOLDOUT) - sum(row["category"] == "unknown" for row in HOLDOUT)
+        everyday = len(EVERYDAY) - sum(row["category"] == "unknown" for row in EVERYDAY)
+        self.assertIn(f"- Holdout exact: 0/{holdout}\n", text)
+        self.assertIn(f"- Everyday exact: {everyday}/{everyday}\n", text)
+        self.assertNotIn("999/999", text)
+        # An older report kept no answers, so its stored counts are shown and marked as the kernel's.
+        results["eval"] = {"simple_questions_scores": stale}
+        text = collect_results.render(results, {}, "now")
+        self.assertIn("- Holdout exact: 999/999 (scored with the kernel's answer keys)", text)
+        self.assertIn("- Everyday exact: n/a\n", text)
+
+    def test_lora_holdout_line_is_rescored_from_saved_answers(self):
+        stale = {"total": {"exact": 22, "contains": 22, "scored": 22}}
+        lora = {"status": "complete_pending_manual_review",
+                "baseline": {"predictions": [{**row, "answer": "zzz"} for row in HOLDOUT], "scores": stale},
+                "final": {"predictions": [{**row, "answer": "zzz"} for row in HOLDOUT], "scores": stale}}
+        text = "\n".join(collect_results.lora_sections("m", lora, None, {}))
+        scored = len(HOLDOUT) - sum(row["category"] == "unknown" for row in HOLDOUT)
+        self.assertIn(f"- Holdout exact: base 0/{scored}, adapter 0/{scored}\n", text)
+        self.assertNotIn("22/22", text)
+        del lora["final"]["predictions"]
+        text = "\n".join(collect_results.lora_sections("m", lora, None, {}))
+        self.assertIn(f"- Holdout exact: base 0/{scored}, adapter 22/22 (scored with the kernel's answer keys)",
+                      text)
+
     def test_manual_review_cells_stay_on_one_table_row(self):
         report = adapter_report()
         identifier = next(row["id"] for row in HOLDOUT if row["category"] == "unknown")

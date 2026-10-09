@@ -130,15 +130,26 @@ def contains(scores: dict) -> str:
     return f"{total['contains']}/{total['scored']}"
 
 
-def lora_sections(name: str, lora: dict | None, lora_eval: dict | None, rescored: dict) -> list[str]:
+def current_scores(name: str, answers: list | None, stored: dict | None, root: Path = ROOT) -> tuple[dict | None, str]:
+    """(scores, note) for one eval file: a kernel's saved answers re-scored with today's key, or, for a report
+    that kept no answers, the scores the kernel stored, with a note so they are not read as re-scored."""
+    if answers:
+        return score_predictions(json.loads((root / name).read_text())["rows"], answers), ""
+    return stored, " (scored with the kernel's answer keys)" if stored else ""
+
+
+def lora_sections(name: str, lora: dict | None, lora_eval: dict | None, rescored: dict,
+                  root: Path = ROOT) -> list[str]:
     """Adapter training summary plus its re-scored eval against the base model."""
     lines = ["", f"## LoRA adapter ({name})", ""]
     if lora:
         training = lora.get("training", {})
-        baseline, final = lora.get("baseline", {}).get("scores"), lora.get("final", {}).get("scores")
+        (baseline, base_note), (final, final_note) = (
+            current_scores("data/simple_questions_holdout.json", lora.get(side, {}).get("predictions"),
+                           lora.get(side, {}).get("scores"), root) for side in ("baseline", "final"))
         lines += [f"- Status: {lora.get('status')}",
                   f"- Holdout exact: base {exact(baseline) if baseline else 'n/a'}, "
-                  f"adapter {exact(final) if final else 'n/a'}",
+                  f"adapter {exact(final) if final else 'n/a'}{base_note or final_note}",
                   f"- Eval loss: {number(training.get('initial_eval_loss'))} before training, best "
                   f"{number(training.get('best_eval_loss'))} at step {training.get('best_step', 'n/a')}, final "
                   f"{number(training.get('final_eval_loss'))}",
@@ -202,9 +213,9 @@ def render(results: dict, rescored: dict, stamp: str, large_rescored: dict | Non
     else:
         lines.append("No finished pretrain session yet.")
 
-    lines += lora_sections("SmolLM2-360M-Instruct", results["lora"], results["lora_eval"], rescored)
+    lines += lora_sections("SmolLM2-360M-Instruct", results["lora"], results["lora_eval"], rescored, root)
     lines += lora_sections("SmolLM2-1.7B-Instruct", results.get("lora_1b7"), results.get("lora_1b7_eval"),
-                           large_rescored or {})
+                           large_rescored or {}, root)
 
     lines += ["", "## Distilled answers", ""]
     distill = results["distill"]
@@ -233,11 +244,11 @@ def render(results: dict, rescored: dict, stamp: str, large_rescored: dict | Non
         used, current = evaluation.get("sha256"), (sft or {}).get("sha256")
         if used and current and used != current:
             lines += ["These scores came from an older SFT checkpoint than the SFT report above.", ""]
-        lines += [f"- Holdout exact: {exact(evaluation['simple_questions_scores'])}"
-                  if evaluation.get("simple_questions_scores") else "- Holdout exact: n/a",
-                  f"- Everyday exact: {exact(evaluation['everyday_eval_scores'])}"
-                  if evaluation.get("everyday_eval_scores") else "- Everyday exact: n/a",
-                  f"- Looks-English rate: {number(evaluation.get('looks_english_rate'))}",
+        for label, name in (("Holdout", "data/simple_questions_holdout.json"), ("Everyday", "data/everyday_eval.json")):
+            key = REPORT_KEYS[Path(name).name]
+            scores, note = current_scores(name, evaluation.get(key), evaluation.get(f"{key}_scores"), root)
+            lines.append(f"- {label} exact: {exact(scores) if scores else 'n/a'}{note}")
+        lines += [f"- Looks-English rate: {number(evaluation.get('looks_english_rate'))}",
                   f"- Held-out text bits/byte: {number(evaluation.get('heldout_text', {}).get('bits_per_byte'))}"]
     else:
         lines.append("No eval report yet.")

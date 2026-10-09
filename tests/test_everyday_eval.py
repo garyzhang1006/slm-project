@@ -93,6 +93,55 @@ class EverydayEvalTests(unittest.TestCase):
                 with self.subTest(row=row["id"], answer=answer):
                     self.assertFalse(self.module.score_answer(row, answer)["exact"])
 
+    def row(self, key: str) -> dict:
+        return next(row for row in self.rows if row["id"] == key)
+
+    def test_pig_row_accepts_grunt(self):
+        # The 360M adapter's "grunt" scored as wrong.
+        row = self.row("everyday-v1-120")
+        self.assertEqual(self.module.score_answer(row, "grunt"), {"exact": True, "contains": True})
+        for answer in ("Pigs grunt.", "A pig grunts"):
+            with self.subTest(answer=answer):
+                self.assertTrue(self.module.score_answer(row, answer)["contains"])
+
+    def test_rain_row_accepts_raindrops(self):
+        row = self.row("everyday-v1-175")
+        for answer in ("Raindrops.", "Raindrop", "Rain."):
+            with self.subTest(answer=answer):
+                self.assertTrue(self.module.score_answer(row, answer)["exact"])
+
+    def test_pouch_row_accepts_wallaby(self):
+        # Wallabies are Australian, hop, and carry young in a pouch, so the prompt fits them too.
+        row = self.row("everyday-v1-119")
+        self.assertEqual(self.module.score_answer(row, "Wallaby."), {"exact": True, "contains": True})
+        self.assertTrue(self.module.score_answer(row, "A kangaroo.")["contains"])
+        self.assertFalse(self.module.score_answer(row, "Koala.")["contains"])
+
+    def test_walking_row_accepts_by_foot(self):
+        row = self.row("everyday-v1-199")
+        for answer in ("By foot.", "On foot.", "She walked."):
+            with self.subTest(answer=answer):
+                self.assertEqual(self.module.score_answer(row, answer), {"exact": True, "contains": True})
+
+    def test_color_object_rows_accept_the_reply_without_the(self):
+        for key, with_the, bare in (("everyday-v1-187", "The blue box.", "Blue box."),
+                                    ("everyday-v1-205", "The green door.", "Green door.")):
+            with self.subTest(row=key):
+                self.assertTrue(self.module.score_answer(self.row(key), with_the)["exact"])
+                self.assertTrue(self.module.score_answer(self.row(key), bare)["exact"])
+
+    def test_statue_of_liberty_row_accepts_nyc(self):
+        row = self.row("everyday-v1-150")
+        self.assertEqual(self.module.score_answer(row, "NYC."), {"exact": True, "contains": True})
+        self.assertTrue(self.module.score_answer(row, "New York City.")["exact"])
+
+    def test_love_opposite_accepts_hatred(self):
+        # Opposites take no inflections, so only the key can credit the noun antonym.
+        row = self.row("everyday-v1-065")
+        for answer in ("Hatred.", "Hate."):
+            with self.subTest(answer=answer):
+                self.assertEqual(self.module.score_answer(row, answer), {"exact": True, "contains": True})
+
     def test_prompts_do_not_contain_their_answer(self):
         # Contains-match would credit a model that only echoes the prompt. Reading passages, yes/no
         # questions and "X or Y" choices name the answer by design.

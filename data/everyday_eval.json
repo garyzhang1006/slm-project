@@ -698,7 +698,8 @@
       "prompt": "Tell me a word that means the reverse of love.",
       "expected_rubric": "hate",
       "accepted_answers": [
-        "hate"
+        "hate",
+        "hatred"
       ],
       "task_type": "language_generation"
     },
@@ -1255,7 +1256,8 @@
       "prompt": "Which Australian animal hops and carries its baby in a pouch?",
       "expected_rubric": "kangaroo",
       "accepted_answers": [
-        "kangaroo"
+        "kangaroo",
+        "wallaby"
       ],
       "task_type": "language_generation"
     },
@@ -1265,7 +1267,8 @@
       "prompt": "What sound does a pig make?",
       "expected_rubric": "oink",
       "accepted_answers": [
-        "oink"
+        "oink",
+        "grunt"
       ],
       "task_type": "language_generation"
     },
@@ -1568,6 +1571,7 @@
       "accepted_answers": [
         "German"
       ],
+      "inflect": false,
       "task_type": "language_generation"
     },
     {
@@ -1577,7 +1581,8 @@
       "expected_rubric": "New York",
       "accepted_answers": [
         "New York",
-        "New York City"
+        "New York City",
+        "NYC"
       ],
       "task_type": "language_generation"
     },
@@ -1847,7 +1852,9 @@
       "prompt": "Water that falls from clouds as drops is called what?",
       "expected_rubric": "rain",
       "accepted_answers": [
-        "rain"
+        "rain",
+        "raindrops",
+        "raindrop"
       ],
       "task_type": "language_generation"
     },
@@ -1904,7 +1911,11 @@
         "2 pm",
         "2",
         "2 o'clock",
-        "two in the afternoon"
+        "two in the afternoon",
+        "at 2 pm",
+        "at 2",
+        "at 2 o'clock",
+        "14:00"
       ],
       "task_type": "language_generation"
     },
@@ -1959,7 +1970,11 @@
         "5",
         "five",
         "5 pm",
-        "five o'clock"
+        "five o'clock",
+        "at 5",
+        "at five",
+        "at 5 pm",
+        "at five o'clock"
       ],
       "task_type": "language_generation"
     },
@@ -1980,7 +1995,8 @@
       "expected_rubric": "blue",
       "accepted_answers": [
         "blue",
-        "the blue box"
+        "the blue box",
+        "blue box"
       ],
       "task_type": "language_generation"
     },
@@ -1991,7 +2007,9 @@
       "expected_rubric": "Thursday",
       "accepted_answers": [
         "Thursday",
-        "Thursdays"
+        "Thursdays",
+        "on Thursday",
+        "on Thursdays"
       ],
       "task_type": "language_generation"
     },
@@ -2014,7 +2032,8 @@
         "it rained",
         "because it rained",
         "rain",
-        "raining"
+        "raining",
+        "rained"
       ],
       "task_type": "language_generation"
     },
@@ -2103,7 +2122,8 @@
       "accepted_answers": [
         "banana",
         "sliced banana",
-        "a banana"
+        "a banana",
+        "bananas"
       ],
       "task_type": "language_generation"
     },
@@ -2116,7 +2136,8 @@
         "she walked",
         "walked",
         "walking",
-        "on foot"
+        "on foot",
+        "by foot"
       ],
       "task_type": "language_generation"
     },
@@ -2184,7 +2205,8 @@
       "expected_rubric": "green",
       "accepted_answers": [
         "green",
-        "the green door"
+        "the green door",
+        "green door"
       ],
       "task_type": "language_generation"
     },

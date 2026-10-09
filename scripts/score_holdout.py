@@ -16,7 +16,8 @@ REPORT_KEYS = {"simple_questions_holdout.json": "simple_questions", "everyday_ev
 MANUAL_CATEGORIES = frozenset({"unknown"})
 # Where the word form is what the question tests (plural of mouse, is or are, "write only the word window"),
 # an inflected answer is wrong. So it is for opposites: "evens" is not the opposite of odd, nor "answered" of question.
-INFLECTION_EXEMPT = frozenset({"plurals", "english", "instruction", "opposites"})
+# Reading answers are words from the passage and list any other form they take, so "icing" does not answer "ice".
+INFLECTION_EXEMPT = frozenset({"plurals", "english", "instruction", "opposites", "reading"})
 _SUFFIXES = ("s", "es", "ed", "d", "ing")
 _UNITS = {word: index for index, word in enumerate(
     "zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen "
@@ -165,7 +166,8 @@ def score_answer(row: dict, answer: str) -> dict | None:
     predicted = normalize_answer(answer)
     padded = f" {predicted} "
     accepted = [expected for expected in accepted_answers(row) if expected]
-    if row["category"] not in INFLECTION_EXEMPT:
+    # A row whose inflected answer names something else ("Germans" are people, not a language) sets "inflect": false.
+    if row["category"] not in INFLECTION_EXEMPT and row.get("inflect", True):
         # Only alphabetic single words of 3+ letters: "no" -> "nos" or "7" -> "7s" would add noise, not recall.
         accepted += sorted({form for expected in accepted if expected.isalpha() and len(expected) >= 3
                             for form in inflections(expected)})

@@ -124,6 +124,41 @@ class ScoreHoldoutTests(unittest.TestCase):
             with self.subTest(key=key, answer=answer):
                 self.assertTrue(self.module.score_answer(everyday[key], answer)["exact"])
 
+    def test_everyday_time_and_day_keys_accept_the_prepositional_reply(self):
+        # "At five." and "On Thursday." got contains only, and "14:00" got nothing.
+        everyday = {row["id"]: row for row in json.loads((ROOT / "data/everyday_eval.json").read_text())["rows"]}
+        for key, answer in (("everyday-v1-185", "At five."), ("everyday-v1-185", "At 5 pm."),
+                            ("everyday-v1-180", "At 2 pm."), ("everyday-v1-180", "14:00"),
+                            ("everyday-v1-188", "On Thursday."), ("everyday-v1-188", "On Thursdays.")):
+            with self.subTest(key=key, answer=answer):
+                self.assertTrue(self.module.score_answer(everyday[key], answer)["exact"])
+        # 14:30 stays apart from 2 pm, so the clock rule does not loosen.
+        self.assertFalse(self.module.score_answer(everyday["everyday-v1-180"], "14:30")["exact"])
+
+    def test_reading_answers_do_not_credit_other_words_by_inflection(self):
+        everyday = {row["id"]: row for row in json.loads((ROOT / "data/everyday_eval.json").read_text())["rows"]}
+        ice = everyday["everyday-v1-203"]
+        self.assertEqual(ice["category"], "reading")
+        for reply in ("Icing.", "Iced."):
+            with self.subTest(reply=reply):
+                self.assertEqual(self.module.score_answer(ice, reply), {"exact": False, "contains": False})
+        self.assertTrue(self.module.score_answer(ice, "The ice.")["exact"])
+        # The forms inflection used to supply that do answer their row are listed in the key instead.
+        for key, reply in (("everyday-v1-190", "Rained."), ("everyday-v1-198", "Bananas.")):
+            with self.subTest(key=key):
+                self.assertTrue(self.module.score_answer(everyday[key], reply)["exact"])
+
+    def test_language_row_does_not_credit_demonym_plural(self):
+        everyday = {row["id"]: row for row in json.loads((ROOT / "data/everyday_eval.json").read_text())["rows"]}
+        row = everyday["everyday-v1-149"]
+        self.assertEqual((row["category"], row["accepted_answers"]), ("geography", ["German"]))
+        # "Germans" names the people, not the language.
+        self.assertEqual(self.module.score_answer(row, "Germans."), {"exact": False, "contains": False})
+        self.assertTrue(self.module.score_answer(row, "German.")["exact"])
+        # Rows that leave the flag unset keep their inflections.
+        horse = {"id": "h", "category": "colors_animals", "expected_rubric": "neigh"}
+        self.assertTrue(self.module.score_answer(horse, "neighs")["exact"])
+
     def test_inflected_answers_match_except_where_form_is_tested(self):
         horse = {"id": "h", "category": "colors_animals", "expected_rubric": "neigh",
                  "accepted_answers": ["neigh", "whinny"]}

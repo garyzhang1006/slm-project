@@ -29,7 +29,7 @@
       "retrieval": "authored locally",
       "license": "CC0-1.0",
       "purpose": "everyday question answer key for LoRA and SFT evaluation",
-      "sha256": "95ebd7d927b275257e81e866197ff629003b324f688caabbbfe84a422c2af7b9"
+      "sha256": "1d224b7c2f2b95310dd3e9b38792ac5fa74e2df6a05bf6adfddf9af97b6f3d3e"
     },
     {
       "path": "data/simple_questions_holdout.json",

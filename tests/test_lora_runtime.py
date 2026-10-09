@@ -12,6 +12,9 @@ from cognition_slm.lora_runtime import BASE_MODEL_REVISION, SYSTEM_PROMPT, LoraR
 from cognition_slm.server import main
 
 EOS = 2
+# One token that decodes to "\n  ", like a SmolLM2 newline-plus-indent token.
+NEWLINE_SPACES = 1000
+PIECES = {NEWLINE_SPACES: "\n  "}
 
 
 class FakeTokenizer:
@@ -33,7 +36,7 @@ class FakeTokenizer:
         return SimpleNamespace(input_ids=[ord(character) for character in text])
 
     def decode(self, ids, skip_special_tokens):
-        return "".join(chr(value) for value in ids if not (skip_special_tokens and value == EOS))
+        return "".join(PIECES.get(value, chr(value)) for value in ids if not (skip_special_tokens and value == EOS))
 
 
 class FakeModel:
@@ -134,10 +137,10 @@ class LoraRuntimeTests(unittest.TestCase):
         self.assertEqual((result["text"], result["finish_reason"]), ("The sky is blue.", "stop"))
 
     def test_stop_sequence_inside_the_final_token_is_cut(self):
-        # stop_strings also fires when the last token runs past the stop, like a "\n  " token for stop "\n".
-        loaded = runtime([ord(character) for character in "yes\n  "])
+        # A single "\n  " token runs past stop "\n"; a suffix-only strip would keep "yes\n  " and report length.
+        loaded = runtime([ord("y"), ord("e"), ord("s"), NEWLINE_SPACES, ord("x")])
         result = loaded.generate({"prompt": "Go", "stop_sequences": ["\n"], "max_new_tokens": 8})
-        self.assertEqual((result["text"], result["finish_reason"]), ("yes", "stop"))
+        self.assertEqual((result["text"], result["finish_reason"], result["generated_tokens"]), ("yes", "stop", 4))
 
     def test_a_character_cut_off_at_the_length_limit_is_dropped(self):
         # SmolLM2's tokenizer decodes 东 plus half of 京, cut off at the length limit, as 东 and U+FFFD.

@@ -363,6 +363,8 @@ def train(args: argparse.Namespace) -> dict:
             raise ValueError(f"cannot write {flag} {path}: {exc}") from exc
     source_path = Path(pretrain_text or args.data).resolve()
     source_sha256 = file_sha256(source_path)
+    eval_source = args.eval_data or pretrain_eval_text
+    eval_sha256 = file_sha256(Path(eval_source).resolve()) if eval_source else None
     data_changed = False
     if checkpoint is not None:
         recorded = checkpoint.get("metadata")
@@ -383,7 +385,8 @@ def train(args: argparse.Namespace) -> dict:
             if not getattr(args, "allow_data_change", False):
                 raise ValueError(
                     f"--resume {args.resume} was trained on different data: {detail}. Pass "
-                    "--allow-data-change to continue from its weights on this data with samples_seen reset to 0"
+                    "--allow-data-change to continue its step, schedule and optimizer state on this data with "
+                    "samples_seen reset to 0, or resume a weights-only file that records step 0 to start a new schedule"
                 )
             data_changed = True
             print(f"allow_data_change: {detail}; samples_seen reset to 0")
@@ -446,18 +449,30 @@ def train(args: argparse.Namespace) -> dict:
             sample_offset = int(samples_seen) if isinstance(samples_seen, int) else (
                 start_step * args.batch_size * accumulation
             )
+        elif isinstance(metadata.get("step"), int) and metadata["step"] > 0:
+            # Without optimizer state the run would restart at step 0 with a fresh warmup and sample stream.
+            raise ValueError(
+                f"--resume {args.resume} holds weights only (no optimizer, schedule or data position) "
+                f"but records step {metadata['step']}; resume from the full --out checkpoint, or save the "
+                "weights with metadata step 0 to start a new run from them"
+            )
     if data_changed:
         # The old sample position indexes a permutation of different rows.
         sample_offset = 0
     best_step = None
     best_loss = None
-    if checkpoint is not None and best_path is not None and not data_changed:
-        # Carrying the resumed run's best keeps a worse later validation from replacing its better file,
-        # but only for the same file that run wrote; any other path starts its own best.
-        recorded_loss, recorded_out = metadata.get("best_eval_lm_loss"), metadata.get("best_out")
-        if isinstance(recorded_loss, (int, float)) and isinstance(recorded_out, str) \
-                and Path(recorded_out) == best_path.resolve() and best_path.exists():
-            best_loss, best_step = float(recorded_loss), metadata.get("best_step")
+    if checkpoint is not None and best_path is not None and not data_changed and best_path.exists():
+        # Carrying the file's best keeps a worse later validation from replacing it. The file's own record is
+        # read because the resumed checkpoint's lags a best written after its last save, and a resume without
+        # --best-out records none. Losses on other training or held-out data do not compare, so those start
+        # a new best; best files from before the eval hash was recorded lack it and are trusted.
+        record = load_checkpoint_payload(torch, best_path, inference_only=True)[0].get("metadata")
+        record = record if isinstance(record, dict) else {}
+        recorded_loss = record.get("best_eval_lm_loss")
+        if isinstance(recorded_loss, (int, float)) and math.isfinite(recorded_loss) \
+                and record.get("training_source_sha256") == source_sha256 and record.get("objective") == objective \
+                and record.get("eval_source_sha256", eval_sha256) == eval_sha256:
+            best_loss, best_step = float(recorded_loss), record.get("best_step")
     if checkpoint is not None and sample_offset:
         # samples_seen indexes the seed's epoch permutations; another seed would repeat and skip records.
         saved_seed = metadata.get("seed")
@@ -504,7 +519,8 @@ def train(args: argparse.Namespace) -> dict:
     history: list[float] = []
     validation_history: list[dict[str, float | int]] = []
     max_seconds = getattr(args, "max_seconds", None)
-    stopped_reason = "steps_completed"
+    # Periodic saves are mid-run; the last step or the time budget sets the final reason.
+    stopped_reason = "in_progress"
     duration_seconds = 0.0
     processed_input_tokens = 0
     supervised_tokens = 0
@@ -546,6 +562,7 @@ def train(args: argparse.Namespace) -> dict:
                 "samples_seen": sample_offset,
                 "best_step": best_step, "best_eval_lm_loss": best_loss,
                 "best_out": str(best_path.resolve()) if best_path else None,
+                "eval_source_sha256": eval_sha256,
             },
         }, output_path)
 
@@ -561,6 +578,7 @@ def train(args: argparse.Namespace) -> dict:
                 "learning_rate": base_learning_rate, "precision": precision,
                 "parameter_count": parameter_count, "checkpoint_format": "model_only",
                 "best_step": step, "best_eval_lm_loss": validation["lm_loss"], "validation": validation,
+                "eval_source_sha256": eval_sha256,
             },
         }, best_path)
 
@@ -624,6 +642,8 @@ def train(args: argparse.Namespace) -> dict:
         timed_out = max_seconds is not None and duration_seconds >= max_seconds
         if timed_out and step < args.steps:
             stopped_reason = "time_budget"
+        elif step == args.steps:
+            stopped_reason = "steps_completed"
         finishing = timed_out or step == args.steps
         if step == 1 or step % args.log_every == 0 or finishing:
             print(f"step={step} loss={loss_value:.4f} device={device}")
@@ -765,7 +785,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--allow-data-change", action="store_true",
         help="With --resume, accept a checkpoint recorded with a different training file, objective, or "
-             "block size (for example SFT from pretrained weights); the sample stream restarts at 0",
+             "block size; the sample stream restarts at 0, but the step, learning-rate schedule and optimizer "
+             "moments continue. To fine-tune from pretrained weights on a new schedule, resume a weights-only "
+             "file that records step 0, as compute/stage4_sft.py writes",
     )
     parser.add_argument("--seed", type=int, default=7)
     parser.add_argument("--device", default="auto")

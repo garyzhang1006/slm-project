@@ -388,6 +388,63 @@ class TrainingIntegrationTests(unittest.TestCase):
         self.assertEqual((better["best_step"], better["best_eval_lm_loss"]), (3, 0.5))
         self.assertEqual(torch.load(best, weights_only=True)["metadata"]["best_step"], 3)
 
+    def test_resume_with_a_different_eval_file_starts_a_new_best(self):
+        # Only the training file was compared, so a best loss on the old eval file kept blocking the new one's.
+        import torch
+        from unittest.mock import patch
+        from cognition_slm.train import train
+
+        best = self.root / "best.pt"
+        other_eval = self.root / "other-eval.jsonl"
+        other_eval.write_text(self.data.read_text().splitlines()[0])
+        with patch("cognition_slm.train._validation_summary", side_effect=self.validations(1.0, 1.2)):
+            parent = train(self.args("parent.pt", steps=2, eval_data=str(self.data), eval_every=1,
+                                     best_out=str(best)))
+        with patch("cognition_slm.train._validation_summary", side_effect=self.validations(1.4)):
+            resumed = train(self.args("resumed.pt", resume=parent["checkpoint"], eval_data=str(other_eval),
+                                      eval_every=1, best_out=str(best)))
+        self.assertEqual((resumed["best_step"], resumed["best_eval_lm_loss"]), (3, 1.4))
+        self.assertEqual(torch.load(best, weights_only=True)["metadata"]["best_step"], 3)
+
+    def test_resume_without_best_out_in_between_keeps_the_best_file(self):
+        # The carry read only the resumed checkpoint, whose middle session tracked no best.
+        from unittest.mock import patch
+        from cognition_slm.train import train
+
+        best = self.root / "best.pt"
+        with patch("cognition_slm.train._validation_summary", side_effect=self.validations(1.0, 1.2)):
+            parent = train(self.args("parent.pt", steps=2, eval_data=str(self.data), eval_every=1,
+                                     best_out=str(best)))
+        written = best.read_bytes()
+        with patch("cognition_slm.train._validation_summary", side_effect=self.validations(1.3)):
+            middle = train(self.args("middle.pt", resume=parent["checkpoint"], eval_data=str(self.data),
+                                     eval_every=1))
+        with patch("cognition_slm.train._validation_summary", side_effect=self.validations(1.1)):
+            later = train(self.args("later.pt", resume=middle["checkpoint"], steps=4,
+                                    eval_data=str(self.data), eval_every=1, best_out=str(best)))
+        self.assertEqual(best.read_bytes(), written)
+        self.assertEqual((later["best_step"], later["best_eval_lm_loss"]), (1, 1.0))
+
+    def test_resume_refuses_a_weights_only_file_that_records_progress(self):
+        # Without optimizer state the resume restarted at step 0 with a fresh warmup and sample stream.
+        import torch
+        from unittest.mock import patch
+        from cognition_slm.train import train
+
+        best = self.root / "best.pt"
+        with patch("cognition_slm.train._validation_summary", side_effect=self.validations(2.0, 1.5, 1.8)):
+            train(self.args(eval_data=str(self.data), eval_every=1, best_out=str(best)))
+        self.assertEqual(torch.load(best, weights_only=True)["metadata"]["step"], 2)
+        with self.assertRaisesRegex(ValueError, "holds weights only .* records step 2"):
+            train(self.args("resumed.pt", resume=str(best), steps=6))
+        # A step-0 weights-only file, the layout stage 4 writes, still starts a run.
+        payload = torch.load(best, weights_only=True)
+        payload["metadata"]["step"] = 0
+        initialization = self.root / "init.pt"
+        torch.save(payload, initialization)
+        result = train(self.args("fresh.pt", resume=str(initialization), steps=2))
+        self.assertEqual(result["resumed_from_step"], 0)
+
     def test_best_out_needs_held_out_data_and_its_own_file(self):
         import contextlib
         import io
@@ -446,6 +503,16 @@ class TrainingIntegrationTests(unittest.TestCase):
                 main()
         self.assertEqual(raised.exception.code, 2)
         self.assertIn("--allow-data-change requires --resume", stderr.getvalue())
+
+    def test_allow_data_change_help_does_not_promise_a_fresh_schedule(self):
+        # The flag keeps the step, schedule and Adam moments, so SFT through it ran at a near-zero rate.
+        from cognition_slm.train import build_parser
+
+        action = next(a for a in build_parser()._actions if "--allow-data-change" in a.option_strings)
+        help_text = action.help.lower()
+        self.assertIn("schedule", help_text)
+        self.assertIn("optimizer", help_text)
+        self.assertNotIn("(for example sft from pretrained weights)", help_text)
 
     def test_unreadable_files_are_usage_errors(self):
         import contextlib
@@ -610,6 +677,22 @@ class TrainingIntegrationTests(unittest.TestCase):
         with patch("cognition_slm.train.monotonic", side_effect=[0.0, 1.0, 1.0]):
             result = train(self.args(steps=1, max_seconds=1.0))
         self.assertEqual(result["steps"], 1)
+        self.assertEqual(result["stopped_reason"], "steps_completed")
+
+    def test_periodic_checkpoints_are_marked_in_progress(self):
+        # A session killed after a periodic save left a checkpoint claiming it had completed its steps.
+        from unittest.mock import patch
+        from cognition_slm.train import _atomic_save, train
+
+        reasons = []
+
+        def capture(torch_module, payload, path):
+            reasons.append((payload["metadata"]["step"], payload["metadata"]["stopped_reason"]))
+            _atomic_save(torch_module, payload, path)
+
+        with patch("cognition_slm.train._atomic_save", side_effect=capture):
+            result = train(self.args("periodic.pt"))
+        self.assertEqual(reasons, [(1, "in_progress"), (2, "in_progress"), (3, "steps_completed")])
         self.assertEqual(result["stopped_reason"], "steps_completed")
 
     def test_cpu_rejects_cuda_precision(self):

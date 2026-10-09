@@ -7,7 +7,9 @@ from pathlib import Path
 import subprocess
 import sys
 import tempfile
+from types import SimpleNamespace
 import unittest
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [str(ROOT), str(ROOT / "scripts")]
@@ -163,6 +165,29 @@ class ReportTests(unittest.TestCase):
     def test_bits_per_byte_converts_nats(self):
         self.assertAlmostEqual(pretrain.bits_per_byte(math.log(2)), 1.0)
         self.assertIsNone(pretrain.bits_per_byte(None))
+
+    def test_resumed_session_reports_the_previous_checkpoint_hash(self):
+        # train.py drops the resume payload's metadata and the resume file is deleted, so only the report keeps it.
+        needs("compute.stages")
+        from cognition_slm.config import MODEL_PRESETS
+
+        saved = []
+        fake_torch = SimpleNamespace(
+            __version__="0", cuda=SimpleNamespace(get_device_name=lambda index: "T4"),
+            load=lambda path, **_: {"model_config": dict(MODEL_PRESETS["slm-160m"]), "metadata": {"step": 100}},
+            save=lambda payload, path: saved.append(payload))
+        with tempfile.TemporaryDirectory() as directory:
+            tmp = Path(directory)
+            with mock.patch.multiple(
+                    pretrain, ROOT=tmp, setup_kaggle=mock.Mock(return_value=(fake_torch, {})),
+                    find_one=lambda name: tmp / "input" / name, digest=lambda path: f"sha:{path}",
+                    write_shard=lambda *args: {}, previous_session_speed=lambda session: None,
+                    run_logged=lambda command, log: "",
+                    final_training_report=lambda text: {"steps": 101, "completed_steps": 1, "validation": {}}):
+                pretrain.main(["--session", "2"])
+            report = json.loads((tmp / "pretrain_session_2.json").read_text())
+        self.assertEqual(report["previous_checkpoint_sha256"], f"sha:{tmp / 'input' / pretrain.CHECKPOINT_NAME}")
+        self.assertEqual(saved[0]["metadata"], {"step": 100, "samples_seen": 0})
 
 
 class InputTests(unittest.TestCase):

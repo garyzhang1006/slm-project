@@ -247,12 +247,13 @@ def main(argv: list[str] | None = None) -> None:
             raise RuntimeError(f"{previous} is not an slm-160m checkpoint: {payload['model_config']}")
         start_step = int(payload["metadata"]["step"])
         # This session reads a new shard, so its permutation starts at 0 instead of mid-epoch of the old one.
-        payload["metadata"] = {**payload["metadata"], "samples_seen": 0,
-                               "previous_checkpoint_sha256": digest(previous)}
+        payload["metadata"] = {**payload["metadata"], "samples_seen": 0}
         resume = artifacts / "pretrain_resume.pt"
         torch.save(payload, resume)
         del payload
-        report["previous_checkpoint"] = str(previous)
+        # The report is the only record of which bytes this session resumed from: train.py rebuilds the
+        # checkpoint metadata from scratch and the resume file is deleted after training.
+        report.update(previous_checkpoint=str(previous), previous_checkpoint_sha256=digest(previous))
     measured = previous_session_speed(args.session)
     speed = measured or SECONDS_PER_STEP_ESTIMATE
     budget = min(PRETRAIN_SESSION_SECONDS,

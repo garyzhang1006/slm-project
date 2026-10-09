@@ -328,6 +328,55 @@ class ContextTherapyTests(unittest.TestCase):
                 assessment = ContextTherapist().assess([{"role": "assistant", "content": content}])
                 self.assertNotIn("unsupported_claim", [item.code for item in assessment.observations])
 
+    def test_did_not_after_evidence_word_is_not_evidence(self):
+        # Only have, has, had, was, were, is and are counted before not after an evidence word, so "tests didn't
+        # run" counted as verification while "Tests have not been run" did not.
+        for content in ("Fixed. The tests didn't run.", "Done. The tests did not run.",
+                        "Fixed, but the tests don\u2019t pass yet.", "Fixed. The tests can't run here.",
+                        "Done. The tests won't run until CI is back."):
+            with self.subTest(content=content):
+                assessment = ContextTherapist().assess([{"role": "assistant", "content": content}])
+                self.assertIn("unsupported_claim", [item.code for item in assessment.observations])
+                self.assertIn("verify_claims", [action.code for action in assessment.actions])
+        assessment = ContextTherapist().assess([{"role": "assistant", "content": "Fixed. The tests pass."}])
+        self.assertNotIn("unsupported_claim", [item.code for item in assessment.observations])
+
+    def test_negated_success_is_not_a_claim_and_keeps_uncertainty(self):
+        # A negated claim word counted as a success claim, and the elif then dropped the uncertainty signal.
+        for content in ("The bug is not fixed yet; maybe the cache is stale.",
+                        "I could not get it to work, probably a race."):
+            with self.subTest(content=content):
+                assessment = ContextTherapist().assess([{"role": "assistant", "content": content}])
+                codes = [item.code for item in assessment.observations]
+                self.assertNotIn("unsupported_claim", codes)
+                self.assertIn("unresolved_uncertainty", codes)
+                self.assertIn("surface_uncertainty", [action.code for action in assessment.actions])
+        content = "Fixed it, but maybe the cache is stale."
+        assessment = ContextTherapist().assess([{"role": "assistant", "content": content}])
+        codes = [item.code for item in assessment.observations]
+        self.assertIn("unsupported_claim", codes)
+        self.assertIn("unresolved_uncertainty", codes)
+
+    def test_handoff_retains_both_sides_of_a_conflict_and_uncertain_turns(self):
+        # The handoff signal list had no directive or uncertainty words, and "unverified" has no boundary before
+        # "verified", so the earlier side of a conflict and an older uncertain reply were marked review.
+        report = ContextTherapist().build_handoff([
+            {"role": "user", "content": "Always use tabs."},
+            {"role": "user", "content": "Never use tabs."},
+            {"role": "assistant", "content": "OK."},
+        ]).to_dict()
+        self.assertEqual(report["state"], "conflicted")
+        self.assertIn(0, report["handoff"]["preserve_indices"])
+        report = ContextTherapist().build_handoff([
+            {"role": "user", "content": "Fix the cache."},
+            {"role": "assistant", "content": "This is unverified; maybe the cache is stale."},
+            {"role": "user", "content": "Go on."},
+            {"role": "assistant", "content": "OK."},
+        ]).to_dict()
+        self.assertEqual(report["state"], "strained")
+        self.assertIn(1, report["handoff"]["preserve_indices"])
+        self.assertIn(0, report["handoff"]["review_indices"])
+
     def test_must_never_conflicts_with_always(self):
         for negative in ("You must never use tabs.", "You shouldn't use tabs."):
             with self.subTest(negative=negative):

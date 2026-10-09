@@ -48,14 +48,16 @@ _EVIDENCE_PATTERN = re.compile(
     r"(?i)\b(?:test(?:ed|s)?|ran|run|output|traceback|benchmark|evidence|source|commit|ci)\b"
 )
 # "haven't run the tests" or "nothing was tested" states the absence of evidence, so a negator earlier in the
-# clause, or a "have not"/"were never" right after an evidence word, disqualifies that hit. A negator holds until
-# and, but, so, when or after starts a new statement, so "didn't have time to run the tests" is negated while
-# "no longer crashes and the tests pass" is not; the three words right before always count, so "didn't build and
-# run" holds.
+# clause, or a "have not", "did not" or "were never" right after an evidence word, disqualifies that hit. A negator
+# holds until and, but, so, when or after starts a new statement, so "didn't have time to run the tests" is negated
+# while "no longer crashes and the tests pass" is not; the three words right before always count, so "didn't build
+# and run" holds. The same rule keeps "not fixed yet" from counting as a success claim.
 _EVIDENCE_NEGATOR = re.compile(r"(?i)not|never|no|none|nothing|without|cannot|\w+n['\u2019]t")
 _EVIDENCE_SCOPE_BREAK = re.compile(r"(?i)and|but|so|when|after")
+# "can't" and "won't" are not "can" or "will" plus n't, so they get their own alternatives.
 _NEGATED_AFTER_EVIDENCE = re.compile(
-    r"(?i)\s+(?:(?:have|has|had|was|were|is|are)(?:n['\u2019]t|\s+not|\s+never)|not|never)\b"
+    r"(?i)\s+(?:(?:have|has|had|was|were|is|are|do|does|did|could|would|should)(?:n['\u2019]t|\s+not|\s+never)"
+    r"|(?:can|will)\s+(?:not|never)|cannot|can['\u2019]t|won['\u2019]t|not|never)\b"
 )
 _DIRECTIVE_STOPWORDS = frozenset(
     {"must", "not", "never", "should", "always", "use", "include", "keep", "preserve", "to", "the", "a", "an"}
@@ -354,12 +356,16 @@ def _instruction_drift_observation(messages: tuple[ContextMessage, ...]) -> Cont
     )
 
 
+def _negated_before(clause: str, start: int) -> bool:
+    before = re.findall(r"[\w'\u2019]+", clause[:start])
+    last_break = max((i for i, word in enumerate(before) if _EVIDENCE_SCOPE_BREAK.fullmatch(word)), default=-1)
+    return any(_EVIDENCE_NEGATOR.fullmatch(word) for word in before[min(last_break + 1, max(0, len(before) - 3)):])
+
+
 def _has_evidence(text: str) -> bool:
     for clause in re.split(r"[,;:.!?\n]+", text):
         for match in _EVIDENCE_PATTERN.finditer(clause):
-            before = re.findall(r"[\w'\u2019]+", clause[: match.start()])
-            last_break = max((i for i, word in enumerate(before) if _EVIDENCE_SCOPE_BREAK.fullmatch(word)), default=-1)
-            if any(_EVIDENCE_NEGATOR.fullmatch(word) for word in before[min(last_break + 1, max(0, len(before) - 3)):]):
+            if _negated_before(clause, match.start()):
                 continue
             if _NEGATED_AFTER_EVIDENCE.match(clause, match.end()):
                 continue
@@ -367,12 +373,20 @@ def _has_evidence(text: str) -> bool:
     return False
 
 
+def _has_claim(text: str) -> bool:
+    return any(
+        not _negated_before(clause, match.start())
+        for clause in re.split(r"[,;:.!?\n]+", text)
+        for match in _CLAIM_PATTERN.finditer(clause)
+    )
+
+
 def _evidence_observations(messages: tuple[ContextMessage, ...]) -> tuple[ContextObservation, ...]:
     observations: list[ContextObservation] = []
     for message in messages:
         if message.role != "assistant":
             continue
-        if _CLAIM_PATTERN.search(message.content) and not _has_evidence(message.content):
+        if _has_claim(message.content) and not _has_evidence(message.content):
             observations.append(
                 ContextObservation(
                     "unsupported_claim",
@@ -381,7 +395,8 @@ def _evidence_observations(messages: tuple[ContextMessage, ...]) -> tuple[Contex
                     (f"assistant: {_safe_excerpt(message.content)}",),
                 )
             )
-        elif _UNCERTAINTY_PATTERN.search(message.content):
+        # Independent of the claim check: "Fixed it, but maybe the cache is stale." carries both signals.
+        if _UNCERTAINTY_PATTERN.search(message.content):
             observations.append(
                 ContextObservation(
                     "unresolved_uncertainty",
@@ -499,7 +514,14 @@ def _handoff_items(
         elif index in {last_user, last_assistant}:
             preserve.add(index)
             reasons[index] = "Current user or assistant turn anchors active work."
-        elif _HANDOFF_SIGNAL_PATTERN.search(message.content) or _DRIFT_PATTERN.search(message.content):
+        elif (
+            _HANDOFF_SIGNAL_PATTERN.search(message.content)
+            or _DRIFT_PATTERN.search(message.content)
+            # Normalized as in _contradiction_observation, so every turn that supplies a side of a reported
+            # conflict is retained rather than offered for compression.
+            or _DIRECTIVE_PATTERN.search(message.content.replace("\u2019", "'").replace("\u2018", "'"))
+            or _UNCERTAINTY_PATTERN.search(message.content)
+        ):
             preserve.add(index)
             reasons[index] = "Turn contains a constraint, directive, evidence, or uncertainty signal."
         elif focus_tokens and any(token in normalized for token in focus_tokens):

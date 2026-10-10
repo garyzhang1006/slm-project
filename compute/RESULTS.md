@@ -1,6 +1,6 @@
 # Results
 
-Collected from Kaggle kernel reports on 2026-10-09 23:46 by `compute/collect_results.py`. Regenerate it rather than editing by hand.
+Collected from Kaggle kernel reports on 2026-10-10 16:24 by `compute/collect_results.py`. Regenerate it rather than editing by hand.
 
 Re-scored with these answer keys (first 12 hex characters of each file's sha256): `data/everyday_eval.json` 1d224b7c2f2b, `data/simple_questions_holdout.json` c6d9afdd50c3.
 
@@ -12,6 +12,7 @@ Re-scored with these answer keys (first 12 hex characters of each file's sha256)
 | 2 | 9140 | 8.72 | 1.193 | session_complete_resume_next |
 | 3 | 13319 | 9.54 | 1.139 | session_complete_resume_next |
 | 4 | 17662 | 9.18 | 1.103 | session_complete_resume_next |
+| 5 | 21532 | 10.31 | 1.092 | session_complete_resume_next |
 
 ## LoRA adapter (SmolLM2-360M-Instruct)
 
@@ -87,8 +88,11 @@ These rows ask the model to admit it doesn't know, so a person judges them and t
 
 ## slm-160m SFT
 
-No SFT report yet.
+Status complete, built on pretrain session 5, 2165 steps, eval LM loss 0.732 from step 1250.
 
 ## slm-160m eval
 
-No eval report yet.
+- Holdout exact: 5/22
+- Everyday exact: 45/252
+- Looks-English rate: 1.000
+- Held-out text bits/byte: 1.250

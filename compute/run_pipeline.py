@@ -25,7 +25,8 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from compute.stages import DISTILL_FILTERS_VERSION, PRETRAIN_SESSION_SECONDS, stage_slug  # noqa: E402
+from compute.stages import (DISTILL_FILTERS_VERSION, PRETRAIN_FINAL_SESSION, PRETRAIN_SESSION_SECONDS,  # noqa: E402
+                            stage_slug)
 
 # GPU hours a push must have left in the weekly quota: the stage's own time cap plus setup and save. distill_data
 # took 1,055 s on the 360M teacher, and the 1.7B adapter answered the everyday questions in 36.8 s against 17.5 s,
@@ -110,13 +111,17 @@ def next_action(status, report, quota_hours: float) -> dict:
     session_report = report(stage_slug("pretrain", last), f"pretrain_session_{last}.json")
     if session_report is None:
         return unreadable(f"pretrain_session_{last}.json", f"pretrain session {last}")
-    if session_report.get("status") == "session_complete_resume_next":
+    pretrain_status = session_report.get("status")
+    # stages.py ends pretraining at this session although its schedule had a few near-zero-rate steps left.
+    if last == PRETRAIN_FINAL_SESSION and pretrain_status == "session_complete_resume_next":
+        pretrain_status = "complete"
+    if pretrain_status == "session_complete_resume_next":
         if last >= MAX_PRETRAIN_SESSIONS:
             return action("stop", f"{last} pretrain sessions and still not done; check the step budget")
         return push_if_quota("pretrain", quota_hours, f"pretrain session {last} reached step "
                              f"{session_report.get('step_reached')}", session=last + 1,
                              hours=round(pretrain_hours(session_report), 2))
-    if session_report.get("status") != "complete":
+    if pretrain_status != "complete":
         return action("stop", f"pretrain session {last} report status is {session_report.get('status')!r}")
 
     # sft attaches the distilled answers; large_lora_action builds them from the current 1.7B adapter.

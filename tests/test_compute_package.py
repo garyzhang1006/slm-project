@@ -83,7 +83,6 @@ class StageTableTests(unittest.TestCase):
         # even on a GPU slower than any measured so far.
         stages, pretrain = module("stages"), module("stage2_pretrain")
         start, slow = 17_662, 10.0
-        self.assertEqual((stages.PRETRAIN_SESSIONS_RUN, stages.PRETRAIN_STEP_REACHED), (4, start))
         # stage2_pretrain.main's budget with no setup time; sessions 1 to 4 all trained the full 39,600 s.
         budget = min(stages.PRETRAIN_SESSION_SECONDS,
                      pretrain.KAGGLE_SESSION_LIMIT_SECONDS - pretrain.SETUP_AND_SAVE_RESERVE_SECONDS)
@@ -96,6 +95,15 @@ class StageTableTests(unittest.TestCase):
         self.assertLess(plan["remaining_steps"] * slow, budget)
         self.assertEqual(stages.last_pretrain_session(), 5)
         self.assertEqual(stages.stage_attaches("sft")[0], "slm-160m-pretrain-5")
+
+    def test_session_five_stays_the_last_although_it_stopped_short(self):
+        # It ran at 10.31 s a step and stopped 30 steps short, where counting on would ask for a sixth session.
+        stages = module("stages")
+        self.assertEqual((stages.PRETRAIN_SESSIONS_RUN, stages.PRETRAIN_STEP_REACHED), (5, 21_532))
+        self.assertEqual(stages.PRETRAIN_TOTAL_STEPS - stages.PRETRAIN_STEP_REACHED, 30)
+        self.assertEqual(stages.last_pretrain_session(), 5)
+        with mock.patch.object(stages, "PRETRAIN_FINAL_SESSION", None):
+            self.assertEqual(stages.last_pretrain_session(), 6)
 
     def test_slugs_and_attachments_chain_sessions(self):
         stages = module("stages")

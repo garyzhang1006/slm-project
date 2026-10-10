@@ -8,7 +8,7 @@ on top of predicting the next token, the model has three small extra outputs. on
 
 the 500m model exists (499,524,075 parameters exactly), but it can't hold a conversation yet. the elementary fine-tune (`slm-500m-elementary.pt`) got 30 of 64 held-out template questions right and 3 of 24 everyday questions, and studio's default checkpoint (`slm-500m-language-quality.pt`) got 0 of 12 questions it had never seen in any form. the code works fine. the problem is that the model has seen well under 1% of the text a model this size needs. the numbers are in [measured results](docs/elementary-results.md) and the [500m audit](reports/slm-500m-code-and-capability-audit.md).
 
-the plan to fix it lives in [`compute/`](compute/README.md). there are two routes. the quick one fine-tunes an existing small open model with lora, which takes one kaggle session. the long one pretrains the new `slm-160m` model on real text and then fine-tunes it, which comes to about 55 hours of kaggle t4 gpu time over five sessions at the speeds the first four measured.
+the plan to fix it lives in [`compute/`](compute/README.md). there are two routes. the quick one fine-tunes an existing small open model with lora, which takes one kaggle session. the long one pretrains the new `slm-160m` model on real text and then fine-tunes it. that took about 55 hours of kaggle t4 gpu time over five sessions, and the fine-tuned model gets 5 of 22 holdout questions and 45 of 252 everyday questions exactly right, far behind the lora adapters below. the last session ran out of time 30 steps before the end of its learning rate schedule, where the rate was already almost zero, so i stopped there instead of paying for a sixth session.
 
 ## what's included
 

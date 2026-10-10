@@ -1,6 +1,6 @@
 """Instruction-tune the pretrained slm-160m on stage 3's short-answer English records.
 
-The pretrain checkpoint sits at step PRETRAIN_TOTAL_STEPS with a fully annealed cosine schedule, so
+The pretrain checkpoint sits at or just short of step PRETRAIN_TOTAL_STEPS with an annealed cosine schedule, so
 resuming it as is would start SFT at a near-zero rate. The runner therefore writes an initialization
 with the weights only: fresh AdamW moments, step 0 and a new warmup-plus-cosine schedule at 1e-4.
 """

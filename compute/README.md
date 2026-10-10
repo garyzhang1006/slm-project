@@ -43,7 +43,7 @@ The model has N = 160,721,679 parameters and the corpus target is D = 1.5 billio
 
 Gradient checkpointing repeats the forward pass, so the real cost is closer to 8 × N × D ≈ 1.93e18 FLOPs. The earlier 500M runs reached about 16 TFLOP/s on a Kaggle T4 at fp16, which gives 1.93e18 / 16e12 ≈ 120,000 seconds, or about 33 GPU-hours.
 
-The step-based view agrees. One optimizer step is batch 8 × accumulation 4 × 2,048 bytes = 65,536 tokens, so one pass over the corpus would be 22,889 steps. Session 1 measured 8.72 seconds per step, well above the 5.5 the FLOP count suggested, because attention over 2,048 positions adds FLOPs that 6 × N × D leaves out and costs relatively more on a 160M model. Sessions 3 and 4 ran slower, at 9.54 and 9.18 (`compute/RESULTS.md`; `SECONDS_PER_STEP_ESTIMATE` is the slowest), so a full pass would have needed a sixth session that trained its last 1,000 or so steps at under 0.6% of the peak learning rate. The cosine schedule therefore ends at 21,562 steps (`PRETRAIN_TOTAL_STEPS` in `stages.py`), which session 5 reaches from step 17,662 even at 10 seconds a step within its 39,600 second budget. That trains 1.41 billion tokens, about 94% of the corpus, in about 55 GPU-hours over 5 sessions.
+The step-based view agrees. One optimizer step is batch 8 × accumulation 4 × 2,048 bytes = 65,536 tokens, so one pass over the corpus would be 22,889 steps. Session 1 measured 8.72 seconds per step, well above the 5.5 the FLOP count suggested, because attention over 2,048 positions adds FLOPs that 6 × N × D leaves out and costs relatively more on a 160M model. Sessions 3 and 4 ran slower, at 9.54 and 9.18 (`compute/RESULTS.md`; `SECONDS_PER_STEP_ESTIMATE` is the slowest), so a full pass would have needed a sixth session that trained its last 1,000 or so steps at under 0.6% of the peak learning rate. The cosine schedule therefore ends at 21,562 steps (`PRETRAIN_TOTAL_STEPS` in `stages.py`), which session 5 was planned to reach from step 17,662 at up to 10 seconds a step within its 39,600 second budget. It ran at 10.31 and hit that budget at step 21,532, 30 steps short. The cosine has no floor, so the rate there was already about 5e-6 of the peak, and `PRETRAIN_FINAL_SESSION` in `stages.py` makes session 5 the last one. That trained 1.41 billion tokens, about 94% of the corpus, in about 55 GPU-hours over 5 sessions.
 
 | Stage | Estimated T4 hours |
 |---|---|
@@ -89,7 +89,7 @@ python3 compute/package.py --stage pretrain --session 2 --out /tmp/slm-pretrain-
 kaggle kernels push -p /tmp/slm-pretrain-2 --accelerator NvidiaTeslaT4 --timeout 43200
 ```
 
-After each session, read `seconds_per_step` from its `pretrain_session_k.json`, raise `SECONDS_PER_STEP_ESTIMATE` in `stages.py` if the session ran slower, and set `PRETRAIN_SESSIONS_RUN` and `PRETRAIN_STEP_REACHED` to the progress so far, so `last_pretrain_session()`, the session `package.py --stage sft` attaches by default, counts on from it. Pretraining is done when a session report shows status `complete`, meaning the step reached equals `PRETRAIN_TOTAL_STEPS`. That should be session 5, and the watcher attaches whichever session reported it to sft.
+After each session, read `seconds_per_step` from its `pretrain_session_k.json`, raise `SECONDS_PER_STEP_ESTIMATE` in `stages.py` if the session ran slower, and set `PRETRAIN_SESSIONS_RUN` and `PRETRAIN_STEP_REACHED` to the progress so far, so `last_pretrain_session()`, the session `package.py --stage sft` attaches by default, counts on from it. Pretraining is done when a session report shows status `complete`, meaning the step reached equals `PRETRAIN_TOTAL_STEPS`, or when the session is `PRETRAIN_FINAL_SESSION`, and the watcher attaches that session to sft. Session 5 stopped 30 steps short, so its report says `session_complete_resume_next`, and `PRETRAIN_FINAL_SESSION = 5` keeps the watcher and `last_pretrain_session()` from asking for a sixth.
 
 ### Fine-tune and evaluate
 
@@ -98,7 +98,7 @@ Before sft, `distill_data` has the LoRA-tuned SmolLM2-1.7B (from the `lora_1b7` 
 ```bash
 python3 compute/package.py --stage distill_data --out /tmp/slm-distill
 kaggle kernels push -p /tmp/slm-distill
-# --pretrain-session K names the last pretrain session whose report says status complete (default: `last_pretrain_session()`, which counts on from the four sessions already run and gives 5)
+# --pretrain-session K names the last pretrain session whose report says status complete (default: `last_pretrain_session()`, which returns `PRETRAIN_FINAL_SESSION`, 5)
 python3 compute/package.py --stage sft --pretrain-session K --out /tmp/slm-sft
 kaggle kernels push -p /tmp/slm-sft --accelerator NvidiaTeslaT4
 

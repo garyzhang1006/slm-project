@@ -59,9 +59,13 @@ BLOCK_SIZE = 2048
 PRETRAIN_BATCH_SIZE = 8
 PRETRAIN_GRADIENT_ACCUMULATION = 4
 TOKENS_PER_STEP = PRETRAIN_BATCH_SIZE * PRETRAIN_GRADIENT_ACCUMULATION * BLOCK_SIZE
-# Sessions 1 to 4 ran and reached this step (compute/RESULTS.md).
-PRETRAIN_SESSIONS_RUN = 4
-PRETRAIN_STEP_REACHED = 17_662
+# Sessions 1 to 5 ran and reached this step (compute/RESULTS.md).
+PRETRAIN_SESSIONS_RUN = 5
+PRETRAIN_STEP_REACHED = 21_532
+# Session 5 ran at 10.31 s a step and hit its time budget 30 steps short of PRETRAIN_TOTAL_STEPS. The cosine in
+# train.py has no floor, so step 21,532 already trains at about 5e-6 of the peak rate and a sixth session would
+# change nothing: session 5 is the last one, although its report says session_complete_resume_next.
+PRETRAIN_FINAL_SESSION: int | None = 5
 # The cosine schedule ends where session 5 stops instead of after one full pass of 22,889 steps: at the slower
 # pace of sessions 3 and 4, session 5 would stop near step 21,900 and a sixth session would train the last 1,000
 # or so steps at under 0.6% of the peak rate. Session 5 gets train.py --max-seconds 39,600 (stage2_pretrain caps
@@ -72,10 +76,10 @@ PRETRAIN_STEP_REACHED = 17_662
 PRETRAIN_TOTAL_STEPS = 21_562
 # Kaggle stops a session at 12 h; 11 h leaves an hour for setup, the final save and the report.
 PRETRAIN_SESSION_SECONDS = 11 * 3600
-# Measured, not estimated: sessions 1 and 2 (Kaggle T4, fp16) reported 8.72 s a step and sessions 3 and 4 reported
-# 9.54 and 9.18, all including periodic eval and saves. The slowest keeps a session count from coming up short.
-# The FLOP-based guess of 5.5 left out attention over 2,048 positions.
-SECONDS_PER_STEP_ESTIMATE = 9.54
+# Measured, not estimated: sessions 1 and 2 (Kaggle T4, fp16) reported 8.72 s a step and sessions 3, 4 and 5
+# reported 9.54, 9.18 and 10.31, all including periodic eval and saves. The slowest keeps a session count from
+# coming up short. The FLOP-based guess of 5.5 left out attention over 2,048 positions.
+SECONDS_PER_STEP_ESTIMATE = 10.31
 SESSION_RESERVE_SECONDS = 600
 # Raise this whenever distill_data changes which answers it keeps or how it trims them: an older build on the same
 # adapter otherwise looks fresh, so run_pipeline would never rebuild it and sft would learn the rows it now rejects.
@@ -104,6 +108,8 @@ def pretrain_sessions(total_steps: int = PRETRAIN_TOTAL_STEPS,
 
 def last_pretrain_session() -> int:
     """The session expected to finish pretraining, counted on from the sessions already run."""
+    if PRETRAIN_FINAL_SESSION is not None:
+        return PRETRAIN_FINAL_SESSION
     # Counting from step 0 at the slowest measured pace would round up to a sixth session that never runs.
     return PRETRAIN_SESSIONS_RUN + pretrain_sessions(PRETRAIN_TOTAL_STEPS - PRETRAIN_STEP_REACHED)
 

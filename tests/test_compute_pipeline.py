@@ -94,14 +94,26 @@ class DecisionTests(unittest.TestCase):
                     **{f"slm-160m-pretrain-{session}": "complete" for session in range(1, 6)}}
         last = {**RESUME, "step_reached": 21_400, "total_steps": 21_562, "seconds_per_step": 9.54}
         reports = {("slm-160m-pretrain-5", "pretrain_session_5.json"): last}
-        result = decide(statuses, reports, quota=2.0)
+        # Without stages.PRETRAIN_FINAL_SESSION, which makes the real session 5 the last one.
+        with mock.patch.object(run_pipeline, "PRETRAIN_FINAL_SESSION", None):
+            result = decide(statuses, reports, quota=2.0)
+            # The round charges those hours, not the 12 hour cap, so the LoRA chain can still push.
+            main, side, _ = run_pipeline.decide_round(lambda slug: statuses.get(slug, "missing"),
+                                                      lambda slug, filename: reports.get((slug, filename)), 6.0)
         self.assertEqual((result["kind"], result["session"], result["hours"]), ("push", 6, 1.54))
-        # The round charges those hours, not the 12 hour cap, so the LoRA chain can still push.
-        main, side, _ = run_pipeline.decide_round(lambda slug: statuses.get(slug, "missing"),
-                                                  lambda slug, filename: reports.get((slug, filename)), 6.0)
         self.assertEqual((main["kind"], side["kind"], side["stage"]), ("push", "push", "lora"))
         # A report without the step fields still asks for the full cap.
         self.assertEqual(run_pipeline.pretrain_hours(RESUME), run_pipeline.STAGE_HOURS["pretrain"])
+
+    def test_final_session_goes_to_sft_although_it_stopped_short(self):
+        # The real session 5 hit its time budget at step 21,532, 30 steps before the cosine's end.
+        statuses = {"slm-160m-corpus": "complete", "slm-lora-1b7": "complete", "slm-distill-data": "complete",
+                    **{f"slm-160m-pretrain-{session}": "complete" for session in range(1, 6)}}
+        stopped = {**RESUME, "step_reached": 21_532, "total_steps": PRETRAIN_TOTAL_STEPS, "seconds_per_step": 10.31}
+        reports = {("slm-160m-pretrain-5", "pretrain_session_5.json"): stopped, **SFT_DATA, **TEACHER,
+                   **FRESH_FOLLOW_UPS}
+        result = decide(statuses, reports)
+        self.assertEqual((result["kind"], result["stage"], result["pretrain_session"]), ("push", "sft", 5))
 
     def test_unreadable_reports_wait_instead_of_repushing(self):
         # Kaggle.report returns None when a download fails, so a finished stage must not be pushed again.
